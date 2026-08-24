@@ -1,0 +1,1260 @@
+"""Fonctions serveur de Vigie.
+
+digest_quotidien : envoie un rappel matin/soir à chaque utilisateur — une
+notification PAR DOSSIER ayant des tâches actives (pas un seul résumé global),
+pour que chaque notification puisse renvoyer vers le bon dossier dans l'app
+(demandé par Tobie le 2026-08-14). S'il n'y a aucun dossier actif du tout, un
+rappel générique de "nourrir" le système si aucun dossier n'a été ajouté
+depuis 7 jours (sinon le pipeline des rappels s'assèche silencieusement, voir
+Notes/2026-08-07-redteam-...).
+
+Chaque envoi est aussi enregistré dans /utilisateurs/{uid}/notifications,
+avec le dossierId (pour la navigation) et une répartition par type de tâche,
+pour l'écran "Notifications" de l'app — sans ça, les rappels disparaissent
+avec la notification système et ne sont plus consultables dans l'app.
+"""
+
+import base64
+import hmac
+import json
+import re
+from concurrent.futures import ThreadPoolExecutor
+from datetime import date, datetime, timedelta, timezone
+from email.utils import parseaddr
+
+import dns.resolver
+import requests
+from cryptography.fernet import Fernet
+from firebase_admin import firestore, initialize_app, messaging
+from firebase_functions import https_fn, scheduler_fn
+from firebase_functions.params import SecretParam
+
+initialize_app()
+
+# Bénin (WAT, UTC+1, pas de changement d'heure) — heures approximatives
+# choisies plutôt qu'un vrai calcul astronomique (décision du 2026-08-07).
+_HORAIRE = "0 */3 * * *"
+_FUSEAU = "Africa/Porto-Novo"
+
+# --- Connexion Gmail (automatisation) ---------------------------------
+# ID client "Application Web" auto-créé par Firebase (voir GoogleSignIn côté
+# app, serverClientId). Le secret associé n'est JAMAIS dans ce fichier —
+# stocké via `firebase functions:secrets:set`, injecté à l'exécution.
+_GOOGLE_CLIENT_ID = "740523786640-pks5j67kshcu9rshgvsvjert7udoe206.apps.googleusercontent.com"
+_google_oauth_client_secret = SecretParam("GOOGLE_OAUTH_CLIENT_SECRET")
+_token_chiffrement_cle = SecretParam("TOKEN_CHIFFREMENT_CLE")
+
+# Secret pour publier une nouvelle version dans /config/version (voir
+# scripts/publier_version.py) — cette machine n'a pas d'identifiants Google
+# Cloud (ADC) pour écrire directement dans Firestore avec l'Admin SDK, donc
+# la publication passe par cette fonction protégée par secret plutôt que par
+# un accès Firestore ouvert (décision du 2026-08-17).
+_admin_publication_secret = SecretParam("ADMIN_PUBLICATION_SECRET")
+
+# Groq (résumé + recommandations IA du Bilan, activable par l'utilisateur —
+# voir generer_resume_bilan) : vérifié le 2026-08-12 que Groq n'entraîne pas
+# sur les données par défaut, même en gratuit. Clé déjà stockée en secret.
+_groq_api_key = SecretParam("GROQ_API_KEY")
+_URL_GROQ_CHAT = "https://api.groq.com/openai/v1/chat/completions"
+# Modèle vérifié le 2026-08-22 sur la documentation officielle Groq (pas
+# supposé de mémoire) : "openai/gpt-oss-120b" est leur modèle "flagship"
+# qualité/raisonnement (contre llama-3.3-70b-versatile, correct mais pas le
+# meilleur — remarque de Tobie qui a bien fait de demander confirmation).
+_MODELE_GROQ = "openai/gpt-oss-120b"
+
+
+@https_fn.on_call(secrets=[_google_oauth_client_secret, _token_chiffrement_cle])
+def connecter_gmail(req: https_fn.CallableRequest) -> dict:
+    """Échange le code d'autorisation (obtenu côté app) contre un jeton
+    d'accès Google, le chiffre, et le stocke — jamais renvoyé au téléphone.
+
+    Plusieurs comptes Google indépendants peuvent être connectés (revu le
+    2026-08-21, sur retour de Tobie après test réel) : chaque connexion
+    obtient les mêmes 3 scopes en lecture seule (Gmail, Tasks, Calendar),
+    l'app ne prédéfinit AUCUN "rôle" par compte — c'était une tentative plus
+    tôt le même jour (deux connexions nommées "email"/"agenda") jugée pas
+    intuitive à l'usage. C'est l'utilisateur qui choisit lui-même combien de
+    comptes connecter (jusqu'à quelques-uns) et peut leur donner un libellé
+    personnalisé ensuite dans l'app, purement pour s'y retrouver — ça ne
+    change rien à ce que le serveur en fait."""
+    if req.auth is None:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.UNAUTHENTICATED, "Non connecté.")
+    uid = req.auth.uid
+    donnees = req.data or {}
+    code = donnees.get("code")
+    # Fournie par le téléphone (issue de l'authentification Google de base,
+    # toujours disponible sans droit supplémentaire) — plus fiable qu'une
+    # relecture serveur via /oauth2/v2/userinfo, qui échouait silencieusement
+    # (jeton volontairement limité aux scopes Gmail/Tasks/Calendar, sans
+    # email/profil) et laissait l'adresse vide tant qu'on ne renommait pas
+    # soi-même la connexion (bug trouvé par Tobie le 2026-08-21).
+    email_connecte = (donnees.get("email") or "").strip()
+    if not code:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "Code manquant.")
+
+    reponse = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "code": code,
+            "client_id": _GOOGLE_CLIENT_ID,
+            "client_secret": _google_oauth_client_secret.value,
+            "grant_type": "authorization_code",
+        },
+        timeout=10,
+    )
+    if reponse.status_code != 200:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INTERNAL, "Échec de connexion à Google.")
+
+    jetons = reponse.json()
+    refresh_token = jetons.get("refresh_token")
+    if not refresh_token:
+        raise https_fn.HttpsError(
+            https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            "Aucun accès durable reçu — déconnecte-toi de Google puis réessaie.",
+        )
+
+    fernet = Fernet(_token_chiffrement_cle.value.encode())
+    refresh_token_chiffre = fernet.encrypt(refresh_token.encode()).decode()
+
+    ref = firestore.client().collection("utilisateurs").document(uid).collection("connexionsGoogle").document()
+    ref.set({
+        "refreshTokenChiffre": refresh_token_chiffre,
+        "emailConnecte": email_connecte,
+        "connecteLe": firestore.SERVER_TIMESTAMP,
+        "libelle": "",
+    })
+
+    return {"connexionId": ref.id, "emailConnecte": email_connecte}
+
+
+def _connexions_actives(uid: str) -> list[dict]:
+    """Toutes les connexions Google actives de l'utilisateur (0 à plusieurs,
+    aucun rôle prédéfini côté serveur — voir connecter_gmail)."""
+    docs = (
+        firestore.client()
+        .collection("utilisateurs")
+        .document(uid)
+        .collection("connexionsGoogle")
+        .stream()
+    )
+    resultat = []
+    for doc in docs:
+        data = doc.to_dict() or {}
+        if data.get("refreshTokenChiffre"):
+            resultat.append({"id": doc.id, **data})
+    return resultat
+
+
+def _echanger_refresh_token(refresh_token_chiffre: str) -> str | None:
+    """Déchiffre un jeton de rafraîchissement et l'échange contre un jeton
+    d'accès Google valide (courte durée) — None si l'échange échoue (jeton
+    révoqué côté Google, par exemple)."""
+    fernet = Fernet(_token_chiffrement_cle.value.encode())
+    refresh_token = fernet.decrypt(refresh_token_chiffre.encode()).decode()
+
+    reponse = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "refresh_token": refresh_token,
+            "client_id": _GOOGLE_CLIENT_ID,
+            "client_secret": _google_oauth_client_secret.value,
+            "grant_type": "refresh_token",
+        },
+        timeout=10,
+    )
+    if reponse.status_code != 200:
+        return None
+    return reponse.json()["access_token"]
+
+
+_MAX_EMAILS_CATALOGUE = 500  # plafond d'une seule page Gmail — au-delà, il faudrait paginer sur plusieurs appels.
+
+
+def _expediteurs_recents_compte(jeton: str) -> dict[str, int]:
+    """Catalogue des expéditeurs vus dans les emails récents d'UN compte
+    Google — factorisé pour être appelé une fois par compte connecté."""
+    entetes = {"Authorization": f"Bearer {jeton}"}
+    ids_messages: list[str] = []
+    page_token = None
+    while len(ids_messages) < _MAX_EMAILS_CATALOGUE:
+        params = {"maxResults": min(100, _MAX_EMAILS_CATALOGUE - len(ids_messages))}
+        if page_token:
+            params["pageToken"] = page_token
+        page = requests.get(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages",
+            headers=entetes,
+            params=params,
+            timeout=15,
+        ).json()
+        ids_messages.extend(m["id"] for m in page.get("messages", []))
+        page_token = page.get("nextPageToken")
+        if not page_token:
+            break
+
+    def _expediteur_de(message_id: str) -> str | None:
+        detail = requests.get(
+            f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}",
+            headers=entetes,
+            params={"format": "metadata", "metadataHeaders": "From"},
+            timeout=10,
+        ).json()
+        for entete in detail.get("payload", {}).get("headers", []):
+            if entete["name"] == "From":
+                _, adresse = parseaddr(entete["value"])
+                return adresse.lower() if adresse else None
+        return None
+
+    comptage: dict[str, int] = {}
+    with ThreadPoolExecutor(max_workers=25) as executor:
+        for adresse in executor.map(_expediteur_de, ids_messages):
+            if adresse:
+                comptage[adresse] = comptage.get(adresse, 0) + 1
+    return comptage
+
+
+@https_fn.on_call(secrets=[_google_oauth_client_secret, _token_chiffrement_cle], timeout_sec=300)
+def lister_expediteurs_recents(req: https_fn.CallableRequest) -> dict:
+    """Catalogue des expéditeurs présents dans les emails récents de TOUS les
+    comptes Google connectés, fusionnés en une seule liste (demandé par
+    Tobie le 2026-08-15 : moins de fautes de frappe, et on a déjà l'accès de
+    toute façon ; étendu le 2026-08-21 à plusieurs comptes)."""
+    if req.auth is None:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.UNAUTHENTICATED, "Non connecté.")
+
+    connexions = _connexions_actives(req.auth.uid)
+    if not connexions:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.FAILED_PRECONDITION, "Aucun compte Google connecté.")
+
+    comptage_total: dict[str, int] = {}
+    for connexion in connexions:
+        jeton = _echanger_refresh_token(connexion["refreshTokenChiffre"])
+        if jeton is None:
+            continue
+        for adresse, n in _expediteurs_recents_compte(jeton).items():
+            comptage_total[adresse] = comptage_total.get(adresse, 0) + n
+
+    expediteurs = sorted(comptage_total.items(), key=lambda kv: -kv[1])
+    return {"expediteurs": [{"email": e, "nombre": n} for e, n in expediteurs]}
+
+
+@https_fn.on_call()
+def deconnecter_gmail(req: https_fn.CallableRequest) -> dict:
+    if req.auth is None:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.UNAUTHENTICATED, "Non connecté.")
+    connexion_id = (req.data or {}).get("connexionId")
+    if not connexion_id:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "connexionId manquant.")
+    firestore.client().collection("utilisateurs").document(req.auth.uid).collection(
+        "connexionsGoogle"
+    ).document(connexion_id).delete()
+    return {"ok": True}
+
+
+@https_fn.on_call()
+def verifier_domaine_email(req: https_fn.CallableRequest) -> dict:
+    """Vérifie que le domaine d'une adresse email a bien des serveurs mail
+    configurés (enregistrement MX) — attrape les fautes de frappe de domaine.
+    Ne peut PAS garantir qu'une boîte précise existe (Gmail et la plupart des
+    gros services bloquent volontairement ce genre de sonde) — honnête sur
+    cette limite plutôt que de donner un faux sentiment de certitude."""
+    if req.auth is None:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.UNAUTHENTICATED, "Non connecté.")
+    email = ((req.data or {}).get("email") or "").strip()
+    if "@" not in email:
+        return {"valide": False}
+    domaine = email.rsplit("@", 1)[1]
+    try:
+        dns.resolver.resolve(domaine, "MX", lifetime=5)
+        return {"valide": True}
+    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
+        return {"valide": False}
+    except Exception:  # pylint: disable=broad-except
+        # Panne DNS transitoire : on ne bloque pas l'utilisateur pour ça.
+        return {"valide": True, "verificationIncertaine": True}
+
+
+@scheduler_fn.on_schedule(schedule=_HORAIRE, timezone=_FUSEAU)
+def digest_quotidien(event: scheduler_fn.ScheduledEvent) -> None:
+    """Vérifie plus souvent que ça n'avertit — un rappel n'est envoyé que si
+    la situation d'un dossier a vraiment changé depuis le dernier envoi
+    (décision du 2026-08-17 : Tobie voulait des vérifications plus
+    fréquentes, sans que ça devienne du spam à répéter le même message)."""
+    db = firestore.client()
+    maintenant = datetime.now(timezone.utc)
+
+    for doc_utilisateur in db.collection("utilisateurs").stream():
+        uid = doc_utilisateur.id
+        token = (doc_utilisateur.to_dict() or {}).get("fcmToken")
+        if not token:
+            continue
+
+        try:
+            for digest in _construire_digests(db, uid, maintenant):
+                if not _situation_a_change(db, uid, digest, maintenant):
+                    continue
+                _envoyer(uid, token, digest)
+                _enregistrer_historique(db, uid, digest)
+        except Exception as e:  # pylint: disable=broad-except
+            print(f"Échec du digest quotidien pour {uid} : {type(e).__name__}: {e}")
+
+
+def _palier_urgence(groupe: dict) -> str:
+    """Le palier de ton utilisé — sert à décider si la situation a "changé"
+    (voir _situation_a_change) même quand total/enRetard restent identiques :
+    un retard qui passe de 2 à 3 jours change le ton sans changer les
+    chiffres, il faut quand même renotifier."""
+    if groupe["enRetard"] > 0:
+        pire = groupe["joursRetardMax"]
+        if pire >= 8:
+            return "critique"
+        if pire >= 3:
+            return "ferme"
+        return "leger"
+    jours_avant = groupe["joursAvantMin"]
+    if jours_avant is not None and jours_avant <= 2:
+        return "proche"
+    return "normal"
+
+
+def _corps_escalade(groupe: dict) -> str:
+    """Le ton se durcit avec la proximité/l'ancienneté du retard, au lieu
+    d'un message identique à chaque fois — aucune des apps comparées ne
+    fait vraiment ça, c'est une vraie carte à jouer pour Vigie (demandé par
+    Tobie le 2026-08-20, approfondissement du Red Team)."""
+    nom = groupe["nomCodeDossier"]
+    total = groupe["total"]
+    en_retard = groupe["enRetard"]
+
+    if en_retard > 0:
+        base = f"{nom} : {total} tâche(s) à traiter, dont {en_retard} en retard"
+        pire = groupe["joursRetardMax"]
+        if pire >= 8:
+            return f"🔴 {base} depuis {pire} jours — à traiter en priorité."
+        if pire >= 3:
+            return f"⚠️ {base} depuis {pire} jour(s), ça s'accumule."
+        return f"{base}."
+
+    jours_avant = groupe["joursAvantMin"]
+    if jours_avant is not None and jours_avant <= 2:
+        echeance = "aujourd'hui" if jours_avant == 0 else f"dans {jours_avant} jour(s)"
+        return f"{nom} : {total} tâche(s) à traiter, échéance {echeance}."
+
+    return f"{nom} : {total} tâche(s) à traiter."
+
+
+def _construire_digests(db, uid: str, maintenant: datetime) -> list[dict]:
+    """Un digest par dossier ayant au moins une tâche active — ou, s'il n'y
+    en a aucun, un unique rappel générique d'alimentation."""
+    taches = (
+        db.collection("taches")
+        .where("uid", "==", uid)
+        .where("statut", "==", "aFaire")
+        .stream()
+    )
+
+    par_dossier: dict[str, dict] = {}
+    for doc in taches:
+        t = doc.to_dict()
+        date_premier_rappel = t.get("datePremierRappel")
+        if not date_premier_rappel or date_premier_rappel > maintenant:
+            continue  # Pas encore active ("en attente").
+
+        dossier_id = t.get("dossierId")
+        groupe = par_dossier.setdefault(dossier_id, {
+            "dossierId": dossier_id,
+            "nomCodeDossier": t.get("nomCodeDossier") or "Dossier",
+            "total": 0,
+            "enRetard": 0,
+            "parType": {},
+            "joursRetardMax": 0,
+            "joursAvantMin": None,
+        })
+        groupe["total"] += 1
+        nature = t.get("nature") or "Autre"
+        groupe["parType"][nature] = groupe["parType"].get(nature, 0) + 1
+        date_declenchante = t.get("dateDeclenchante")
+        if date_declenchante:
+            if date_declenchante < maintenant:
+                groupe["enRetard"] += 1
+                jours_retard = (maintenant - date_declenchante).days
+                groupe["joursRetardMax"] = max(groupe["joursRetardMax"], jours_retard)
+            else:
+                jours_avant = (date_declenchante - maintenant).days
+                if groupe["joursAvantMin"] is None or jours_avant < groupe["joursAvantMin"]:
+                    groupe["joursAvantMin"] = jours_avant
+
+    if par_dossier:
+        digests = []
+        for groupe in par_dossier.values():
+            digests.append({**groupe, "corps": _corps_escalade(groupe)})
+        return digests
+
+    corps_alimentation = _rappel_alimentation_si_besoin(db, uid, maintenant)
+    if corps_alimentation is None:
+        return []
+    return [{
+        "dossierId": None,
+        "nomCodeDossier": None,
+        "corps": corps_alimentation,
+        "parType": {},
+        "total": 0,
+        "enRetard": 0,
+    }]
+
+
+_DELAI_MIN_ENTRE_RAPPELS_ALIMENTATION = timedelta(hours=20)
+
+
+def _situation_a_change(db, uid: str, digest: dict, maintenant: datetime) -> bool:
+    """True seulement si ce dossier (ou le rappel d'alimentation) a une
+    situation différente de la dernière fois qu'on a prévenu — permet de
+    vérifier souvent sans jamais répéter le même message pour rien."""
+    ref_etats = db.collection("utilisateurs").document(uid).collection("etatsNotifies")
+
+    if digest["dossierId"] is None:
+        # Rappel d'alimentation générique : pas de "situation" à comparer,
+        # juste un délai minimum entre deux envois pour ne pas le répéter
+        # à chaque vérification si la fréquence augmente.
+        doc = ref_etats.document("_alimentation").get()
+        derniere = (doc.to_dict() or {}).get("envoyeLe") if doc.exists else None
+        if derniere and (maintenant - derniere) < _DELAI_MIN_ENTRE_RAPPELS_ALIMENTATION:
+            return False
+        ref_etats.document("_alimentation").set({"envoyeLe": maintenant})
+        return True
+
+    etat_actuel = {
+        "total": digest["total"],
+        "enRetard": digest["enRetard"],
+        "palier": _palier_urgence(digest),
+    }
+    doc_ref = ref_etats.document(digest["dossierId"])
+    doc = doc_ref.get()
+    etat_precedent = doc.to_dict() if doc.exists else None
+    if etat_precedent == etat_actuel:
+        return False
+    doc_ref.set(etat_actuel)
+    return True
+
+
+def _rappel_alimentation_si_besoin(db, uid: str, maintenant: datetime) -> str | None:
+    dossiers_recents = list(
+        db.collection("dossiers")
+        .where("uid", "==", uid)
+        .order_by("creeLe", direction=firestore.Query.DESCENDING)
+        .limit(1)
+        .stream()
+    )
+    if dossiers_recents:
+        cree_le = dossiers_recents[0].to_dict().get("creeLe")
+        if cree_le and (maintenant - cree_le) < timedelta(days=7):
+            return None  # Un dossier a été ajouté récemment, rien à signaler.
+
+    return "Rien à traiter pour l'instant, pense à ajouter des tâches aux dossiers de la semaine."
+
+
+def _envoyer(uid: str, token: str, digest: dict, lien: str | None = None) -> None:
+    data = {"dossierId": digest["dossierId"] or ""}
+    if lien:
+        # Champ réservé (documenté dans les options "lien" de la console
+        # Firebase) : quand présent, le SDK FCM natif d'Android ouvre cette
+        # URL directement au clic sur la notification — géré entièrement par
+        # Google Play Services, pas par le code de l'app (donc indépendant
+        # du souci url_launcher/manifest jamais résolu le 2026-08-17, voir
+        # bannière). N'est ajouté que pour les notifications de mise à jour,
+        # jamais pour les rappels de dossier normaux.
+        data["gcm.n.link"] = lien
+    message = messaging.Message(
+        notification=messaging.Notification(title="Vigie", body=digest["corps"]),
+        data=data,
+        android=messaging.AndroidConfig(
+            priority="high",
+            notification=messaging.AndroidNotification(
+                channel_id="rappels_vigie_v2",  # doit matcher notification_service.dart
+                sound="default",
+                priority="high",
+                default_vibrate_timings=True,
+            ),
+        ),
+        token=token,
+    )
+    try:
+        messaging.send(message)
+    except messaging.UnregisteredError:
+        # Le token n'est plus valide (app désinstallée, etc.) — on le retire
+        # pour ne pas réessayer indéfiniment à chaque digest.
+        firestore.client().collection("utilisateurs").document(uid).update(
+            {"fcmToken": firestore.DELETE_FIELD}
+        )
+    except Exception as e:  # pylint: disable=broad-except
+        print(f"Échec d'envoi de la notification pour {uid} : {e}")
+
+
+# --- Lecture des emails et proposition de dossiers ---------------------
+# Recherche de motif large plutôt qu'IA (décision du 2026-08-12 : gratuit,
+# reste entièrement dans nos serveurs). Aucun vrai modèle d'email judiciaire
+# trouvé publiquement (recherche du 2026-08-15) — on couvre large plutôt que
+# de calibrer sur un exemple précis, et l'étape de confirmation rattrape le bruit.
+
+_MOIS_FR = {
+    "janvier": 1, "février": 2, "fevrier": 2, "mars": 3, "avril": 4, "mai": 5, "juin": 6,
+    "juillet": 7, "août": 8, "aout": 8, "septembre": 9, "octobre": 10,
+    "novembre": 11, "décembre": 12, "decembre": 12,
+}
+_RE_DATE_NUMERIQUE = re.compile(r"\b(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})\b")
+_RE_DATE_LITTERALE = re.compile(
+    r"\b(\d{1,2})(?:er)?\s+(" + "|".join(_MOIS_FR.keys()) + r")\s+(\d{4})\b",
+    re.IGNORECASE,
+)
+
+
+def _extraire_dates(texte: str) -> list[date]:
+    trouvees: list[date] = []
+    for jour, mois, annee in _RE_DATE_NUMERIQUE.findall(texte):
+        annee_i = int(annee) + 2000 if len(annee) == 2 else int(annee)
+        try:
+            trouvees.append(date(annee_i, int(mois), int(jour)))
+        except ValueError:
+            continue
+    for jour, mois_txt, annee in _RE_DATE_LITTERALE.findall(texte):
+        mois = _MOIS_FR.get(mois_txt.lower())
+        if not mois:
+            continue
+        try:
+            trouvees.append(date(int(annee), mois, int(jour)))
+        except ValueError:
+            continue
+
+    # Écarte les dates farfelues (vieille référence de dossier, faux positif)
+    # pour réduire le bruit — reste large, la confirmation humaine fait le reste.
+    aujourdhui = date.today()
+    trouvees = [d for d in trouvees if -30 < (d - aujourdhui).days < 400]
+
+    vues: set[date] = set()
+    resultat = []
+    for d in trouvees:
+        if d not in vues:
+            vues.add(d)
+            resultat.append(d)
+    return resultat
+
+
+# --- Extraction IA des emails (chemin alternatif à _extraire_dates) -----
+# Activable par l'utilisateur (méthode "ia", jamais par défaut — voir
+# automatisation_screen.dart, avertissement explicite avant activation :
+# contrairement au Bilan, le contenu COMPLET de l'email part vers Groq, pas
+# un texte anonymisé — c'est le prix à payer pour une meilleure fiabilité
+# sur des emails mal formatés). Branché le 2026-08-22 (auparavant "en
+# attente de financement").
+
+_SYSTEME_EXTRACTION_EMAIL = (
+    "Tu lis un email professionnel pour repérer une échéance à suivre "
+    "(audience, rendez-vous, date limite...). Réponds UNIQUEMENT avec un "
+    "objet JSON valide, sans aucun texte autour, avec exactement ces clés : "
+    '{"dates": ["AAAA-MM-JJ", ...], "nomSuggere": "...", "resume": "..."}. '
+    "\"dates\" : toutes les dates d'échéance/audience/rendez-vous "
+    "explicitement mentionnées dans l'email — liste vide si aucune, ne "
+    "jamais deviner ou approximer une date absente. \"nomSuggere\" : un "
+    "titre très court (6 mots maximum) pour reconnaître cet email dans une "
+    "liste, pas un résumé complet. \"resume\" : 1 à 2 phrases résumant ce "
+    "que l'email annonce ou demande. Si l'email n'a rien d'exploitable, "
+    "renvoie des listes/chaînes vides plutôt que d'inventer."
+)
+
+
+def _extraire_avec_ia(sujet: str, texte: str) -> dict:
+    """Lit un email via Groq pour en extraire date(s), un titre court et un
+    résumé — remplace _extraire_dates quand l'utilisateur a activé le
+    chemin IA. En cas d'erreur (API indisponible, JSON invalide...), renvoie
+    un résultat vide plutôt que de faire échouer tout le scan pour cet
+    email : il retombe alors dans le chemin "sans date reconnue" déjà
+    existant, traité comme un email à vérifier manuellement."""
+    vide = {"dates": [], "nomSuggere": "", "resume": ""}
+    try:
+        reponse = requests.post(
+            _URL_GROQ_CHAT,
+            headers={
+                "Authorization": f"Bearer {_groq_api_key.value}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": _MODELE_GROQ,
+                "messages": [
+                    {"role": "system", "content": _SYSTEME_EXTRACTION_EMAIL},
+                    {"role": "user", "content": f"Objet : {sujet}\n\n{texte[:6000]}"},
+                ],
+                "temperature": 0,
+                "max_tokens": 300,
+                "response_format": {"type": "json_object"},
+            },
+            timeout=20,
+        )
+        if reponse.status_code != 200:
+            return vide
+        contenu = reponse.json()["choices"][0]["message"]["content"]
+        extrait = json.loads(contenu)
+    except Exception:  # pylint: disable=broad-except
+        return vide
+
+    # Même garde-fou anti-farfelu que _extraire_dates (vieille référence,
+    # faux positif) — la confirmation humaine fait le reste.
+    aujourdhui = date.today()
+    dates_valides: list[date] = []
+    for texte_date in extrait.get("dates") or []:
+        try:
+            jour = date.fromisoformat(str(texte_date))
+        except ValueError:
+            continue
+        if -30 < (jour - aujourdhui).days < 400:
+            dates_valides.append(jour)
+
+    return {
+        "dates": dates_valides,
+        "nomSuggere": str(extrait.get("nomSuggere") or "").strip()[:80],
+        "resume": str(extrait.get("resume") or "").strip()[:400],
+    }
+
+
+def _decoder_base64url(data: str) -> str:
+    try:
+        return base64.urlsafe_b64decode(data + "=" * (-len(data) % 4)).decode("utf-8", errors="ignore")
+    except Exception:  # pylint: disable=broad-except
+        return ""
+
+
+def _extraire_texte_partie(partie: dict) -> str:
+    mime = partie.get("mimeType", "")
+    corps = partie.get("body", {}).get("data")
+    morceaux = [_extraire_texte_partie(p) for p in (partie.get("parts") or [])]
+    morceaux = [m for m in morceaux if m]
+    if morceaux:
+        return "\n".join(morceaux)
+    if corps and mime == "text/plain":
+        return _decoder_base64url(corps)
+    if corps and mime == "text/html":
+        return re.sub(r"<[^>]+>", " ", _decoder_base64url(corps))
+    return ""
+
+
+def _texte_email(detail: dict) -> tuple[str, str]:
+    sujet = ""
+    for entete in detail.get("payload", {}).get("headers", []):
+        if entete["name"] == "Subject":
+            sujet = entete["value"]
+    return sujet, _extraire_texte_partie(detail.get("payload", {}))
+
+
+def _enregistrer_etat_sync(db, uid: str, source: str, succes: bool, erreur: str | None = None) -> None:
+    """Trace la dernière exécution de chaque scan (Gmail/Tasks/Calendar) —
+    sans ça, un échec silencieux (comme les scopes manquants du 2026-08-20)
+    ne se voit nulle part côté utilisateur, juste une absence de résultat
+    sans explication. Inspiré du "Dernière synchronisation" vu dans une app
+    comparée (demande de Tobie le 2026-08-20)."""
+    db.collection("utilisateurs").document(uid).collection("etatSync").document(source).set({
+        "derniereExecution": firestore.SERVER_TIMESTAMP,
+        "succes": succes,
+        "erreur": erreur,
+    })
+
+
+@scheduler_fn.on_schedule(
+    schedule=_HORAIRE,
+    timezone=_FUSEAU,
+    secrets=[_google_oauth_client_secret, _token_chiffrement_cle, _groq_api_key],
+)
+def scanner_emails(event: scheduler_fn.ScheduledEvent) -> None:
+    db = firestore.client()
+
+    for doc_utilisateur in db.collection("utilisateurs").stream():
+        uid = doc_utilisateur.id
+        data_utilisateur = doc_utilisateur.to_dict() or {}
+        expediteurs = data_utilisateur.get("expediteursConfiance") or []
+        if not expediteurs:
+            continue
+        methode = data_utilisateur.get("methodeExtraction", "motif")
+        if methode not in ("motif", "ia"):
+            continue  # valeur inconnue — par prudence, on ne traite pas.
+
+        connexions = _connexions_actives(uid)
+        if not connexions:
+            continue
+
+        # Boucle sur TOUS les comptes Google connectés (revu le 2026-08-21 :
+        # aucun rôle prédéfini, on scanne chaque compte de la même façon) —
+        # une erreur sur un compte n'empêche pas de scanner les autres.
+        propositions_creees_total = 0
+        emails_sans_date_total: list[dict] = []
+        erreur_rencontree = None
+        for connexion in connexions:
+            jeton = _echanger_refresh_token(connexion["refreshTokenChiffre"])
+            if jeton is None:
+                continue
+            try:
+                propositions_creees, emails_sans_date = _scanner_boite(
+                    db, uid, connexion["id"], expediteurs, jeton, methode
+                )
+                propositions_creees_total += propositions_creees
+                emails_sans_date_total.extend(emails_sans_date)
+            except Exception as e:  # pylint: disable=broad-except
+                erreur_rencontree = f"{type(e).__name__}: {e}"
+                print(f"Échec du scan emails pour {uid}/{connexion['id']} : {erreur_rencontree}")
+
+        _enregistrer_etat_sync(db, uid, "gmail", succes=erreur_rencontree is None, erreur=erreur_rencontree)
+        token = data_utilisateur.get("fcmToken")
+
+        if propositions_creees_total > 0:
+            digest = {
+                "dossierId": None, "nomCodeDossier": None,
+                "corps": f"{propositions_creees_total} nouvelle(s) proposition(s) de dossier à valider (emails détectés).",
+                "parType": {}, "total": 0, "enRetard": 0,
+            }
+            if token:
+                _envoyer(uid, token, digest)
+            _enregistrer_historique(db, uid, digest)
+
+        # La recherche de motif n'a rien trouvé d'exploitable dans ces
+        # emails — on ne laisse pas ça filer sous silence, on prévient
+        # pour un traitement manuel (demandé par Tobie le 2026-08-17).
+        # Une notification PAR email (pas un compte groupé) : Tobie a
+        # demandé de préciser qui a écrit et quand, pas juste un chiffre.
+        for email_info in emails_sans_date_total:
+            date_envoi = email_info["dateEnvoi"]
+            date_fr = date_envoi.strftime("%d/%m/%Y") if date_envoi else "date inconnue"
+            corps_manuel = (
+                f"{email_info['expediteur']} t'a envoyé un email le {date_fr}"
+                f" (« {email_info['sujet']} »), sans date reconnue automatiquement — "
+                "ouvre ta boîte mail pour vérifier et ajoute la tâche toi-même si besoin."
+            )
+            digest_manuel = {
+                "dossierId": None, "nomCodeDossier": None,
+                "corps": corps_manuel,
+                "parType": {}, "total": 0, "enRetard": 0,
+            }
+            if token:
+                _envoyer(uid, token, digest_manuel)
+            _enregistrer_historique(db, uid, digest_manuel)
+
+
+def _scanner_boite(
+    db, uid: str, connexion_id: str, expediteurs: list[str], jeton: str, methode: str
+) -> tuple[int, list[dict]]:
+    """Lit les emails récents des expéditeurs favoris d'UN compte Google
+    connecté, crée une proposition par date trouvée. `methode` = "motif"
+    (recherche de motif locale, par défaut) ou "ia" (lecture par Groq,
+    activée explicitement par l'utilisateur). Renvoie (propositions créées,
+    détails des emails sans aucune date trouvée — expéditeur/date d'envoi/
+    sujet, pour un message de secours précis plutôt qu'un simple chiffre —
+    décision du 2026-08-17)."""
+    entetes = {"Authorization": f"Bearer {jeton}"}
+
+    # Le suivi "déjà traité" est imbriqué sous la connexion (pas au niveau
+    # utilisateur) depuis qu'il peut y avoir plusieurs comptes — évite toute
+    # collision d'identifiant entre deux comptes différents.
+    ref_traites = (
+        db.collection("utilisateurs").document(uid)
+        .collection("connexionsGoogle").document(connexion_id)
+        .collection("emailsTraites")
+    )
+    deja_traites = {d.id for d in ref_traites.stream()}
+    ref_propositions = db.collection("utilisateurs").document(uid).collection("propositions")
+
+    propositions_creees = 0
+    emails_sans_date: list[dict] = []
+    for expediteur in expediteurs:
+        recherche = requests.get(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages",
+            headers=entetes,
+            params={"q": f"from:{expediteur} newer_than:14d", "maxResults": 20},
+            timeout=15,
+        ).json()
+
+        for message in recherche.get("messages", []):
+            message_id = message["id"]
+            if message_id in deja_traites:
+                continue
+
+            detail = requests.get(
+                f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}",
+                headers=entetes,
+                params={"format": "full"},
+                timeout=10,
+            ).json()
+            sujet, texte = _texte_email(detail)
+            date_envoi = _date_envoi_email(detail)
+
+            if methode == "ia":
+                extrait = _extraire_avec_ia(sujet, texte)
+                dates_trouvees = extrait["dates"]
+                nom_ia = extrait["nomSuggere"]
+                resume_ia = extrait["resume"]
+            else:
+                dates_trouvees = _extraire_dates(f"{sujet}\n{texte}")
+                nom_ia = ""
+                resume_ia = ""
+
+            if dates_trouvees:
+                for jour in dates_trouvees:
+                    ref_propositions.add({
+                        "nomSuggere": nom_ia or f"À nommer — Audience du {jour.strftime('%d/%m/%Y')}",
+                        "date": datetime(jour.year, jour.month, jour.day, tzinfo=timezone.utc),
+                        "expediteur": expediteur,
+                        "sujetEmail": sujet[:200],
+                        "details": resume_ia,
+                        "creeLe": firestore.SERVER_TIMESTAMP,
+                        "statut": "enAttente",
+                    })
+                    propositions_creees += 1
+            else:
+                # Aucune date reconnue automatiquement : on crée quand même une
+                # proposition, sans date pré-remplie (l'utilisateur la choisit
+                # lui-même dans l'écran de création) — pour que ces emails ne
+                # vivent pas QUE dans les notifications (demandé par Tobie le
+                # 2026-08-17 : "c'est bien une proposition non ??").
+                ref_propositions.add({
+                    "nomSuggere": nom_ia or "À nommer",
+                    "date": None,
+                    "expediteur": expediteur,
+                    "sujetEmail": sujet[:200] or "(sans objet)",
+                    "details": resume_ia,
+                    "creeLe": firestore.SERVER_TIMESTAMP,
+                    "statut": "enAttente",
+                })
+                propositions_creees += 1
+                emails_sans_date.append({
+                    "expediteur": expediteur,
+                    "sujet": sujet[:200] or "(sans objet)",
+                    "dateEnvoi": date_envoi,
+                })
+
+            ref_traites.document(message_id).set({"traiteLe": firestore.SERVER_TIMESTAMP})
+
+    return propositions_creees, emails_sans_date
+
+
+def _date_envoi_email(detail: dict) -> datetime | None:
+    """La vraie date d'envoi de l'email (champ interne Gmail, plus fiable
+    que l'en-tête "Date" qui a trop de formats possibles à gérer)."""
+    horodatage_ms = detail.get("internalDate")
+    if not horodatage_ms:
+        return None
+    try:
+        return datetime.fromtimestamp(int(horodatage_ms) / 1000, tz=timezone.utc)
+    except (ValueError, TypeError):
+        return None
+
+
+def _enregistrer_historique(db, uid: str, digest: dict) -> None:
+    db.collection("utilisateurs").document(uid).collection("notifications").add({
+        "corps": digest["corps"],
+        "dossierId": digest["dossierId"],
+        "parType": digest["parType"],
+        "total": digest["total"],
+        "enRetard": digest["enRetard"],
+        "envoyeLe": firestore.SERVER_TIMESTAMP,
+    })
+
+
+# --- Publication de version (bannière de mise à jour dans l'app) -------
+
+_URL_APK_OFFICIELLE = "https://vigie.pentalightcode.com/telecharger/"
+
+
+@https_fn.on_request(secrets=[_admin_publication_secret])
+def publier_version_admin(req: https_fn.Request) -> https_fn.Response:
+    """Écrit /config/version — appelée uniquement par
+    scripts/publier_version.py après chaque nouvelle build. Protégée par
+    secret plutôt qu'ouverte à tous : sans ça, n'importe qui pourrait
+    pointer la bannière de mise à jour vers un fichier malveillant."""
+    if req.method != "POST":
+        return https_fn.Response("Méthode non autorisée.", status=405)
+
+    corps = req.get_json(silent=True) or {}
+    secret_recu = corps.get("secret", "").strip()
+    if not hmac.compare_digest(secret_recu, _admin_publication_secret.value.strip()):
+        return https_fn.Response("Non autorisé.", status=403)
+
+    try:
+        version = str(corps["version"])
+        build = int(corps["build"])
+        url_apk = str(corps["urlApk"])
+    except (KeyError, TypeError, ValueError):
+        return https_fn.Response("Champs invalides (version, build, urlApk requis).", status=400)
+
+    # Garde-fou : même avec le secret, on n'autorise jamais de pointer vers
+    # un domaine autre que le nôtre.
+    if not url_apk.startswith(_URL_APK_OFFICIELLE):
+        return https_fn.Response("urlApk doit être sur vigie.pentalightcode.com/telecharger/.", status=400)
+
+    db = firestore.client()
+    db.collection("config").document("version").set({
+        "version": version,
+        "build": build,
+        "urlApk": url_apk,
+        "publieLe": firestore.SERVER_TIMESTAMP,
+    })
+
+    # Alerte push envoyée à chaque publication — la bannière dans l'app seule
+    # ne suffisait pas (le bouton "Télécharger" échoue silencieusement sur
+    # certains téléphones, ex: Xiaomi/MIUI, cause non trouvée malgré
+    # plusieurs tentatives) : décision du 2026-08-17 avec Tobie de repasser
+    # par une vraie notification qui renvoie vers le site plutôt que
+    # d'essayer d'ouvrir un navigateur depuis l'app elle-même.
+    notifier = corps.get("notifier", True)
+    nb_notifies = 0
+    if notifier:
+        for doc_utilisateur in db.collection("utilisateurs").stream():
+            token = (doc_utilisateur.to_dict() or {}).get("fcmToken")
+            if not token:
+                continue
+            digest = {
+                "dossierId": None, "nomCodeDossier": None,
+                "corps": (
+                    f"Nouvelle version de Vigie disponible ({version}) — "
+                    "va sur vigie.pentalightcode.com pour la télécharger."
+                ),
+                "parType": {}, "total": 0, "enRetard": 0,
+            }
+            _envoyer(doc_utilisateur.id, token, digest, lien="https://vigie.pentalightcode.com")
+            _enregistrer_historique(db, doc_utilisateur.id, digest)
+            nb_notifies += 1
+
+    return https_fn.Response(
+        f"Version {version} (build {build}) publiée, {nb_notifies} utilisateur(s) notifié(s).",
+        status=200,
+    )
+
+
+# --- Import Google Tasks (demandé par Tobie le 2026-08-18) -------------
+# Contrairement aux emails, une tâche Google est déjà structurée (titre +
+# date d'échéance) : aucun besoin de motif/regex ni d'IA pour en extraire
+# une date. Réutilise le même jeton OAuth que Gmail (même connexion, deux
+# autorisations demandées ensemble côté app — voir gmail_service.dart).
+
+_URL_TASKS_LISTES = "https://tasks.googleapis.com/tasks/v1/users/@me/lists"
+_URL_TASKS_TACHES = "https://tasks.googleapis.com/tasks/v1/lists/{}/tasks"
+
+
+@scheduler_fn.on_schedule(schedule=_HORAIRE, timezone=_FUSEAU, secrets=[_google_oauth_client_secret, _token_chiffrement_cle])
+def scanner_taches_google(event: scheduler_fn.ScheduledEvent) -> None:
+    db = firestore.client()
+
+    for doc_utilisateur in db.collection("utilisateurs").stream():
+        uid = doc_utilisateur.id
+        data_utilisateur = doc_utilisateur.to_dict() or {}
+        connexions = _connexions_actives(uid)
+        if not connexions:
+            continue
+
+        propositions_creees_total = 0
+        erreur_rencontree = None
+        for connexion in connexions:
+            jeton = _echanger_refresh_token(connexion["refreshTokenChiffre"])
+            if jeton is None:
+                continue
+            try:
+                propositions_creees_total += _scanner_taches(db, uid, connexion["id"], jeton)
+            except Exception as e:  # pylint: disable=broad-except
+                erreur_rencontree = f"{type(e).__name__}: {e}"
+                print(f"Échec du scan tâches pour {uid}/{connexion['id']} : {erreur_rencontree}")
+
+        _enregistrer_etat_sync(db, uid, "tasks", succes=erreur_rencontree is None, erreur=erreur_rencontree)
+        if propositions_creees_total > 0:
+            token = data_utilisateur.get("fcmToken")
+            digest = {
+                "dossierId": None, "nomCodeDossier": None,
+                "corps": f"{propositions_creees_total} tâche(s) Google Tasks importée(s), à valider.",
+                "parType": {}, "total": 0, "enRetard": 0,
+            }
+            if token:
+                _envoyer(uid, token, digest)
+            _enregistrer_historique(db, uid, digest)
+
+
+def _scanner_taches(db, uid: str, connexion_id: str, jeton: str) -> int:
+    """Importe les tâches Google Tasks non terminées AVEC une échéance d'UN
+    compte Google connecté comme Propositions (les tâches sans date ne sont
+    pas importées pour l'instant — beaucoup de gens utilisent Tasks comme
+    simple liste sans date, importer ça noierait les vraies échéances)."""
+    entetes = {"Authorization": f"Bearer {jeton}"}
+
+    ref_traitees = (
+        db.collection("utilisateurs").document(uid)
+        .collection("connexionsGoogle").document(connexion_id)
+        .collection("tachesGoogleTraitees")
+    )
+    deja_traitees = {d.id for d in ref_traitees.stream()}
+    ref_propositions = db.collection("utilisateurs").document(uid).collection("propositions")
+
+    listes = requests.get(_URL_TASKS_LISTES, headers=entetes, timeout=15).json().get("items", [])
+
+    propositions_creees = 0
+    for liste in listes:
+        taches = requests.get(
+            _URL_TASKS_TACHES.format(liste["id"]),
+            headers=entetes,
+            params={"showCompleted": "false", "showHidden": "false", "maxResults": 100},
+            timeout=15,
+        ).json().get("items", [])
+
+        for tache in taches:
+            tache_id = tache["id"]
+            if tache_id in deja_traitees:
+                continue
+
+            echeance = tache.get("due")  # ex: "2026-08-20T00:00:00.000Z"
+            if echeance:
+                jour = datetime.fromisoformat(echeance.replace("Z", "+00:00")).date()
+                ref_propositions.add({
+                    "nomSuggere": "À nommer",
+                    "date": datetime(jour.year, jour.month, jour.day, tzinfo=timezone.utc),
+                    "expediteur": "Google Tasks",
+                    "sujetEmail": (tache.get("title") or "(sans titre)")[:200],
+                    # Détails d'origine (demandé par Tobie le 2026-08-20 :
+                    # le père voyait le titre mais perdait les notes de la
+                    # tâche Google une fois importée).
+                    "details": (tache.get("notes") or "")[:2000],
+                    "creeLe": firestore.SERVER_TIMESTAMP,
+                    "statut": "enAttente",
+                })
+                propositions_creees += 1
+
+            ref_traitees.document(tache_id).set({"traiteeLe": firestore.SERVER_TIMESTAMP})
+
+    return propositions_creees
+
+
+# --- Import Google Calendar (demandé par Tobie le 2026-08-18, juste après
+# Tasks : "on ne peut pas parler de Google Tasks sans Google Calendar") -----
+# Même principe que Tasks : un événement de calendrier est déjà structuré
+# (titre + date), aucune extraction à faire. Réutilise le même jeton OAuth
+# (même connexion, trois autorisations demandées ensemble côté app).
+
+_URL_CALENDAR_EVENEMENTS = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
+_FENETRE_CALENDRIER = timedelta(days=30)
+
+
+@scheduler_fn.on_schedule(schedule=_HORAIRE, timezone=_FUSEAU, secrets=[_google_oauth_client_secret, _token_chiffrement_cle])
+def scanner_calendrier_google(event: scheduler_fn.ScheduledEvent) -> None:
+    db = firestore.client()
+
+    for doc_utilisateur in db.collection("utilisateurs").stream():
+        uid = doc_utilisateur.id
+        data_utilisateur = doc_utilisateur.to_dict() or {}
+        connexions = _connexions_actives(uid)
+        if not connexions:
+            continue
+
+        propositions_creees_total = 0
+        erreur_rencontree = None
+        for connexion in connexions:
+            jeton = _echanger_refresh_token(connexion["refreshTokenChiffre"])
+            if jeton is None:
+                continue
+            try:
+                propositions_creees_total += _scanner_calendrier(db, uid, connexion["id"], jeton)
+            except Exception as e:  # pylint: disable=broad-except
+                erreur_rencontree = f"{type(e).__name__}: {e}"
+                print(f"Échec du scan calendrier pour {uid}/{connexion['id']} : {erreur_rencontree}")
+
+        _enregistrer_etat_sync(db, uid, "calendar", succes=erreur_rencontree is None, erreur=erreur_rencontree)
+        if propositions_creees_total > 0:
+            token = data_utilisateur.get("fcmToken")
+            digest = {
+                "dossierId": None, "nomCodeDossier": None,
+                "corps": f"{propositions_creees_total} événement(s) de calendrier importé(s), à valider.",
+                "parType": {}, "total": 0, "enRetard": 0,
+            }
+            if token:
+                _envoyer(uid, token, digest)
+            _enregistrer_historique(db, uid, digest)
+
+
+def _scanner_calendrier(db, uid: str, connexion_id: str, jeton: str) -> int:
+    """Importe les événements des 30 prochains jours du calendrier principal
+    d'UN compte Google connecté comme Propositions — rien n'est filtré par
+    pertinence (un anniversaire compte comme un rendez-vous pro)
+    volontairement : c'est à l'utilisateur d'ignorer ce qui ne correspond
+    pas à un dossier, comme pour tout le reste (aucune décision automatique)."""
+    entetes = {"Authorization": f"Bearer {jeton}"}
+
+    ref_traites = (
+        db.collection("utilisateurs").document(uid)
+        .collection("connexionsGoogle").document(connexion_id)
+        .collection("evenementsGoogleTraites")
+    )
+    deja_traites = {d.id for d in ref_traites.stream()}
+    ref_propositions = db.collection("utilisateurs").document(uid).collection("propositions")
+
+    maintenant = datetime.now(timezone.utc)
+    reponse = requests.get(
+        _URL_CALENDAR_EVENEMENTS,
+        headers=entetes,
+        params={
+            "timeMin": maintenant.isoformat(),
+            "timeMax": (maintenant + _FENETRE_CALENDRIER).isoformat(),
+            "singleEvents": "true",
+            "orderBy": "startTime",
+            "maxResults": 100,
+        },
+        timeout=15,
+    ).json()
+
+    propositions_creees = 0
+    for evenement in reponse.get("items", []):
+        # Un événement récurrent (ex: "PENTALIGHTCODE — Session soir" chaque
+        # mercredi) génère une instance par occurrence, chacune avec son
+        # propre id — sans ça, on reproposerait le même dossier chaque
+        # semaine indéfiniment. "recurringEventId" identifie la série entière
+        # (stable pour toutes ses occurrences) : on ne traite que la
+        # première rencontrée, jamais les suivantes (trouvé en creusant les
+        # vraies données de Tobie le 2026-08-20).
+        cle_dedup = evenement.get("recurringEventId") or evenement["id"]
+        if cle_dedup in deja_traites or evenement.get("status") == "cancelled":
+            continue
+
+        # "date" pour un événement journée entière, "dateTime" sinon.
+        debut = evenement.get("start", {})
+        date_str = debut.get("date") or (debut.get("dateTime") or "")[:10]
+        if not date_str:
+            ref_traites.document(cle_dedup).set({"traiteLe": firestore.SERVER_TIMESTAMP})
+            continue
+
+        jour = date.fromisoformat(date_str)
+        ref_propositions.add({
+            "nomSuggere": "À nommer",
+            "date": datetime(jour.year, jour.month, jour.day, tzinfo=timezone.utc),
+            "expediteur": "Google Calendar",
+            "sujetEmail": (evenement.get("summary") or "(sans titre)")[:200],
+            # Détails d'origine (demandé par Tobie le 2026-08-20 : le père
+            # voyait le titre mais perdait la description de l'événement
+            # Google une fois importée).
+            "details": (evenement.get("description") or "")[:2000],
+            "creeLe": firestore.SERVER_TIMESTAMP,
+            "statut": "enAttente",
+        })
+        propositions_creees += 1
+        ref_traites.document(cle_dedup).set({"traiteLe": firestore.SERVER_TIMESTAMP})
+
+    return propositions_creees
+
+
+@https_fn.on_call(secrets=[_google_oauth_client_secret, _token_chiffrement_cle])
+def lister_evenements_calendrier(req: https_fn.CallableRequest) -> dict:
+    """Lit les événements du calendrier principal de TOUS les comptes Google
+    connectés sur une période donnée, fusionnés en une seule liste — pour
+    l'écran Agenda (vue en direct, distincte de scanner_calendrier_google
+    qui importe en Propositions). Demandé par Tobie le 2026-08-19 : le père
+    veut VOIR son agenda Google dans l'app, pas seulement recevoir des
+    propositions de dossier ; étendu le 2026-08-21 à plusieurs comptes."""
+    if req.auth is None:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.UNAUTHENTICATED, "Non connecté.")
+
+    connexions = _connexions_actives(req.auth.uid)
+    if not connexions:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.FAILED_PRECONDITION, "Aucun compte Google connecté.")
+
+    donnees = req.data or {}
+    try:
+        debut = datetime.fromisoformat(donnees["debut"]).replace(tzinfo=timezone.utc)
+        fin = datetime.fromisoformat(donnees["fin"]).replace(tzinfo=timezone.utc)
+    except (KeyError, ValueError) as e:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "debut/fin invalides.") from e
+
+    evenements = []
+    for connexion in connexions:
+        jeton = _echanger_refresh_token(connexion["refreshTokenChiffre"])
+        if jeton is None:
+            continue
+        entetes = {"Authorization": f"Bearer {jeton}"}
+        reponse = requests.get(
+            _URL_CALENDAR_EVENEMENTS,
+            headers=entetes,
+            params={
+                "timeMin": debut.isoformat(),
+                "timeMax": fin.isoformat(),
+                "singleEvents": "true",
+                "orderBy": "startTime",
+                "maxResults": 250,
+            },
+            timeout=15,
+        ).json()
+
+        for evenement in reponse.get("items", []):
+            if evenement.get("status") == "cancelled":
+                continue
+            debut_ev = evenement.get("start", {})
+            date_str = debut_ev.get("date") or (debut_ev.get("dateTime") or "")[:10]
+            if not date_str:
+                continue
+            evenements.append({
+                # Préfixé par la connexion : deux comptes différents peuvent
+                # en théorie réutiliser un même identifiant d'événement.
+                "id": f"{connexion['id']}_{evenement['id']}",
+                "titre": evenement.get("summary") or "(sans titre)",
+                "date": date_str,
+                "journeeEntiere": "date" in debut_ev,
+                "description": evenement.get("description") or "",
+            })
+
+    return {"evenements": evenements}
+
+
+# --- Résumé + recommandations IA du Bilan (Groq) ------------------------
+# Fonctionnalité activable par l'utilisateur (jamais par défaut — même
+# principe que le chemin IA pour l'extraction Gmail, décision du 2026-08-15) :
+# le texte envoyé est exactement celui déjà utilisé pour le partage anonymisé
+# du Bilan (dossiers désignés par des noms de code choisis par l'utilisateur,
+# jamais de vraies informations) — aucune donnée de plus ne sort vers Groq
+# que ce que l'utilisateur partage déjà volontairement ailleurs dans l'app.
+
+_SYSTEME_RESUME_BILAN = (
+    "Tu résumes un bilan d'activité personnel. L'utilisateur suit des dossiers "
+    "désignés par des noms de code (jamais de vraies informations) — ne cherche "
+    "jamais à deviner de quoi il s'agit réellement, ne les commente pas comme "
+    "s'ils étaient de vraies affaires. Réponds en français, texte brut (pas de "
+    "markdown, pas d'émoji). D'abord un résumé factuel en 2 à 4 phrases de la "
+    "période. Ensuite, sur une nouvelle ligne commençant par \"Recommandations :\", "
+    "2 à 3 recommandations concrètes et actionnables basées uniquement sur les "
+    "chiffres fournis (ex : dossiers en retard à prioriser, régularité à féliciter "
+    "ou à améliorer). Reste bref, pas de généralités creuses."
+)
+
+
+@https_fn.on_call(secrets=[_groq_api_key], timeout_sec=30)
+def generer_resume_bilan(req: https_fn.CallableRequest) -> dict:
+    """Envoie le texte du Bilan (même contenu anonymisé que le partage) à
+    Groq et renvoie un résumé + des recommandations. Appelée à la demande
+    (bouton), jamais automatiquement — activable/désactivable par
+    l'utilisateur (voir bilanIaActif côté app)."""
+    if req.auth is None:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.UNAUTHENTICATED, "Non connecté.")
+
+    texte_bilan = ((req.data or {}).get("texteBilan") or "").strip()
+    if not texte_bilan:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "Bilan vide.")
+
+    reponse = requests.post(
+        _URL_GROQ_CHAT,
+        headers={
+            "Authorization": f"Bearer {_groq_api_key.value}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": _MODELE_GROQ,
+            "messages": [
+                {"role": "system", "content": _SYSTEME_RESUME_BILAN},
+                {"role": "user", "content": texte_bilan},
+            ],
+            "temperature": 0.3,
+            "max_tokens": 400,
+        },
+        timeout=20,
+    )
+    if reponse.status_code != 200:
+        raise https_fn.HttpsError(
+            https_fn.FunctionsErrorCode.UNAVAILABLE,
+            f"Groq indisponible ({reponse.status_code}).",
+        )
+
+    resultat = reponse.json()
+    resume = resultat["choices"][0]["message"]["content"].strip()
+    return {"resume": resume}

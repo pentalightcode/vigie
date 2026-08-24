@@ -1,0 +1,158 @@
+import 'package:flutter/material.dart';
+import '../models/notification_envoyee.dart';
+import '../services/firestore_service.dart';
+import '../utils/dates_fr.dart';
+import 'dossier_detail_screen.dart';
+
+/// Historique des rappels envoyés par le digest quotidien (matin/soir) —
+/// demandé par Tobie car une notification système disparaît une fois lue,
+/// sans laisser de trace consultable. Filtrable par type de dossier
+/// (Audience, Courrier...), comme demandé.
+class NotificationsScreen extends StatefulWidget {
+  const NotificationsScreen({super.key});
+
+  @override
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends State<NotificationsScreen> {
+  String? _filtreType;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Notifications')),
+      body: StreamBuilder<List<NotificationEnvoyee>>(
+        stream: FirestoreService.instance.notifications(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final toutes = snapshot.data ?? [];
+          if (toutes.isEmpty) {
+            return const Center(child: Text('Aucune notification pour l\'instant.'));
+          }
+
+          final tousLesTypes = <String>{};
+          for (final n in toutes) {
+            tousLesTypes.addAll(n.parType.keys);
+          }
+          final typesTries = tousLesTypes.toList()..sort();
+
+          final filtrees = _filtreType == null
+              ? toutes
+              : toutes.where((n) => n.parType.containsKey(_filtreType)).toList();
+
+          return Column(
+            children: [
+              if (typesTries.isNotEmpty) _BarreDeFiltres(
+                types: typesTries,
+                filtreActif: _filtreType,
+                onChanger: (t) => setState(() => _filtreType = t),
+              ),
+              Expanded(
+                child: filtrees.isEmpty
+                    ? const Center(child: Text('Aucune notification pour ce type.'))
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: filtrees.length,
+                        itemBuilder: (context, i) => _LigneNotification(notif: filtrees[i]),
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _BarreDeFiltres extends StatelessWidget {
+  const _BarreDeFiltres({required this.types, required this.filtreActif, required this.onChanger});
+
+  final List<String> types;
+  final String? filtreActif;
+  final ValueChanged<String?> onChanger;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          ChoiceChip(
+            label: const Text('Tous'),
+            selected: filtreActif == null,
+            onSelected: (_) => onChanger(null),
+          ),
+          const SizedBox(width: 8),
+          ...types.map((t) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(t),
+                  selected: filtreActif == t,
+                  onSelected: (_) => onChanger(t),
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+}
+
+class _LigneNotification extends StatelessWidget {
+  const _LigneNotification({required this.notif});
+
+  final NotificationEnvoyee notif;
+
+  @override
+  Widget build(BuildContext context) {
+    final dossierId = notif.dossierId;
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: InkWell(
+        onTap: dossierId == null
+            ? null
+            : () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => DossierDetailScreen(dossierId: dossierId),
+                )),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      notif.envoyeLe != null ? formaterDateHeureFr(notif.envoyeLe!) : 'Date inconnue',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                    ),
+                  ),
+                  if (dossierId != null) const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(notif.corps),
+              if (notif.parType.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: notif.parType.entries
+                      .map((e) => Chip(
+                            label: Text('${e.key} : ${e.value}'),
+                            visualDensity: VisualDensity.compact,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ))
+                      .toList(),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

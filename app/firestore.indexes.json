@@ -1,0 +1,22 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "dossiers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid", "order": "ASCENDING" },
+        { "fieldPath": "creeLe", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "journalDossier",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid", "order": "ASCENDING" },
+        { "fieldPath": "dossierId", "order": "ASCENDING" },
+        { "fieldPath": "creeLe", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

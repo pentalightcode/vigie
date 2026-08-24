@@ -1,0 +1,87 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Requis à partir d'Android 13 (API 33) pour pouvoir demander l'autorisation
+         d'afficher des notifications (rappels quotidiens matin/soir). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Autorisation Android officielle (pas un réglage propre à une marque) pour
+         demander à l'utilisateur d'exempter Vigie de la mise en veille forcée
+         (Doze/optimisation batterie) — sans ça, certains téléphones (constaté avec
+         MIUI le 2026-08-14, et Tecno/HiOS le 2026-08-22) peuvent bloquer le
+         lancement de l'app au tap sur une notification, ou même la livraison des
+         rappels programmés. Demandée via une vraie fenêtre système, comme pour les
+         notifications — pas besoin d'aller fouiller dans les réglages soi-même. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+    <application
+        android:label="Vigie"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- Lien magique de connexion (Firebase Auth email link) : ouvre l'app
+                 directement au lieu du navigateur quand le père clique sur le lien reçu par mail.
+                 Le vrai chemin est "/connexion" (voir ActionCodeSettings.url dans
+                 auth_service.dart — Firebase ajoute juste les paramètres oobCode/mode/apiKey
+                 à cette URL exacte, il ne passe PAS par "/__/auth/..." malgré ce qu'on aurait pu
+                 croire — testé et corrigé le 2026-08-18 après un premier essai raté avec
+                 "/__/auth"). Limité à ce chemin précis (pathPrefix) pour que les AUTRES liens
+                 vers ce même domaine (téléchargement de l'APK, notification de mise à jour)
+                 continuent bien à s'ouvrir dans le navigateur au lieu d'être redirigés
+                 silencieusement vers l'app — root cause trouvée le 2026-08-17 : c'était cette
+                 règle, trop large à l'origine (tout le domaine, sans restriction de chemin), qui
+                 empêchait "Télécharger" et le lien de notification de fonctionner depuis le
+                 début — pas un bug du téléphone. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="https"
+                    android:host="vigie.pentalightcode.com"
+                    android:pathPrefix="/connexion"/>
+            </intent-filter>
+        </activity>
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    <!-- Required to query activities that can process text, see:
+         https://developer.android.com/training/package-visibility and
+         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Requis depuis Android 11 (API 30) pour que l'app soit autorisée à
+             détecter et ouvrir un navigateur externe (url_launcher) — sans ça,
+             le téléchargement de mise à jour échoue silencieusement, sans
+             aucune erreur visible (trouvé le 2026-08-17). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <category android:name="android.intent.category.BROWSABLE"/>
+            <data android:scheme="https"/>
+        </intent>
+    </queries>
+</manifest>

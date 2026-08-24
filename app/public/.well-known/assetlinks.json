@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "bj.pentalightcode.secretaire_aje",
+      "sha256_cert_fingerprints": [
+        "35:21:59:FD:95:B0:4B:27:EC:D3:73:98:9C:1F:AD:58:5A:73:65:1C:F9:EF:6A:5A:0D:9B:6D:9C:3A:BA:38:1C"
+      ]
+    }
+  }
+]

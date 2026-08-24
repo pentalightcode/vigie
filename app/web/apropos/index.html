@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>À propos — Vigie</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Vigie — suivi d'échéances et de rappels confidentiel, par PENTALIGHTCODE.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --ink: #1c2333;
+    --ink-soft: #4a5266;
+    --paper: #f6f4ee;
+    --paper-raised: #fdfcf9;
+    --accent: #1a235a;
+    --accent-soft: #e6e8f2;
+    --rule: #d9d4c6;
+    --font-display: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --font-body: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e8e6dd;
+      --ink-soft: #b2b6c4;
+      --paper: #14182a;
+      --paper-raised: #1b2036;
+      --accent: #8b95d6;
+      --accent-soft: #232a4a;
+      --rule: #333a54;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 64px 24px 100px;
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  h1.title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(2.2rem, 5vw, 3rem);
+    margin: 10px 0 8px;
+    text-wrap: balance;
+  }
+  p.lede {
+    font-size: 1.15rem;
+    color: var(--ink-soft);
+    max-width: 58ch;
+    margin: 0 0 40px;
+  }
+
+  section { margin: 44px 0; }
+  h2 {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-weight: 600;
+    margin: 0 0 12px;
+  }
+  p { margin: 0 0 12px; max-width: 62ch; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+  }
+  .card {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 18px 20px;
+  }
+  .card .k {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .card p { margin: 0; font-size: 0.92rem; color: var(--ink-soft); }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 28px;
+  }
+  .btn {
+    display: inline-block;
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    padding: 12px 22px;
+    border-radius: 6px;
+    border: 1px solid var(--accent);
+  }
+  .btn-primary { background: var(--accent); color: var(--paper); }
+  .btn-secondary { background: transparent; color: var(--accent); }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+  }
+  footer a { color: var(--ink-soft); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="eyebrow">PENTALIGHTCODE</div>
+  <h1 class="title">Vigie</h1>
+  <p class="lede">Une application de suivi d'échéances et de rappels, pensée pour rester confidentielle — pour les professions où chaque dossier compte, et où la discrétion n'est pas négociable.</p>
+
+  <section>
+    <h2>Le principe</h2>
+    <p>Vigie suit tes échéances (audiences, rendez-vous, dates limites...) et te relance jusqu'à ce que ce soit fait. Contrairement à un agenda classique, tu ne désignes jamais tes dossiers par leur vrai nom : tu choisis toi-même un nom de code pour chacun. Vigie n'a besoin d'aucune information réelle sur tes affaires pour fonctionner.</p>
+  </section>
+
+  <section>
+    <h2>Comment ça marche</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="k">01 — Ajouter</div>
+        <p>Crée un dossier avec un nom de code, une date, et laisse Vigie calculer quand te rappeler.</p>
+      </div>
+      <div class="card">
+        <div class="k">02 — Suivre</div>
+        <p>Vigie te relance jusqu'à confirmation que c'est fait — jamais de tâche oubliée en silence.</p>
+      </div>
+      <div class="card">
+        <div class="k">03 — Faire le bilan</div>
+        <p>Un résumé de ton activité, dossier par dossier, pour garder une vue d'ensemble.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Confidentialité par construction</h2>
+    <p>Aucune vraie information n'est jamais requise. Si tu connectes ton compte Google (optionnel), Vigie ne lit que ce que tu autorises explicitement, en lecture seule — jamais d'écriture, jamais de suppression, jamais de partage à des fins publicitaires. Détails complets dans notre <a href="/confidentialite/#confidentialite">politique de confidentialité</a>.</p>
+  </section>
+
+  <div class="actions">
+    <a class="btn btn-primary" href="/telecharger/Vigie.apk">Télécharger l'APK</a>
+    <a class="btn btn-secondary" href="/confidentialite/">CGU &amp; confidentialité</a>
+  </div>
+
+  <footer>
+    PENTALIGHTCODE — Vigie · <a href="mailto:contact@pentalightcode.com">contact@pentalightcode.com</a>
+  </footer>
+</div>
+</body>
+</html>

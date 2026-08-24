@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "740523786640",
+    "project_id": "secretaire-aje",
+    "storage_bucket": "secretaire-aje.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:740523786640:android:b4cf2021303513e3673315",
+        "android_client_info": {
+          "package_name": "bj.pentalightcode.secretaire_aje"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "740523786640-sg7l9aj8t51577vjgsuvo2okub0tmh04.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "bj.pentalightcode.secretaire_aje",
+            "certificate_hash": "e8c169be5323a4cccc8bb440d7ba5c5977a62325"
+          }
+        },
+        {
+          "client_id": "740523786640-pks5j67kshcu9rshgvsvjert7udoe206.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAM3PVDGVvmXcgKCBh0M99DsU8wfK5vgd4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "740523786640-pks5j67kshcu9rshgvsvjert7udoe206.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "740523786640-552631lvcfk1l050q3n7huj64nlla371.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "bj.pentalightcode.secretaireAje"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

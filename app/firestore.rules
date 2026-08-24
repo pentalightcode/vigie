@@ -1,0 +1,124 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Chacun ne peut lire/modifier que ses propres dossiers et tâches
+    // (le champ "uid" doit correspondre à l'utilisateur connecté).
+    match /dossiers/{dossierId} {
+      allow read, delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      // Une modification ne doit jamais pouvoir changer le propriétaire du document.
+      allow update: if request.auth != null
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid;
+    }
+
+    match /taches/{tacheId} {
+      allow read, delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow update: if request.auth != null
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid;
+    }
+
+    // Journal de bord d'un dossier : des entrées datées qu'on ajoute au fil
+    // du temps pour documenter l'avancement, jamais réécrites (pas de
+    // "update" — seulement create/delete, un journal ne se corrige pas
+    // rétroactivement, on ajoute ou on supprime une entrée erronée).
+    match /journalDossier/{entreeId} {
+      allow read, delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      // Modification autorisée (choix explicite de Tobie le 2026-08-21) : seuls le
+      // texte/type/modifieLe peuvent changer, jamais le propriétaire, le dossier ou
+      // la date de création réelle — pour ne pas pouvoir maquiller l'historique.
+      allow update: if request.auth != null
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.dossierId == resource.data.dossierId
+        && request.resource.data.creeLe == resource.data.creeLe;
+    }
+
+    // Réglages personnels : chacun ne voit/modifie que son propre document,
+    // identifié directement par son uid (pas de champ "uid" à vérifier ici).
+    match /utilisateurs/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Natures de dossier personnalisées : même règle, propres à chaque utilisateur.
+      match /naturesDossier/{natureId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Historique des notifications envoyées : écrit uniquement par la
+      // fonction serveur (SDK Admin, qui ignore ces règles) — le téléphone
+      // ne fait que lire, jamais écrire directement dedans.
+      match /notifications/{notifId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+
+      // Propositions de dossiers détectées dans les emails : le téléphone
+      // lit pour afficher l'écran de confirmation, et écrit pour accepter
+      // (suppression après création du vrai dossier) ou refuser (suppression).
+      match /propositions/{propositionId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Plusieurs comptes Google connectés, sans rôle prédéfini (revu le
+      // 2026-08-21, sur retour de Tobie après test réel — une première
+      // tentative avec deux connexions nommées "email"/"agenda" le même
+      // jour a été jugée pas intuitive). Le jeton chiffré n'est écrit QUE
+      // par la fonction serveur (SDK Admin, qui ignore ces règles) — jamais
+      // par le téléphone. Lecture seule autorisée pour afficher l'adresse
+      // connectée (le jeton reste chiffré avec une clé que le téléphone n'a
+      // jamais). Seul le champ "libelle" (nom personnalisé donné par
+      // l'utilisateur, purement pour s'y retrouver) peut être modifié
+      // depuis le téléphone — create/delete restent serveur uniquement.
+      match /connexionsGoogle/{connexionId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow update: if request.auth != null && request.auth.uid == userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['libelle']);
+        allow create, delete: if false;
+
+        // Suivi interne "déjà traité" (emails/tâches/événements), imbriqué
+        // sous chaque connexion pour éviter toute collision d'identifiant
+        // entre deux comptes différents — usage serveur uniquement.
+        match /emailsTraites/{emailId} {
+          allow read, write: if false;
+        }
+        match /tachesGoogleTraitees/{tacheId} {
+          allow read, write: if false;
+        }
+        match /evenementsGoogleTraites/{evenementId} {
+          allow read, write: if false;
+        }
+      }
+
+      // État de la dernière synchronisation (Gmail/Tasks/Calendar) — écrit
+      // uniquement par le serveur, lu par l'utilisateur pour voir si tout
+      // fonctionne (transparence demandée par Tobie le 2026-08-20).
+      match /etatSync/{source} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+
+      // Suivi interne de la dernière situation notifiée par dossier — sert
+      // à ne prévenir que si ça change, jamais lu/écrit côté téléphone.
+      match /etatsNotifies/{etatId} {
+        allow read, write: if false;
+      }
+    }
+
+    // Dernière version publiée de l'app (numéro + lien de téléchargement) —
+    // lecture publique nécessaire (vérifiée avant même la connexion), jamais
+    // écrite depuis le téléphone, seulement via le script de publication.
+    match /config/version {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Tout le reste : refusé par défaut.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

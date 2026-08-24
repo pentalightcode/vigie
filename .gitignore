@@ -1,0 +1,12 @@
+# Python (Cloud Functions)
+**/__pycache__/
+**/venv/
+*.pyc
+
+# Firebase
+**/.firebase/
+firebase-debug.log
+firestore-debug.log
+
+# OS
+.DS_Store

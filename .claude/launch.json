@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "secretaire-aje-web",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd app && flutter run -d web-server --web-port 5959 --web-hostname 127.0.0.1"],
+      "port": 5959
+    }
+  ]
+}

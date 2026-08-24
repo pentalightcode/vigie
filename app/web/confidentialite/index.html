@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>CGU et confidentialité — Vigie</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --ink: #1c2333;
+    --ink-soft: #4a5266;
+    --paper: #f6f4ee;
+    --paper-raised: #fdfcf9;
+    --accent: #1a235a;
+    --accent-soft: #e6e8f2;
+    --rule: #d9d4c6;
+    --font-display: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --font-body: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e8e6dd;
+      --ink-soft: #b2b6c4;
+      --paper: #14182a;
+      --paper-raised: #1b2036;
+      --accent: #8b95d6;
+      --accent-soft: #232a4a;
+      --rule: #333a54;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 56px 24px 120px;
+    display: grid;
+    grid-template-columns: 240px minmax(0, 68ch);
+    gap: 64px;
+    justify-content: center;
+  }
+
+  header.masthead {
+    grid-column: 1 / -1;
+    margin-bottom: 8px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  h1.title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    margin: 10px 0 6px;
+    text-wrap: balance;
+  }
+  .meta {
+    color: var(--ink-soft);
+    font-size: 0.92rem;
+  }
+  .meta strong { color: var(--ink); font-weight: 600; }
+
+  nav.toc {
+    position: sticky;
+    top: 40px;
+    align-self: start;
+    font-size: 0.88rem;
+  }
+  nav.toc .toc-heading {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 12px;
+  }
+  nav.toc ul { list-style: none; margin: 0 0 20px; padding: 0; }
+  nav.toc li { margin-bottom: 7px; }
+  nav.toc a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    padding-left: 10px;
+    display: block;
+  }
+  nav.toc a:hover { color: var(--accent); border-left-color: var(--accent); }
+  nav.toc .doc-label {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 18px 0 8px;
+  }
+
+  main { min-width: 0; }
+
+  section.doc { margin-top: 12px; }
+  section.doc + section.doc {
+    margin-top: 56px;
+    padding-top: 40px;
+    border-top: 1px solid var(--rule);
+  }
+  h2.doc-title {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 600;
+    margin: 0 0 28px;
+    text-wrap: balance;
+  }
+
+  article.clause { margin-bottom: 30px; scroll-margin-top: 32px; }
+  h3.clause-title {
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 1.02rem;
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    margin: 0 0 10px;
+  }
+  h3.clause-title .num {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    font-size: 0.85rem;
+  }
+  article.clause p { margin: 0 0 12px; color: var(--ink); }
+  article.clause p.lede { color: var(--ink-soft); }
+  article.clause ul { margin: 0 0 12px; padding-left: 1.2em; }
+  article.clause li { margin-bottom: 6px; }
+
+  .callout {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    padding: 14px 18px;
+    border-radius: 3px;
+    font-size: 0.92rem;
+    margin: 14px 0;
+  }
+  .callout strong { color: var(--accent); }
+
+  .databox {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 16px 18px;
+    margin: 14px 0;
+  }
+  .databox .k {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .databox p { margin: 0; font-size: 0.92rem; }
+  .databox + .databox { margin-top: 10px; }
+
+  code.field {
+    font-family: var(--font-mono);
+    background: var(--accent-soft);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.85em;
+  }
+
+  footer.doc-footer {
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+  }
+
+  @media (max-width: 860px) {
+    .shell { grid-template-columns: 1fr; gap: 32px; }
+    nav.toc { position: static; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <header class="masthead">
+    <div class="eyebrow">PENTALIGHTCODE · Vigie</div>
+    <h1 class="title">Conditions générales d'utilisation &amp; Politique de confidentialité</h1>
+    <p class="meta">Dernière mise à jour — <strong>23 août 2026</strong> · Éditeur : PENTALIGHTCODE (Tobie Vincent Amadou), Bénin</p>
+  </header>
+
+  <nav class="toc">
+    <div class="toc-heading">Sur cette page</div>
+    <div class="doc-label">Confidentialité</div>
+    <ul>
+      <li><a href="#c1">1. Ce que fait Vigie</a></li>
+      <li><a href="#c2">2. Données collectées</a></li>
+      <li><a href="#c3">3. Usage des données Google</a></li>
+      <li><a href="#c4">4. Partage avec des tiers</a></li>
+      <li><a href="#c5">5. Conservation &amp; suppression</a></li>
+      <li><a href="#c6">6. Sécurité</a></li>
+      <li><a href="#c7">7. Vos droits</a></li>
+      <li><a href="#c8">8. Contact</a></li>
+    </ul>
+    <div class="doc-label">CGU</div>
+    <ul>
+      <li><a href="#u1">1. Objet</a></li>
+      <li><a href="#u2">2. Nature du service</a></li>
+      <li><a href="#u3">3. Compte</a></li>
+      <li><a href="#u4">4. Usage autorisé</a></li>
+      <li><a href="#u5">5. Responsabilité</a></li>
+      <li><a href="#u6">6. Disponibilité</a></li>
+      <li><a href="#u7">7. Évolution du texte</a></li>
+      <li><a href="#u8">8. Droit applicable</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <section class="doc" id="confidentialite">
+      <h2 class="doc-title">Politique de confidentialité</h2>
+
+      <article class="clause" id="c1">
+        <h3 class="clause-title"><span class="num">01</span> Ce que fait Vigie</h3>
+        <p class="lede">Vigie est une application de suivi d'échéances et de rappels, conçue dès le départ pour rester confidentielle : les dossiers que vous suivez sont désignés par des noms de code que vous choisissez vous-même — Vigie ne vous demande jamais de vraies informations sur vos affaires.</p>
+        <p>Cette politique explique quelles données Vigie traite, pourquoi, et comment vous gardez le contrôle.</p>
+      </article>
+
+      <article class="clause" id="c2">
+        <h3 class="clause-title"><span class="num">02</span> Données que nous collectons</h3>
+        <div class="databox">
+          <div class="k">Compte</div>
+          <p>Votre adresse email, utilisée uniquement pour la connexion par lien magique. Aucun mot de passe n'est jamais stocké.</p>
+        </div>
+        <div class="databox">
+          <div class="k">Dossiers &amp; tâches</div>
+          <p>Les noms de code, dates et notes que vous saisissez vous-même. Rien n'est requis au-delà de ce que vous choisissez d'écrire.</p>
+        </div>
+        <div class="databox">
+          <div class="k">Connexion Google — optionnelle</div>
+          <p>Si vous l'activez, Vigie lit en lecture seule : les emails des expéditeurs que vous désignez explicitement comme "de confiance", vos Google Tasks, votre Google Agenda — uniquement pour vous proposer des rappels.</p>
+        </div>
+        <div class="databox">
+          <div class="k">Fonctions IA — désactivées par défaut</div>
+          <p>Le résumé du Bilan (texte anonymisé) et l'extraction Gmail (contenu réel de l'email, avec avertissement affiché avant toute activation) sont envoyés à Groq, un prestataire tiers, uniquement si vous activez ces options vous-même.</p>
+        </div>
+        <div class="databox">
+          <div class="k">Notifications</div>
+          <p>Un jeton technique (Firebase Cloud Messaging) permettant l'envoi des rappels sur votre appareil.</p>
+        </div>
+      </article>
+
+      <article class="clause" id="c3">
+        <h3 class="clause-title"><span class="num">03</span> Usage des données Google</h3>
+        <div class="callout">
+          <strong>Engagement Limited Use.</strong> L'usage par Vigie des informations reçues des API Google respecte la <em>Google API Services User Data Policy</em>, y compris ses exigences de Limited&nbsp;Use : ces données ne servent qu'à générer vos rappels dans Vigie, jamais à des fins publicitaires, et aucune personne ne les consulte, sauf demande explicite de votre part dans le cadre d'un support technique.
+        </div>
+        <p>Vous choisissez précisément quels expéditeurs sont lus (aucune lecture générale de votre boîte) et pouvez déconnecter un compte Google à tout moment depuis Profil → Automatisation.</p>
+      </article>
+
+      <article class="clause" id="c4">
+        <h3 class="clause-title"><span class="num">04</span> Partage avec des tiers</h3>
+        <ul>
+          <li><strong>Google</strong> — uniquement les API que vous autorisez explicitement (Gmail, Tasks, Calendar), dans les limites du §3.</li>
+          <li><strong>Groq</strong> — uniquement si vous activez une fonction IA, et uniquement le contenu strictement nécessaire à cette fonction.</li>
+          <li><strong>Firebase / Google Cloud</strong> — hébergement technique de l'application et des données.</li>
+        </ul>
+        <p>Vigie ne vend jamais vos données et ne les partage jamais à des fins publicitaires ou commerciales.</p>
+      </article>
+
+      <article class="clause" id="c5">
+        <h3 class="clause-title"><span class="num">05</span> Conservation &amp; suppression</h3>
+        <p>Vos données sont conservées tant que votre compte existe. Vous pouvez supprimer définitivement votre compte et toutes les données associées à tout moment, depuis Profil → Supprimer mon compte — l'opération est immédiate et irréversible.</p>
+      </article>
+
+      <article class="clause" id="c6">
+        <h3 class="clause-title"><span class="num">06</span> Sécurité</h3>
+        <p>Les jetons de connexion Google sont chiffrés avant stockage. Toutes les communications passent par HTTPS. Des règles d'accès strictes garantissent que vos données ne sont jamais visibles par un autre utilisateur.</p>
+      </article>
+
+      <article class="clause" id="c7">
+        <h3 class="clause-title"><span class="num">07</span> Vos droits</h3>
+        <p>Vous pouvez à tout moment accéder à vos données, les corriger ou demander leur suppression complète — directement dans l'application, ou en nous écrivant (voir §8).</p>
+      </article>
+
+      <article class="clause" id="c8">
+        <h3 class="clause-title"><span class="num">08</span> Contact</h3>
+        <p><code class="field">contact@pentalightcode.com</code></p>
+      </article>
+    </section>
+
+    <section class="doc" id="cgu">
+      <h2 class="doc-title">Conditions générales d'utilisation</h2>
+
+      <article class="clause" id="u1">
+        <h3 class="clause-title"><span class="num">01</span> Objet</h3>
+        <p>Les présentes conditions régissent l'utilisation de Vigie, une application éditée par PENTALIGHTCODE. En créant un compte, vous acceptez ces conditions.</p>
+      </article>
+
+      <article class="clause" id="u2">
+        <h3 class="clause-title"><span class="num">02</span> Nature du service</h3>
+        <p>Vigie est un outil d'aide au suivi d'échéances et de rappels. Il ne constitue en aucun cas un conseil juridique, médical ou professionnel, quelle que soit votre activité. Vous restez seul responsable du respect de vos obligations et délais réels.</p>
+      </article>
+
+      <article class="clause" id="u3">
+        <h3 class="clause-title"><span class="num">03</span> Compte</h3>
+        <p>Vous êtes responsable de la confidentialité de l'accès à votre compte (votre adresse email et l'appareil sur lequel Vigie est installé). Vigie propose un verrouillage par code/biométrie que nous vous recommandons d'activer.</p>
+      </article>
+
+      <article class="clause" id="u4">
+        <h3 class="clause-title"><span class="num">04</span> Usage autorisé</h3>
+        <p>Vigie est destiné à un usage personnel de suivi de vos propres dossiers. Toute tentative d'accès non autorisé aux données d'un autre utilisateur, ou tout usage détourné du service, est interdite.</p>
+      </article>
+
+      <article class="clause" id="u5">
+        <h3 class="clause-title"><span class="num">05</span> Responsabilité</h3>
+        <p>Vigie est fourni "en l'état". Nous mettons tout en œuvre pour la fiabilité des rappels, mais ne pouvons garantir l'absence totale d'erreur ou d'interruption (réseau, restrictions du système d'exploitation de votre téléphone, panne d'un service tiers). Vigie est une aide, pas un substitut à votre propre vigilance sur vos échéances réelles.</p>
+      </article>
+
+      <article class="clause" id="u6">
+        <h3 class="clause-title"><span class="num">06</span> Disponibilité</h3>
+        <p>Le service est fourni au mieux, sans garantie de disponibilité continue. Des interruptions de maintenance peuvent survenir, si possible annoncées à l'avance dans l'application.</p>
+      </article>
+
+      <article class="clause" id="u7">
+        <h3 class="clause-title"><span class="num">07</span> Évolution du texte</h3>
+        <p>Ces conditions peuvent évoluer. Toute modification substantielle vous sera signalée dans l'application avant de prendre effet.</p>
+      </article>
+
+      <article class="clause" id="u8">
+        <h3 class="clause-title"><span class="num">08</span> Droit applicable</h3>
+        <p>Les présentes conditions sont régies par le droit béninois.</p>
+      </article>
+    </section>
+
+    <footer class="doc-footer">
+      PENTALIGHTCODE — Vigie.
+    </footer>
+  </main>
+</div>
+</body>
+</html>
