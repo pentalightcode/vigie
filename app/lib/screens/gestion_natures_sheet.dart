@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/nature_dossier.dart';
 import '../services/nature_dossier_service.dart';
 
@@ -24,6 +25,7 @@ class _GestionNaturesSheetState extends State<GestionNaturesSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
@@ -35,7 +37,7 @@ class _GestionNaturesSheetState extends State<GestionNaturesSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Mes types de dossier', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(l10n.profilTypesDossierTitre, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 12),
           StreamBuilder<List<NatureDossier>>(
             stream: NatureDossierService.instance.natures(),
@@ -57,7 +59,7 @@ class _GestionNaturesSheetState extends State<GestionNaturesSheet> {
           const Divider(),
           TextField(
             controller: _nomController,
-            decoration: const InputDecoration(labelText: 'Nouveau type (ex: Consultation)'),
+            decoration: InputDecoration(labelText: l10n.natureChampNouveauType),
           ),
           FilledButton(
             onPressed: () {
@@ -66,7 +68,7 @@ class _GestionNaturesSheetState extends State<GestionNaturesSheet> {
               NatureDossierService.instance.ajouterNature(nom);
               _nomController.clear();
             },
-            child: const Text('Ajouter ce type'),
+            child: Text(l10n.natureBoutonAjouter),
           ),
         ],
       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../l10n/app_localizations.dart';
 import '../models/connexion_google.dart';
 import '../models/evenement_calendrier.dart';
 import '../services/gmail_service.dart';
@@ -51,7 +52,9 @@ class _AgendaScreenState extends State<AgendaScreen> {
       }
       if (mounted) setState(() => _evenementsParJour = parJour);
     } catch (e) {
-      if (mounted) setState(() => _erreur = 'Impossible de lire le calendrier : $e');
+      if (mounted) {
+        setState(() => _erreur = AppLocalizations.of(context)!.agendaErreurLecture(e.toString()));
+      }
     } finally {
       if (mounted) setState(() => _chargement = false);
     }
@@ -64,8 +67,9 @@ class _AgendaScreenState extends State<AgendaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: const Text('Agenda')),
+      appBar: AppBar(title: Text(l10n.navAgenda)),
       // Gate sur "au moins un compte Google connecté" — depuis le
       // 2026-08-21, connecter un compte donne toujours accès à Tasks +
       // Calendar (aucun rôle prédéfini, voir ConnexionGoogle).
@@ -76,12 +80,11 @@ class _AgendaScreenState extends State<AgendaScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.data!.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Text(
-                  'Connecte d\'abord un compte Google dans Automatisation '
-                  'pour voir ton agenda ici.',
+                  l10n.agendaAucunCompteConnecte,
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -95,7 +98,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
           : FloatingActionButton.extended(
               onPressed: () => _ajouterAUnDossier(context),
               icon: const Icon(Icons.add),
-              label: const Text('Ajouter une tâche'),
+              label: Text(l10n.agendaAjouterTache),
             ),
     );
   }
@@ -116,10 +119,11 @@ class _AgendaScreenState extends State<AgendaScreen> {
   }
 
   Widget _contenu(BuildContext context) {
+    final codeLangue = Localizations.localeOf(context).languageCode;
     return Column(
       children: [
         TableCalendar<EvenementCalendrier>(
-          locale: 'fr_FR',
+          locale: codeLangue == 'en' ? 'en_US' : 'fr_FR',
           firstDay: DateTime.utc(2020, 1, 1),
           lastDay: DateTime.utc(2035, 12, 31),
           focusedDay: _moisAffiche,
@@ -168,7 +172,7 @@ class _AgendaScreenState extends State<AgendaScreen> {
     if (evenements.isEmpty) {
       return Center(
         child: Text(
-          'Rien le ${formaterDateFr(_jourSelectionne)}.',
+          AppLocalizations.of(context)!.agendaRienCeJour(formaterDateFr(_jourSelectionne)),
           style: const TextStyle(color: Colors.grey),
         ),
       );
@@ -177,10 +181,14 @@ class _AgendaScreenState extends State<AgendaScreen> {
       padding: const EdgeInsets.all(12),
       itemCount: evenements.length,
       itemBuilder: (context, i) {
+        final l10n = AppLocalizations.of(context)!;
         final e = evenements[i];
+        final estFrancais = Localizations.localeOf(context).languageCode != 'en';
         final heure = e.journeeEntiere
-            ? 'Journée entière'
-            : '${e.date.hour.toString().padLeft(2, '0')}h${e.date.minute.toString().padLeft(2, '0')}';
+            ? l10n.agendaJourneeEntiere
+            : estFrancais
+                ? '${e.date.hour.toString().padLeft(2, '0')}h${e.date.minute.toString().padLeft(2, '0')}'
+                : '${e.date.hour.toString().padLeft(2, '0')}:${e.date.minute.toString().padLeft(2, '0')}';
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 4),
           child: ListTile(

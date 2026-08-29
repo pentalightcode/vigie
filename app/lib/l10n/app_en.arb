@@ -1,0 +1,629 @@
+{
+  "@@locale": "en",
+  "navATraiter": "To Do",
+  "navAgenda": "Agenda",
+  "navBilan": "Summary",
+  "navProfil": "Profile",
+  "professionMedecin": "Doctor / Healthcare professional",
+  "professionEnseignant": "Teacher / Professor",
+  "professionAvocatJuriste": "Lawyer / Legal counsel",
+  "professionMagistrat": "Magistrate",
+  "professionComptable": "Accountant / Chartered accountant",
+  "professionConsultant": "Consultant / Freelancer",
+  "professionCommercial": "Sales / Account manager",
+  "professionArchitecteIngenieur": "Architect / Engineer",
+  "professionAgentImmobilier": "Real estate agent",
+  "professionArtisanBatiment": "Craftsman / Building contractor",
+  "professionBeauteBienEtre": "Hairdresser / Beautician / Wellness",
+  "professionEntrepreneur": "Entrepreneur / Business owner",
+  "professionAutre": "Other",
+  "joursAvant": "{jours} days before",
+  "@joursAvant": {
+    "placeholders": {
+      "jours": {"type": "int"}
+    }
+  },
+  "profilPreciseProfessionLabel": "Specify your profession",
+  "onboardingBienvenue": "Welcome!",
+  "onboardingSousTitre": "A few details to personalize your assistant.",
+  "onboardingChampPrenom": "First name",
+  "onboardingChampPseudo": "Nickname (what the app calls you)",
+  "onboardingChampProfession": "Your profession",
+  "onboardingNoteNaturesPreremplies": "We'll pre-fill case types suited to your profession — editable afterwards.",
+  "onboardingChampDelaiRappel": "How many days ahead do you want to be notified?",
+  "onboardingBoutonCommencer": "Get started",
+  "onboardingErreurPrenomPseudo": "Enter at least your first name and a nickname.",
+  "onboardingErreurProfession": "Specify the name of your profession.",
+  "onboardingErreurConnexion": "Couldn't save. Check your connection.",
+  "commonAnnuler": "Cancel",
+  "commonContinuer": "Continue",
+  "commonEnregistrer": "Save",
+  "profilTitre": "Profile",
+  "profilPourquoiVigieTitre": "Why Vigie?",
+  "profilPourquoiVigieSousTitre": "What makes Vigie different",
+  "profilConnecteEnTantQue": "Signed in as {email}",
+  "@profilConnecteEnTantQue": {
+    "placeholders": {
+      "email": {"type": "String"}
+    }
+  },
+  "profilEmailInconnu": "unknown",
+  "profilPseudoNonDefini": "Nickname not set",
+  "profilProfessionNonDefinie": "Profession not set",
+  "profilDelaiRappelTitre": "Reminder delay",
+  "profilDelaiRappelSousTitre": "{jours} days before the deadline",
+  "@profilDelaiRappelSousTitre": {
+    "placeholders": {
+      "jours": {"type": "int"}
+    }
+  },
+  "profilTypesDossierTitre": "My case types",
+  "profilTypesDossierSousTitre": "Add or remove your custom categories",
+  "profilThemeTitre": "Theme",
+  "profilThemeSousTitre": "Color and light/dark mode",
+  "profilLangueTitre": "Language",
+  "profilLangueSousTitre": "Français / English",
+  "profilThemeCouleurLabel": "Color",
+  "profilThemeModeLabel": "Mode",
+  "profilThemeModeSysteme": "System",
+  "profilThemeModeClair": "Light",
+  "profilThemeModeSombre": "Dark",
+  "couleurIndigo": "Indigo",
+  "couleurBleu": "Blue",
+  "couleurSarcelle": "Teal",
+  "couleurVert": "Green",
+  "couleurViolet": "Purple",
+  "couleurOrange": "Orange",
+  "profilAutomatisationTitre": "Automation",
+  "profilAutomatisationAucunCompte": "Connect a Google account to detect dates automatically",
+  "profilAutomatisationUnCompte": "1 Google account connected",
+  "profilAutomatisationDeuxComptes": "2 Google accounts connected",
+  "profilSeDeconnecterTitre": "Sign out",
+  "profilSupprimerCompteTitre": "Delete my account",
+  "profilSeDeconnecterConfirmationTitre": "Sign out?",
+  "profilSeDeconnecterConfirmationMessage": "You'll need to sign in again by email to reopen the app.",
+  "profilSupprimerCompteMessage1": "All your cases and tasks will be permanently deleted. There is no way to recover them afterwards.",
+  "profilSupprimerCompteMessage2": "Your login account will also be deleted — you won't be able to sign in again with this email without creating a brand new, empty account.",
+  "profilSupprimerCompteMessage3": "Final warning: this action is irreversible and immediate. Are you absolutely sure you want to delete your account?",
+  "profilSupprimerCompteDialogueTitre": "Delete account",
+  "profilModifierPseudoTitre": "Edit nickname",
+  "profilPseudoLabel": "Nickname",
+  "profilModifierProfessionTitre": "Edit profession",
+  "creerPinErreurTropCourt": "The code must be at least 4 digits.",
+  "creerPinErreurNeCorrespondentPas": "The two codes don't match.",
+  "creerPinInstructions": "Create a PIN code to protect the app.\nYou'll be asked for it (or your fingerprint/Face ID) every time you open the app.",
+  "creerPinChampNouveauCode": "New PIN code",
+  "creerPinChampRetaperCode": "Retype the code",
+  "creerPinBoutonValider": "Confirm",
+  "verrouCodeIncorrect": "Incorrect code.",
+  "verrouTropDeTentatives": "Too many attempts. Try again in {secondes}s.",
+  "verrouCodeOublieTitre": "Forgot your PIN?",
+  "verrouCodeOublieMessage": "You'll need to sign in again by email to prove it's really you, then create a new code. Your cases and tasks won't be affected.",
+  "verrouConfirmeIdentite": "Confirm your identity, or enter your PIN code.",
+  "verrouEntreCodePin": "Enter your PIN code to open the app.",
+  "verrouChampCodePin": "PIN code",
+  "verrouBoutonDeverrouiller": "Unlock",
+  "verrouReessayerBiometrie": "Try again with fingerprint / Face ID",
+  "natureChampNouveauType": "New type (e.g. Consultation)",
+  "natureBoutonAjouter": "Add this type",
+  "creationDossierTitre": "Add to a case",
+  "creationDossierChampNomCode": "Code name",
+  "creationDossierExempleNomCode": "e.g.: Case Alpha",
+  "creationDossierChampType": "Case type",
+  "creationDossierNotesTitre": "Notes",
+  "creationDossierChampResteAVerifier": "Still to check",
+  "creationDossierChampEnAttenteDe": "Waiting on",
+  "creationDossierChampAutre": "Other",
+  "creationDossierAvertissementSensible": "As with the case's code name, avoid writing actual sensitive information here.",
+  "creationDossierBoutonCreer": "Create",
+  "commonFermer": "Close",
+  "banniereNouvelleVersionAvecNumero": "New version available ({version}).",
+  "@banniereNouvelleVersionAvecNumero": {
+    "placeholders": {
+      "version": {"type": "String"}
+    }
+  },
+  "banniereNouvelleVersionSansNumero": "A new version of the app is available.",
+  "banniereInstructionTelechargement": "Go to vigie.pentalightcode.com to download it.",
+  "banniereIgnorerTitre": "Dismiss this update?",
+  "banniereIgnorerMessage": "The banner will reappear the next time you open the app until you update.",
+  "banniereIgnorerBouton": "Dismiss",
+  "aTraiterNotificationsTooltip": "Notifications",
+  "aTraiterPropositionsTooltip": "{nombre} case proposal(s) to review",
+  "@aTraiterPropositionsTooltip": {
+    "placeholders": {
+      "nombre": {"type": "int"}
+    }
+  },
+  "aTraiterErreur": "Error: {erreur}",
+  "@aTraiterErreur": {
+    "placeholders": {
+      "erreur": {"type": "String"}
+    }
+  },
+  "aTraiterRienAFaire": "Nothing to do for now.",
+  "aTraiterEnAttenteTitre": "Waiting (not active yet)",
+  "aTraiterEnAttenteExplication": "These cases already exist — no need to recreate them. They'll automatically move to the list above once their time comes.",
+  "aTraiterAjouterTooltip": "Add",
+  "aTraiterProgressionDossier": "{faites}/{total} tasks done ({pourcentage}%)",
+  "@aTraiterProgressionDossier": {
+    "placeholders": {
+      "faites": {"type": "int"},
+      "total": {"type": "int"},
+      "pourcentage": {"type": "int"}
+    }
+  },
+  "aTraiterEnAttenteEcheance": "Due on {date} — will appear in \"To Do\" in {jours} days",
+  "@aTraiterEnAttenteEcheance": {
+    "placeholders": {
+      "date": {"type": "String"},
+      "jours": {"type": "int"}
+    }
+  },
+  "aTraiterEnRetard": "Overdue",
+  "aTraiterAujourdhui": "Today",
+  "aTraiterDemain": "Tomorrow",
+  "aTraiterDansJours": "In {jours} d",
+  "@aTraiterDansJours": {
+    "placeholders": {
+      "jours": {"type": "int"}
+    }
+  },
+  "aTraiterCestFait": "Done",
+  "aTraiterMarquerFaitTitre": "Mark as done?",
+  "aTraiterMarquerFaitMessage": "\"{description}\" will be marked as done.",
+  "@aTraiterMarquerFaitMessage": {
+    "placeholders": {
+      "description": {"type": "String"}
+    }
+  },
+  "agendaErreurLecture": "Couldn't read the calendar: {erreur}",
+  "@agendaErreurLecture": {
+    "placeholders": {
+      "erreur": {"type": "String"}
+    }
+  },
+  "agendaAucunCompteConnecte": "First connect a Google account in Automation to see your agenda here.",
+  "agendaAjouterTache": "Add a task",
+  "agendaRienCeJour": "Nothing on {date}.",
+  "@agendaRienCeJour": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "agendaJourneeEntiere": "All day",
+  "bilanPeriodeSemaine": "Week",
+  "bilanPeriodeMois": "Month",
+  "bilanPeriodeTrimestre": "Quarter",
+  "bilanPeriodeSemestre": "Half-year",
+  "bilanPeriodeAnnee": "Year",
+  "bilanLibellePeriodeTrimestre": "Q{numero} {annee}",
+  "@bilanLibellePeriodeTrimestre": {
+    "placeholders": {
+      "numero": {"type": "int"},
+      "annee": {"type": "int"}
+    }
+  },
+  "bilanLibellePeriodeSemestre": "H{numero} {annee}",
+  "@bilanLibellePeriodeSemestre": {
+    "placeholders": {
+      "numero": {"type": "int"},
+      "annee": {"type": "int"}
+    }
+  },
+  "bilanPartagerTooltip": "Share this summary",
+  "bilanRienAAfficher": "Nothing to show for now.",
+  "bilanFait": "Done",
+  "bilanEnRetard": "Overdue",
+  "bilanAVenir": "Upcoming",
+  "bilanNoteEnRetardPeriodePassee": "\"Overdue\" is only shown for the current period — it doesn't make sense for a period that's already past.",
+  "bilanStatistiquesTitre": "Statistics",
+  "bilanResumeIaTitre": "Summary & recommendations",
+  "bilanResumeIaDesactiverTooltip": "Turn off",
+  "bilanResumeIaDescription": "A summary and recommendations generated by AI (Groq), based on the same anonymized figures used for sharing the summary — off by default.",
+  "bilanResumeIaActiverBouton": "Turn on",
+  "bilanResumeIaGenererBouton": "Generate",
+  "bilanResumeIaRegenererBouton": "Regenerate",
+  "bilanResumeIaConfirmationTitre": "Before turning on the AI summary",
+  "bilanResumeIaConfirmationMessage": "The summary's text (figures and code names, never real information — the same content already used for sharing) is sent to a third-party AI service (Groq) to generate a summary.",
+  "bilanResumeIaErreurGeneration": "Couldn't generate the summary: {erreur}",
+  "@bilanResumeIaErreurGeneration": {
+    "placeholders": {
+      "erreur": {"type": "String"}
+    }
+  },
+  "bilanTexteEnTete": "Vigie Summary — {periode}",
+  "@bilanTexteEnTete": {
+    "placeholders": {
+      "periode": {"type": "String"}
+    }
+  },
+  "bilanTexteTotalAvecRetard": "Total: {fait} done, {enRetard} overdue, {aVenir} upcoming",
+  "@bilanTexteTotalAvecRetard": {
+    "placeholders": {
+      "fait": {"type": "int"},
+      "enRetard": {"type": "int"},
+      "aVenir": {"type": "int"}
+    }
+  },
+  "bilanTexteTotalSansRetard": "Total: {fait} done, {aVenir} upcoming",
+  "@bilanTexteTotalSansRetard": {
+    "placeholders": {
+      "fait": {"type": "int"},
+      "aVenir": {"type": "int"}
+    }
+  },
+  "bilanTexteDossierAvecRetard": "{nom}: {fait} done, {enRetard} overdue, {aVenir} upcoming",
+  "@bilanTexteDossierAvecRetard": {
+    "placeholders": {
+      "nom": {"type": "String"},
+      "fait": {"type": "int"},
+      "enRetard": {"type": "int"},
+      "aVenir": {"type": "int"}
+    }
+  },
+  "bilanTexteDossierSansRetard": "{nom}: {fait} done, {aVenir} upcoming",
+  "@bilanTexteDossierSansRetard": {
+    "placeholders": {
+      "nom": {"type": "String"},
+      "fait": {"type": "int"},
+      "aVenir": {"type": "int"}
+    }
+  },
+  "bilanTextePartageSignature": "Generated by Vigie — code names chosen by the user, no sensitive information.",
+  "statistiquesAucuneTacheEnRetard": "No task completed late so far.",
+  "statistiquesJoursSansRetard": "{jours} day(s) without a late-completed task.",
+  "@statistiquesJoursSansRetard": {
+    "placeholders": {
+      "jours": {"type": "int"}
+    }
+  },
+  "statistiquesRienSurPeriode": "Nothing for this period.",
+  "statistiquesTauxAchevement": "{pourcentage}% completion rate",
+  "@statistiquesTauxAchevement": {
+    "placeholders": {
+      "pourcentage": {"type": "int"}
+    }
+  },
+  "statistiquesRepartitionParType": "Breakdown by type",
+  "statistiquesTachesParJour": "Tasks completed by day of the week",
+  "statistiquesActiviteSemaines": "Activity over the last 12 weeks",
+  "statistiquesTooltipJour": "{jour}/{mois}: {compte} task(s)",
+  "@statistiquesTooltipJour": {
+    "placeholders": {
+      "jour": {"type": "int"},
+      "mois": {"type": "int"},
+      "compte": {"type": "int"}
+    }
+  },
+  "automatisationComptesGoogleTitre": "Google accounts",
+  "automatisationComptesGoogleDescription": "Connect as many accounts as you want (personal, secondary...) — give them a name to keep track of them, if you want.",
+  "automatisationConnecterCompte": "Connect a Google account",
+  "automatisationConnecterAutreCompte": "Connect another account",
+  "automatisationPropositionsAValiderAvecNombre": "Proposals to review ({nombre})",
+  "@automatisationPropositionsAValiderAvecNombre": {
+    "placeholders": {
+      "nombre": {"type": "int"}
+    }
+  },
+  "automatisationPropositionsAValider": "Proposals to review",
+  "automatisationCompteConnecte": "Account connected: {email}",
+  "@automatisationCompteConnecte": {
+    "placeholders": {
+      "email": {"type": "String"}
+    }
+  },
+  "automatisationConnexionImpossible": "Couldn't connect: {erreur}",
+  "@automatisationConnexionImpossible": {
+    "placeholders": {
+      "erreur": {"type": "String"}
+    }
+  },
+  "automatisationDeconnecterTitre": "Disconnect this Google account?",
+  "automatisationDeconnecterMessage": "\"{compte}\" will no longer be scanned automatically (emails, tasks, calendar).",
+  "@automatisationDeconnecterMessage": {
+    "placeholders": {
+      "compte": {"type": "String"}
+    }
+  },
+  "automatisationRenommerTitre": "Rename this account",
+  "automatisationRenommerChampNom": "Name (optional)",
+  "automatisationRenommerTooltip": "Rename",
+  "automatisationDeconnecterTooltip": "Disconnect",
+  "automatisationMethodeTitre": "Date extraction method",
+  "automatisationMethodeMotifTitre": "Pattern matching (recommended)",
+  "automatisationMethodeMotifDescription": "Free — stays entirely on our servers, nothing sent elsewhere.",
+  "automatisationMethodeIaTitre": "Artificial intelligence",
+  "automatisationMethodeIaDescription": "More reliable on poorly formatted emails — see the risks before enabling.",
+  "automatisationAvantActiverIaTitre": "Before enabling AI",
+  "automatisationAvantActiverIaMessage": "With this option, the full content of every email received from a trusted sender is sent to a third-party AI service to be read — not just the date found. For real judicial emails, this is an exposure to take seriously. Pattern matching (the recommended option) never lets any data leave our servers.",
+  "automatisationActiverQuandMeme": "Enable anyway",
+  "automatisationExpediteursTitre": "Favorite senders",
+  "automatisationExpediteursDescription": "Only emails from these addresses will be read (e.g. the court's).",
+  "automatisationChoisirDepuisBoite": "Choose from my mailbox",
+  "automatisationOuAjouteManuellement": "Or add an address manually:",
+  "automatisationChampAdresseEmail": "Email address",
+  "automatisationAucunExpediteur": "No sender added yet.",
+  "automatisationRetirerTitre": "Remove this sender?",
+  "automatisationRetirerMessage": "Emails from \"{email}\" will no longer be read automatically.",
+  "@automatisationRetirerMessage": {
+    "placeholders": {
+      "email": {"type": "String"}
+    }
+  },
+  "automatisationRetirerBouton": "Remove",
+  "automatisationAdresseInvalide": "Invalid email address.",
+  "automatisationDomaineIntrouvableTitre": "This domain seems unreachable",
+  "automatisationDomaineIntrouvableMessage": "No mail server found for \"{domaine}\" — check for a typo.\n\nAdd anyway: {email}?",
+  "@automatisationDomaineIntrouvableMessage": {
+    "placeholders": {
+      "domaine": {"type": "String"},
+      "email": {"type": "String"}
+    }
+  },
+  "automatisationAjouterQuandMeme": "Add anyway",
+  "automatisationAjouterExpediteurTitre": "Add this sender?",
+  "automatisationAjouterExpediteurMessage": "Double-check for a typo:\n\n{email}",
+  "@automatisationAjouterExpediteurMessage": {
+    "placeholders": {
+      "email": {"type": "String"}
+    }
+  },
+  "automatisationAjouterBouton": "Add",
+  "automatisationErreurLectureBoite": "Couldn't read the mailbox: {erreur}",
+  "@automatisationErreurLectureBoite": {
+    "placeholders": {
+      "erreur": {"type": "String"}
+    }
+  },
+  "automatisationAucunNouvelExpediteur": "No new sender found in recent emails.",
+  "automatisationExpediteursTrouvesTitre": "Senders found",
+  "automatisationCocheConfiance": "Check the ones you trust (e.g. the court).",
+  "automatisationEmailsRecents": "{nombre} recent email(s)",
+  "@automatisationEmailsRecents": {
+    "placeholders": {
+      "nombre": {"type": "int"}
+    }
+  },
+  "automatisationAjouterAvecNombre": "Add ({nombre})",
+  "@automatisationAjouterAvecNombre": {
+    "placeholders": {
+      "nombre": {"type": "int"}
+    }
+  },
+  "automatisationVerificationAutoTitre": "Automatic check",
+  "automatisationEtatPasEncoreVerifie": "{service}: not checked yet",
+  "@automatisationEtatPasEncoreVerifie": {
+    "placeholders": {
+      "service": {"type": "String"}
+    }
+  },
+  "automatisationEtatAvecDate": "{service}: {statut} — {date}",
+  "@automatisationEtatAvecDate": {
+    "placeholders": {
+      "service": {"type": "String"},
+      "statut": {"type": "String"},
+      "date": {"type": "String"}
+    }
+  },
+  "automatisationEtatSansDate": "{service}: {statut}",
+  "@automatisationEtatSansDate": {
+    "placeholders": {
+      "service": {"type": "String"},
+      "statut": {"type": "String"}
+    }
+  },
+  "automatisationEtatOk": "OK",
+  "automatisationEtatErreur": "Error",
+  "propositionsTitre": "Proposals",
+  "propositionsAucunePourLInstant": "No proposals yet. As soon as a date is found in an email, a Google Tasks task, or a Google Calendar event, it will appear here.",
+  "propositionsFiltreTout": "All",
+  "propositionsDateInconnue": "Unknown date",
+  "propositionsDeExpediteur": "From: {expediteur}",
+  "@propositionsDeExpediteur": {
+    "placeholders": {
+      "expediteur": {"type": "String"}
+    }
+  },
+  "propositionsIgnorerBouton": "Ignore",
+  "propositionsCreerDossierBouton": "Create the case",
+  "propositionsIgnorerTitre": "Ignore this proposal?",
+  "propositionsIgnorerMessage": "No case will be created for \"{sujet}\".",
+  "@propositionsIgnorerMessage": {
+    "placeholders": {
+      "sujet": {"type": "String"}
+    }
+  },
+  "ajouterErreurNomCode": "Give the case a code name.",
+  "ajouterErreurNature": "Choose a case type.",
+  "ajouterDossierAjoute": "Case added.",
+  "ajouterTitre": "Add a case",
+  "ajouterAjoutGroupeTooltip": "Bulk add (several cases at once)",
+  "ajouterTypeDossierLabel": "Case type",
+  "ajouterGererTypesBouton": "Manage my case types",
+  "ajouterDetailLabel": "Detail (to tell several tasks apart)",
+  "ajouterDetailExemple": "e.g.: Defense submissions",
+  "ajouterDans2Semaines": "In 2 weeks",
+  "ajouterDans1Mois": "In 1 month",
+  "ajouterChoisirDate": "Choose a date",
+  "ajouterRetirerDate": "Remove",
+  "ajouterAucuneDateChoisie": "No date chosen (optional).",
+  "ajouterEcheanceAvecDate": "Due date: {date}",
+  "@ajouterEcheanceAvecDate": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "ajouterNoteTitre": "Add a note",
+  "ajoutGroupeTitre": "Bulk add",
+  "ajoutGroupeTousTypeLabel": "All these cases are of type:",
+  "ajoutGroupeInstructions": "Fill in one line per case — the date is optional.",
+  "ajoutGroupeNomCodeHint": "Case {numero}",
+  "@ajoutGroupeNomCodeHint": {
+    "placeholders": {
+      "numero": {"type": "int"}
+    }
+  },
+  "ajoutGroupeDateBouton": "Date",
+  "ajoutGroupeAjouterLigne": "Add a line",
+  "ajoutGroupeEnregistrerBouton": "{nombre, plural, =0{Save} =1{Save (1 case)} other{Save ({nombre} cases)}}",
+  "@ajoutGroupeEnregistrerBouton": {
+    "placeholders": {
+      "nombre": {"type": "int"}
+    }
+  },
+  "confirmerEmailErreurVide": "Enter the email address used to request the link.",
+  "confirmerEmailErreurLienInvalide": "This link doesn't match this address, or it has expired.",
+  "confirmerEmailInstructions": "Confirm your email address to finish signing in.",
+  "confirmerEmailBouton": "Confirm",
+  "accueilPage1Titre": "Vigie",
+  "accueilPage1Texte": "Deadline tracking that stays confidential — for professions where every case matters.",
+  "accueilPage2Titre": "Add",
+  "accueilPage2Texte": "Create a case with a code name and a date, and let Vigie work out when to remind you.",
+  "accueilPage3Titre": "Follow up",
+  "accueilPage3Texte": "Vigie keeps reminding you until you confirm it's done — never a task forgotten in silence.",
+  "accueilPage4Titre": "Review",
+  "accueilPage4Texte": "A summary of your activity, case by case, to keep an overview.",
+  "accueilConfidentialiteNote": "No real information about your cases is ever required — you choose your own code name for each one.",
+  "accueilBoutonPasser": "Skip",
+  "accueilBoutonSuivant": "Next",
+  "accueilBoutonSeConnecter": "Sign in",
+  "connexionChampEmail": "Email address",
+  "connexionErreurEmailInvalide": "Enter a valid email address.",
+  "connexionErreurEnvoiLien": "Couldn't send the link. Check your connection.",
+  "connexionTelechargerAvecVersion": "Download the Android app (v{version})",
+  "@connexionTelechargerAvecVersion": {
+    "placeholders": {
+      "version": {"type": "String"}
+    }
+  },
+  "connexionTelechargerSansVersion": "Download the Android app (recommended)",
+  "connexionVersionInstalleeMeilleure": "The installed version works better than the website (notifications, Gmail...).",
+  "connexionInstructions": "Enter your email address, you'll receive a sign-in link — no password needed.",
+  "connexionRecevoirLienBouton": "Receive the sign-in link",
+  "connexionLienEnvoye": "A link was sent to {email}.\nOpen your mailbox and click the link to sign in.",
+  "@connexionLienEnvoye": {
+    "placeholders": {
+      "email": {"type": "String"}
+    }
+  },
+  "connexionMauvaiseAdresse": "Wrong address? Start over",
+  "notificationsTitre": "Notifications",
+  "notificationsAucunePourLInstant": "No notifications yet.",
+  "notificationsAucunePourCeType": "No notifications for this type.",
+  "notificationsFiltreTous": "All",
+  "notificationsChipTypeCompte": "{type}: {valeur}",
+  "@notificationsChipTypeCompte": {
+    "placeholders": {
+      "type": {"type": "String"},
+      "valeur": {"type": "int"}
+    }
+  },
+  "pourquoiVigieAppBarTitre": "Why Vigie",
+  "pourquoiVigieTitre1": "Reminders that adapt, not a fixed message",
+  "pourquoiVigieTexte1": "The tone hardens with the delay — neutral, then firm, then urgent — instead of repeating the same sentence forever. An approaching deadline is flagged even without a delay.",
+  "pourquoiVigieTitre2": "Privacy by design",
+  "pourquoiVigieTexte2": "Cases are identified by code names you choose, never by real sensitive information — from the case name all the way to the log and the exported summary.",
+  "pourquoiVigieTitre3": "All your sources, one single review",
+  "pourquoiVigieTexte3": "Gmail, Google Tasks, and Google Calendar feed the same proposals screen, color-coded by origin — you choose what becomes a real case. The status of every check is visible, not a black box.",
+  "pourquoiVigieTitre4": "A summary that tells a story",
+  "pourquoiVigieTexte4": "Activity heat map, breakdown by case type, busiest day, completion rate, and a reliability indicator — not just raw counters.",
+  "pourquoiVigieTitre5": "A log, not checkboxes",
+  "pourquoiVigieTexte5": "Documents a case's progress step by step: each note is appended, nothing is ever overwritten — a real memory of the progress, not a simple status.",
+  "pourquoiVigieTitre6": "A report that's safe to share, by design",
+  "pourquoiVigieTexte6": "The summary exports in one click — and since everything is already in code names, there's never anything sensitive in it, wherever it's shared.",
+  "commonSupprimer": "Delete",
+  "dossierDetailModifierTooltip": "Edit the case",
+  "dossierDetailSupprimerTooltip": "Delete the case",
+  "dossierDetailDateAvecValeur": "Date: {date}",
+  "@dossierDetailDateAvecValeur": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "dossierDetailPasDeDate": "No date given",
+  "dossierDetailTachesLieesTitre": "Related tasks",
+  "dossierDetailAucuneTache": "No tasks yet.",
+  "dossierDetailAjouterTacheBouton": "Add a task",
+  "dossierDetailSupprimerDossierTitre": "Delete this case?",
+  "dossierDetailSupprimerDossierMessage": "The case \"{nom}\" and all its tasks will be permanently deleted.",
+  "@dossierDetailSupprimerDossierMessage": {
+    "placeholders": {
+      "nom": {"type": "String"}
+    }
+  },
+  "dossierDetailNatureEtDate": "{nature} — {date}",
+  "@dossierDetailNatureEtDate": {
+    "placeholders": {
+      "nature": {"type": "String"},
+      "date": {"type": "String"}
+    }
+  },
+  "dossierDetailConfirmerTitre": "Confirm?",
+  "dossierDetailBasculerMarquerFait": "mark this task as done",
+  "dossierDetailBasculerRemettreAFaire": "set this task back to \"to do\"",
+  "dossierDetailBasculerMessage": "You want to {action}: \"{description}\".",
+  "@dossierDetailBasculerMessage": {
+    "placeholders": {
+      "action": {"type": "String"},
+      "description": {"type": "String"}
+    }
+  },
+  "dossierDetailSupprimerTacheTitre": "Delete this task?",
+  "dossierDetailSupprimerTacheMessage": "\"{description}\" will be permanently deleted.",
+  "@dossierDetailSupprimerTacheMessage": {
+    "placeholders": {
+      "description": {"type": "String"}
+    }
+  },
+  "dossierDetailAjouterTacheTitre": "Add a task",
+  "dossierDetailModifierTacheTitre": "Edit the task",
+  "dossierDetailDetailTacheLabel": "Task detail",
+  "journalTypeAvancement": "Progress",
+  "journalTypeBlocage": "Blocker",
+  "journalTypeDecision": "Decision",
+  "dossierDetailJournalTitre": "Log",
+  "dossierDetailJournalDescription": "Documents the case's progress step by step — each note is appended, nothing is overwritten. As with the case name, avoid writing actual sensitive information here.",
+  "dossierDetailJournalHint": "E.g.: called X, waiting for their reply...",
+  "dossierDetailAjouterJournalBouton": "Add to the log",
+  "dossierDetailErreurAjoutJournal": "Couldn't add this entry: {erreur}",
+  "@dossierDetailErreurAjoutJournal": {
+    "placeholders": {
+      "erreur": {"type": "String"}
+    }
+  },
+  "dossierDetailErreurModifJournal": "Couldn't edit this entry: {erreur}",
+  "@dossierDetailErreurModifJournal": {
+    "placeholders": {
+      "erreur": {"type": "String"}
+    }
+  },
+  "dossierDetailSupprimerEntreeTitre": "Delete this log entry?",
+  "dossierDetailSupprimerEntreeMessage": "This note from {date} will be permanently deleted.",
+  "@dossierDetailSupprimerEntreeMessage": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "dossierDetailModifierEntreeTitre": "Edit this entry",
+  "dossierDetailHistoriqueTitre": "History",
+  "dossierDetailAucuneEntree": "No entries yet.",
+  "dossierDetailAucuneEntreeType": "No entries of this type.",
+  "dossierDetailErreurLectureJournal": "Couldn't read the log: {erreur}",
+  "@dossierDetailErreurLectureJournal": {
+    "placeholders": {
+      "erreur": {"type": "String"}
+    }
+  },
+  "dossierDetailHier": "Yesterday",
+  "dossierDetailModifieSuffixe": "· edited",
+  "commonConfirmer": "Confirm",
+  "commonTuEsSur": "Are you sure?",
+  "commonDerniereConfirmation": "Final confirmation: {message}",
+  "@commonDerniereConfirmation": {
+    "placeholders": {
+      "message": {"type": "String"}
+    }
+  },
+  "connexionGoogleAdresseInconnue": "Connected account (reconnect to see the address)"
+}

@@ -10,3 +10,6 @@ firestore-debug.log
 
 # OS
 .DS_Store
+
+# Vidéos de démo (grosses, pas faites pour l'historique Git — hébergées sur Drive/YouTube)
+*.mp4

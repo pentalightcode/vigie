@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../services/auth_service.dart';
 
 /// Affiché quand le lien magique est ouvert sur un appareil/navigateur
@@ -20,9 +21,10 @@ class _ConfirmerEmailScreenState extends State<ConfirmerEmailScreen> {
   String? _erreur;
 
   Future<void> _confirmer() async {
+    final l10n = AppLocalizations.of(context)!;
     final email = _emailController.text.trim();
     if (email.isEmpty || !email.contains('@')) {
-      setState(() => _erreur = 'Entre l\'adresse email utilisée pour demander le lien.');
+      setState(() => _erreur = l10n.confirmerEmailErreurVide);
       return;
     }
     setState(() {
@@ -33,7 +35,7 @@ class _ConfirmerEmailScreenState extends State<ConfirmerEmailScreen> {
       await AuthService.instance.terminerConnexionAvecLienEtEmail(widget.lien, email);
       widget.onConnecte();
     } catch (e) {
-      setState(() => _erreur = 'Ce lien ne correspond pas à cette adresse, ou il a expiré.');
+      setState(() => _erreur = l10n.confirmerEmailErreurLienInvalide);
     } finally {
       if (mounted) setState(() => _enCours = false);
     }
@@ -41,6 +43,7 @@ class _ConfirmerEmailScreenState extends State<ConfirmerEmailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -50,17 +53,17 @@ class _ConfirmerEmailScreenState extends State<ConfirmerEmailScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  'Confirme ton adresse email pour terminer la connexion.',
+                Text(
+                  l10n.confirmerEmailInstructions,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Adresse email',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.connexionChampEmail,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 if (_erreur != null) ...[
@@ -76,7 +79,7 @@ class _ConfirmerEmailScreenState extends State<ConfirmerEmailScreen> {
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Confirmer'),
+                      : Text(l10n.confirmerEmailBouton),
                 ),
               ],
             ),

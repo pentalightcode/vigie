@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/notification_envoyee.dart';
 import '../services/firestore_service.dart';
 import '../utils/dates_fr.dart';
@@ -20,8 +21,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: const Text('Notifications')),
+      appBar: AppBar(title: Text(l10n.notificationsTitre)),
       body: StreamBuilder<List<NotificationEnvoyee>>(
         stream: FirestoreService.instance.notifications(),
         builder: (context, snapshot) {
@@ -30,7 +32,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           }
           final toutes = snapshot.data ?? [];
           if (toutes.isEmpty) {
-            return const Center(child: Text('Aucune notification pour l\'instant.'));
+            return Center(child: Text(l10n.notificationsAucunePourLInstant));
           }
 
           final tousLesTypes = <String>{};
@@ -52,7 +54,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ),
               Expanded(
                 child: filtrees.isEmpty
-                    ? const Center(child: Text('Aucune notification pour ce type.'))
+                    ? Center(child: Text(l10n.notificationsAucunePourCeType))
                     : ListView.builder(
                         padding: const EdgeInsets.all(12),
                         itemCount: filtrees.length,
@@ -82,7 +84,7 @@ class _BarreDeFiltres extends StatelessWidget {
       child: Row(
         children: [
           ChoiceChip(
-            label: const Text('Tous'),
+            label: Text(AppLocalizations.of(context)!.notificationsFiltreTous),
             selected: filtreActif == null,
             onSelected: (_) => onChanger(null),
           ),
@@ -126,7 +128,9 @@ class _LigneNotification extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      notif.envoyeLe != null ? formaterDateHeureFr(notif.envoyeLe!) : 'Date inconnue',
+                      notif.envoyeLe != null
+                          ? formaterDateHeureFr(notif.envoyeLe!)
+                          : AppLocalizations.of(context)!.propositionsDateInconnue,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
                     ),
                   ),
@@ -142,7 +146,7 @@ class _LigneNotification extends StatelessWidget {
                   runSpacing: 6,
                   children: notif.parType.entries
                       .map((e) => Chip(
-                            label: Text('${e.key} : ${e.value}'),
+                            label: Text(AppLocalizations.of(context)!.notificationsChipTypeCompte(e.key, e.value)),
                             visualDensity: VisualDensity.compact,
                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ))

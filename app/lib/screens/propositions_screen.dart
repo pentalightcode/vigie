@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/proposition_dossier.dart';
 import '../services/gmail_service.dart';
 import '../utils/confirmation.dart';
@@ -25,8 +26,9 @@ class _PropositionsScreenState extends State<PropositionsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: const Text('Propositions')),
+      appBar: AppBar(title: Text(l10n.propositionsTitre)),
       body: StreamBuilder<List<PropositionDossier>>(
         stream: GmailService.instance.propositions(),
         builder: (context, snapshot) {
@@ -35,13 +37,11 @@ class _PropositionsScreenState extends State<PropositionsScreen> {
           }
           final toutes = snapshot.data ?? [];
           if (toutes.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Text(
-                  'Aucune proposition pour l\'instant. Dès qu\'une date sera '
-                  'trouvée dans un email, une tâche Google Tasks ou un '
-                  'événement Google Calendar, elle apparaîtra ici.',
+                  l10n.propositionsAucunePourLInstant,
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -58,7 +58,7 @@ class _PropositionsScreenState extends State<PropositionsScreen> {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      _pucheFiltre(null, 'Tout'),
+                      _pucheFiltre(null, l10n.propositionsFiltreTout),
                       const SizedBox(width: 8),
                       _pucheFiltre(SourceProposition.gmail, 'Gmail'),
                       const SizedBox(width: 8),
@@ -114,13 +114,18 @@ class _LigneProposition extends StatelessWidget {
                 Text(infos.libelle, style: TextStyle(color: infos.couleur, fontSize: 12, fontWeight: FontWeight.w600)),
                 const Spacer(),
                 Text(
-                  proposition.date != null ? formaterDateFr(proposition.date!) : 'Date inconnue',
+                  proposition.date != null
+                      ? formaterDateFr(proposition.date!)
+                      : AppLocalizations.of(context)!.propositionsDateInconnue,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            Text('De : ${proposition.expediteur}', style: const TextStyle(color: Colors.grey)),
+            Text(
+              AppLocalizations.of(context)!.propositionsDeExpediteur(proposition.expediteur),
+              style: const TextStyle(color: Colors.grey),
+            ),
             if (proposition.sujetEmail.isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(proposition.sujetEmail, maxLines: 2, overflow: TextOverflow.ellipsis),
@@ -140,14 +145,14 @@ class _LigneProposition extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => _refuser(context),
-                    child: const Text('Ignorer'),
+                    child: Text(AppLocalizations.of(context)!.propositionsIgnorerBouton),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: FilledButton(
                     onPressed: () => _creerDossier(context),
-                    child: const Text('Créer le dossier'),
+                    child: Text(AppLocalizations.of(context)!.propositionsCreerDossierBouton),
                   ),
                 ),
               ],
@@ -159,11 +164,12 @@ class _LigneProposition extends StatelessWidget {
   }
 
   Future<void> _refuser(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirme = await demanderDoubleConfirmation(
       context,
-      titre: 'Ignorer cette proposition ?',
-      message: 'Aucun dossier ne sera créé pour "${proposition.sujetEmail}".',
-      texteBouton: 'Ignorer',
+      titre: l10n.propositionsIgnorerTitre,
+      message: l10n.propositionsIgnorerMessage(proposition.sujetEmail),
+      texteBouton: l10n.propositionsIgnorerBouton,
       destructif: true,
     );
     if (confirme) {

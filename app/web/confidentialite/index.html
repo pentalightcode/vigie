@@ -59,6 +59,16 @@
     margin-bottom: 8px;
     padding-bottom: 32px;
     border-bottom: 1px solid var(--rule);
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+  }
+  .logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
   }
   .eyebrow {
     font-family: var(--font-mono);
@@ -203,9 +213,12 @@
 
 <div class="shell">
   <header class="masthead">
-    <div class="eyebrow">PENTALIGHTCODE · Vigie</div>
-    <h1 class="title">Conditions générales d'utilisation &amp; Politique de confidentialité</h1>
-    <p class="meta">Dernière mise à jour — <strong>23 août 2026</strong> · Éditeur : PENTALIGHTCODE (Tobie Vincent Amadou), Bénin</p>
+    <img class="logo" src="../icons/Icon-512.png" alt="Logo Vigie" width="512" height="512">
+    <div>
+      <div class="eyebrow">PENTALIGHTCODE · Vigie</div>
+      <h1 class="title">Conditions générales d'utilisation &amp; Politique de confidentialité</h1>
+      <p class="meta">Dernière mise à jour — <strong>23 août 2026</strong> · Éditeur : PENTALIGHTCODE (Tobie Vincent Amadou), Bénin</p>
+    </div>
   </header>
 
   <nav class="toc">

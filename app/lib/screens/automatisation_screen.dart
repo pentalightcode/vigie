@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/connexion_google.dart';
 import '../models/etat_sync.dart';
 import '../models/proposition_dossier.dart';
@@ -31,8 +32,9 @@ class _AutomatisationScreenState extends State<AutomatisationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: const Text('Automatisation')),
+      appBar: AppBar(title: Text(l10n.profilAutomatisationTitre)),
       body: StreamBuilder<ReglagesUtilisateur>(
         stream: UtilisateurService.instance.reglages(),
         builder: (context, snapshot) {
@@ -49,12 +51,11 @@ class _AutomatisationScreenState extends State<AutomatisationScreen> {
               return ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  Text('Comptes Google', style: Theme.of(context).textTheme.titleMedium),
+                  Text(l10n.automatisationComptesGoogleTitre, style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Connecte autant de comptes que tu veux (perso, secondaire...) — '
-                    'donne-leur un nom pour t\'y retrouver, si tu veux.',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  Text(
+                    l10n.automatisationComptesGoogleDescription,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                   const SizedBox(height: 12),
                   ...connexions.map((c) => _LigneConnexion(
@@ -70,7 +71,9 @@ class _AutomatisationScreenState extends State<AutomatisationScreen> {
                       icon: _actionEnCours
                           ? const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.add_link, size: 18),
-                      label: Text(connexions.isEmpty ? 'Connecter un compte Google' : 'Connecter un autre compte'),
+                      label: Text(connexions.isEmpty
+                          ? l10n.automatisationConnecterCompte
+                          : l10n.automatisationConnecterAutreCompte),
                     ),
                   ),
                   if (connexions.isNotEmpty) ...[
@@ -85,7 +88,9 @@ class _AutomatisationScreenState extends State<AutomatisationScreen> {
                           ),
                           icon: const Icon(Icons.fact_check_outlined),
                           label: Text(
-                            nombre > 0 ? 'Propositions à valider ($nombre)' : 'Propositions à valider',
+                            nombre > 0
+                                ? l10n.automatisationPropositionsAValiderAvecNombre(nombre)
+                                : l10n.automatisationPropositionsAValider,
                           ),
                         );
                       },
@@ -107,18 +112,22 @@ class _AutomatisationScreenState extends State<AutomatisationScreen> {
   }
 
   Future<void> _connecter() async {
+    final l10n = AppLocalizations.of(context)!;
     setState(() => _actionEnCours = true);
     try {
       final email = await GmailService.instance.connecter();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Compte connecté : $email')),
+          SnackBar(content: Text(l10n.automatisationCompteConnecte(email))),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Connexion impossible : $e'), duration: const Duration(seconds: 10)),
+          SnackBar(
+            content: Text(l10n.automatisationConnexionImpossible(e.toString())),
+            duration: const Duration(seconds: 10),
+          ),
         );
       }
     } finally {
@@ -127,11 +136,11 @@ class _AutomatisationScreenState extends State<AutomatisationScreen> {
   }
 
   Future<void> _deconnecter(ConnexionGoogle connexion) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirme = await demanderDoubleConfirmation(
       context,
-      titre: 'Déconnecter ce compte Google ?',
-      message: '"${connexion.affichage}" ne sera plus scanné automatiquement '
-          '(emails, tâches, agenda).',
+      titre: l10n.automatisationDeconnecterTitre,
+      message: l10n.automatisationDeconnecterMessage(connexion.affichage(context)),
     );
     if (!confirme) return;
     setState(() => _actionEnCours = true);
@@ -143,25 +152,26 @@ class _AutomatisationScreenState extends State<AutomatisationScreen> {
   }
 
   Future<void> _renommer(ConnexionGoogle connexion) async {
+    final l10n = AppLocalizations.of(context)!;
     final controleur = TextEditingController(text: connexion.libelle);
     final nouveauLibelle = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Renommer ce compte'),
+        title: Text(l10n.automatisationRenommerTitre),
         content: TextField(
           controller: controleur,
           autofocus: true,
           decoration: InputDecoration(
-            labelText: 'Nom (facultatif)',
+            labelText: l10n.automatisationRenommerChampNom,
             hintText: connexion.emailConnecte,
             border: const OutlineInputBorder(),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.commonAnnuler)),
           FilledButton(
             onPressed: () => Navigator.pop(context, controleur.text.trim()),
-            child: const Text('Enregistrer'),
+            child: Text(l10n.commonEnregistrer),
           ),
         ],
       ),
@@ -193,18 +203,18 @@ class _LigneConnexion extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: const Icon(Icons.check_circle, color: Colors.green),
-        title: Text(connexion.affichage, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(connexion.affichage(context), style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: connexion.libelle.isNotEmpty ? Text(connexion.emailConnecte) : null,
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              tooltip: 'Renommer',
+              tooltip: AppLocalizations.of(context)!.automatisationRenommerTooltip,
               icon: const Icon(Icons.edit_outlined, size: 20),
               onPressed: enCours ? null : () => onRenommer(connexion),
             ),
             IconButton(
-              tooltip: 'Déconnecter',
+              tooltip: AppLocalizations.of(context)!.automatisationDeconnecterTooltip,
               icon: const Icon(Icons.link_off, size: 20),
               onPressed: enCours ? null : () => onDeconnecter(connexion),
             ),
@@ -222,27 +232,28 @@ class _SectionMethode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Méthode d'extraction des dates", style: Theme.of(context).textTheme.titleMedium),
+        Text(l10n.automatisationMethodeTitre, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         RadioGroup<String>(
           groupValue: reglages.methodeExtraction,
           onChanged: (v) => _choisir(context, v!),
-          child: const Column(
+          child: Column(
             children: [
               RadioListTile<String>(
                 contentPadding: EdgeInsets.zero,
                 value: 'motif',
-                title: Text('Recherche de motif (recommandé)'),
-                subtitle: Text('Gratuit — reste entièrement dans nos serveurs, rien envoyé ailleurs.'),
+                title: Text(l10n.automatisationMethodeMotifTitre),
+                subtitle: Text(l10n.automatisationMethodeMotifDescription),
               ),
               RadioListTile<String>(
                 contentPadding: EdgeInsets.zero,
                 value: 'ia',
-                title: Text('Intelligence artificielle'),
-                subtitle: Text('Plus fiable sur des emails mal formatés — voir les risques avant d\'activer.'),
+                title: Text(l10n.automatisationMethodeIaTitre),
+                subtitle: Text(l10n.automatisationMethodeIaDescription),
               ),
             ],
           ),
@@ -252,24 +263,18 @@ class _SectionMethode extends StatelessWidget {
   }
 
   Future<void> _choisir(BuildContext context, String methode) async {
+    final l10n = AppLocalizations.of(context)!;
     if (methode == 'ia') {
       final confirme = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Avant d\'activer l\'IA'),
-          content: const Text(
-            "Avec cette option, le contenu complet de chaque email reçu d'un "
-            "expéditeur de confiance est envoyé à un service d'intelligence "
-            "artificielle tiers pour y être lu — pas seulement la date trouvée. "
-            "Pour des emails judiciaires réels, c'est une exposition à prendre "
-            "au sérieux. La recherche de motif (option recommandée) ne fait "
-            'jamais sortir aucune donnée de nos serveurs.',
-          ),
+          title: Text(l10n.automatisationAvantActiverIaTitre),
+          content: Text(l10n.automatisationAvantActiverIaMessage),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l10n.commonAnnuler)),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Activer quand même'),
+              child: Text(l10n.automatisationActiverQuandMeme),
             ),
           ],
         ),
@@ -297,24 +302,25 @@ class _SectionExpediteursState extends State<_SectionExpediteurs> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Expéditeurs favoris', style: Theme.of(context).textTheme.titleMedium),
+        Text(l10n.automatisationExpediteursTitre, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
-        const Text(
-          'Seuls les emails venant de ces adresses seront lus (ex : celle du tribunal).',
-          style: TextStyle(color: Colors.grey),
+        Text(
+          l10n.automatisationExpediteursDescription,
+          style: const TextStyle(color: Colors.grey),
         ),
         const SizedBox(height: 12),
         if (widget.connecteEmail) ...[
           OutlinedButton.icon(
             onPressed: () => _choisirDepuisBoite(context),
             icon: const Icon(Icons.checklist),
-            label: const Text('Choisir depuis ma boîte mail'),
+            label: Text(l10n.automatisationChoisirDepuisBoite),
           ),
           const SizedBox(height: 12),
-          const Text('Ou ajoute une adresse manuellement :', style: TextStyle(color: Colors.grey)),
+          Text(l10n.automatisationOuAjouteManuellement, style: const TextStyle(color: Colors.grey)),
           const SizedBox(height: 8),
         ],
         Row(
@@ -323,9 +329,9 @@ class _SectionExpediteursState extends State<_SectionExpediteurs> {
               child: TextField(
                 controller: _controller,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: 'Adresse email',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l10n.automatisationChampAdresseEmail,
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ),
@@ -347,9 +353,9 @@ class _SectionExpediteursState extends State<_SectionExpediteurs> {
               ),
             )),
         if (widget.reglages.expediteursConfiance.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('Aucun expéditeur ajouté pour l\'instant.', style: TextStyle(color: Colors.grey)),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(l10n.automatisationAucunExpediteur, style: const TextStyle(color: Colors.grey)),
           ),
       ],
     );
@@ -366,11 +372,12 @@ class _SectionExpediteursState extends State<_SectionExpediteurs> {
   static final _formatEmail = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
   Future<void> _retirer(BuildContext context, String email) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirme = await demanderDoubleConfirmation(
       context,
-      titre: 'Retirer cet expéditeur ?',
-      message: 'Les emails de "$email" ne seront plus lus automatiquement.',
-      texteBouton: 'Retirer',
+      titre: l10n.automatisationRetirerTitre,
+      message: l10n.automatisationRetirerMessage(email),
+      texteBouton: l10n.automatisationRetirerBouton,
       destructif: true,
     );
     if (confirme) {
@@ -379,10 +386,11 @@ class _SectionExpediteursState extends State<_SectionExpediteurs> {
   }
 
   Future<void> _ajouter(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
     final email = _controller.text.trim();
     if (!_formatEmail.hasMatch(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Adresse email invalide.')),
+        SnackBar(content: Text(l10n.automatisationAdresseInvalide)),
       );
       return;
     }
@@ -395,11 +403,9 @@ class _SectionExpediteursState extends State<_SectionExpediteurs> {
     if (!domaineValide) {
       final confirme = await demanderDoubleConfirmation(
         context,
-        titre: 'Ce domaine semble introuvable',
-        message:
-            'Aucun serveur mail trouvé pour "${email.split('@').last}" — '
-            'vérifie qu\'il n\'y a pas de faute de frappe.\n\nAjouter quand même : $email ?',
-        texteBouton: 'Ajouter quand même',
+        titre: l10n.automatisationDomaineIntrouvableTitre,
+        message: l10n.automatisationDomaineIntrouvableMessage(email.split('@').last, email),
+        texteBouton: l10n.automatisationAjouterQuandMeme,
         destructif: true,
       );
       if (!confirme) return;
@@ -410,9 +416,9 @@ class _SectionExpediteursState extends State<_SectionExpediteurs> {
     // adresse mais destinataire différent de ce qu'on croyait taper.
     final confirme = await demanderDoubleConfirmation(
       context,
-      titre: 'Ajouter cet expéditeur ?',
-      message: 'Vérifie bien qu\'il n\'y a pas de faute de frappe :\n\n$email',
-      texteBouton: 'Ajouter',
+      titre: l10n.automatisationAjouterExpediteurTitre,
+      message: l10n.automatisationAjouterExpediteurMessage(email),
+      texteBouton: l10n.automatisationAjouterBouton,
     );
     if (!confirme) return;
     await GmailService.instance.ajouterExpediteurConfiance(email);
@@ -447,25 +453,26 @@ class _FeuilleChoixExpediteursState extends State<_FeuilleChoixExpediteurs> {
         child: FutureBuilder<List<({String email, int nombre})>>(
           future: _futur,
           builder: (context, snapshot) {
+            final l10n = AppLocalizations.of(context)!;
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasError) {
-              return Center(child: Text('Impossible de lire la boîte mail : ${snapshot.error}'));
+              return Center(child: Text(l10n.automatisationErreurLectureBoite(snapshot.error.toString())));
             }
             final expediteurs = (snapshot.data ?? [])
                 .where((e) => !widget.deja.contains(e.email))
                 .toList();
             if (expediteurs.isEmpty) {
-              return const Center(child: Text('Aucun nouvel expéditeur trouvé dans les emails récents.'));
+              return Center(child: Text(l10n.automatisationAucunNouvelExpediteur));
             }
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Expéditeurs trouvés', style: Theme.of(context).textTheme.titleMedium),
-                const Text(
-                  'Coche ceux à qui tu fais confiance (ex : le tribunal).',
-                  style: TextStyle(color: Colors.grey),
+                Text(l10n.automatisationExpediteursTrouvesTitre, style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  l10n.automatisationCocheConfiance,
+                  style: const TextStyle(color: Colors.grey),
                 ),
                 Expanded(
                   child: ListView(
@@ -474,7 +481,7 @@ class _FeuilleChoixExpediteursState extends State<_FeuilleChoixExpediteurs> {
                         .map((e) => CheckboxListTile(
                               value: _selectionnes.contains(e.email),
                               title: Text(e.email),
-                              subtitle: Text('${e.nombre} email(s) récent(s)'),
+                              subtitle: Text(l10n.automatisationEmailsRecents(e.nombre)),
                               onChanged: (coche) => setState(() {
                                 if (coche ?? false) {
                                   _selectionnes.add(e.email);
@@ -488,7 +495,7 @@ class _FeuilleChoixExpediteursState extends State<_FeuilleChoixExpediteurs> {
                 ),
                 FilledButton(
                   onPressed: _selectionnes.isEmpty ? null : () => _valider(context),
-                  child: Text('Ajouter (${_selectionnes.length})'),
+                  child: Text(l10n.automatisationAjouterAvecNombre(_selectionnes.length)),
                 ),
               ],
             );
@@ -520,6 +527,7 @@ class _SectionEtatSync extends StatelessWidget {
     return StreamBuilder<Map<String, EtatSync>>(
       stream: GmailService.instance.etatsSync(),
       builder: (context, snapshot) {
+        final l10n = AppLocalizations.of(context)!;
         final etats = snapshot.data ?? {};
         return Card(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -528,10 +536,22 @@ class _SectionEtatSync extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Vérification automatique', style: Theme.of(context).textTheme.labelLarge),
+                Text(l10n.automatisationVerificationAutoTitre, style: Theme.of(context).textTheme.labelLarge),
                 const SizedBox(height: 8),
                 ..._libelles.entries.map((entree) {
                   final etat = etats[entree.key];
+                  final statut = etat == null
+                      ? l10n.automatisationEtatPasEncoreVerifie(entree.value)
+                      : etat.derniereExecution != null
+                          ? l10n.automatisationEtatAvecDate(
+                              entree.value,
+                              etat.succes ? l10n.automatisationEtatOk : l10n.automatisationEtatErreur,
+                              formaterDateHeureFr(etat.derniereExecution!),
+                            )
+                          : l10n.automatisationEtatSansDate(
+                              entree.value,
+                              etat.succes ? l10n.automatisationEtatOk : l10n.automatisationEtatErreur,
+                            );
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Row(
@@ -548,10 +568,7 @@ class _SectionEtatSync extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            etat == null
-                                ? '${entree.value} : pas encore vérifié'
-                                : '${entree.value} : ${etat.succes ? 'OK' : 'Erreur'}'
-                                    '${etat.derniereExecution != null ? ' — ${formaterDateHeureFr(etat.derniereExecution!)}' : ''}',
+                            statut,
                             style: const TextStyle(fontSize: 12),
                           ),
                         ),

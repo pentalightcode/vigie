@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/proposition_dossier.dart';
 import '../models/tache.dart';
 import '../services/firestore_service.dart';
@@ -59,12 +60,13 @@ class _ATraiterScreenState extends State<ATraiterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('À traiter'),
+        title: Text(l10n.navATraiter),
         actions: [
           IconButton(
-            tooltip: 'Notifications',
+            tooltip: l10n.aTraiterNotificationsTooltip,
             icon: const Icon(Icons.notifications_outlined),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const NotificationsScreen()),
@@ -76,7 +78,7 @@ class _ATraiterScreenState extends State<ATraiterScreen> {
               final nombre = snapshot.data?.length ?? 0;
               if (nombre == 0) return const SizedBox.shrink();
               return IconButton(
-                tooltip: '$nombre proposition(s) de dossier à valider',
+                tooltip: l10n.aTraiterPropositionsTooltip(nombre),
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const PropositionsScreen()),
                 ),
@@ -96,7 +98,7 @@ class _ATraiterScreenState extends State<ATraiterScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Erreur : ${snapshot.error}'));
+            return Center(child: Text(l10n.aTraiterErreur(snapshot.error.toString())));
           }
           final toutes = snapshot.data ?? [];
           final actives = toutes.where((t) => t.estActive).toList()
@@ -108,7 +110,7 @@ class _ATraiterScreenState extends State<ATraiterScreen> {
             ..sort((a, b) => a.datePremierRappel.compareTo(b.datePremierRappel));
 
           if (actives.isEmpty && enAttente.isEmpty) {
-            return const Center(child: Text('Rien à faire pour l\'instant.'));
+            return Center(child: Text(l10n.aTraiterRienAFaire));
           }
 
           final parDossier = <String, List<Tache>>{};
@@ -120,9 +122,9 @@ class _ATraiterScreenState extends State<ATraiterScreen> {
             padding: const EdgeInsets.all(12),
             children: [
               if (actives.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Text('Rien à faire pour l\'instant.'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(l10n.aTraiterRienAFaire),
                 ),
               ...parDossier.entries.map((entree) {
                 final nomDossier = entree.value.first.nomCodeDossier;
@@ -168,7 +170,7 @@ class _ATraiterScreenState extends State<ATraiterScreen> {
                   padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
                   child: Row(
                     children: [
-                      const Text('En attente (pas encore actif)', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(l10n.aTraiterEnAttenteTitre, style: const TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(width: 2),
                       SizedBox(
                         width: 28,
@@ -178,11 +180,8 @@ class _ATraiterScreenState extends State<ATraiterScreen> {
                           visualDensity: VisualDensity.compact,
                           icon: const Icon(Icons.info_outline, size: 16),
                           onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Ces dossiers existent déjà — inutile de les recréer. Ils passeront '
-                                'automatiquement dans la liste ci-dessus quand leur moment arrivera.',
-                              ),
+                            SnackBar(
+                              content: Text(l10n.aTraiterEnAttenteExplication),
                             ),
                           ),
                         ),
@@ -197,7 +196,7 @@ class _ATraiterScreenState extends State<ATraiterScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: 'Ajouter',
+        tooltip: l10n.aTraiterAjouterTooltip,
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const AjouterScreen()),
         ),
@@ -241,7 +240,7 @@ class _ProgressionDossier extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                '$faites/$total tâches faites (${(ratio * 100).round()}%)',
+                AppLocalizations.of(context)!.aTraiterProgressionDossier(faites, total, (ratio * 100).round()),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -272,8 +271,10 @@ class _LigneEnAttente extends StatelessWidget {
         leading: const Icon(Icons.hourglass_empty, color: Colors.grey),
         title: Text('${tache.nomCodeDossier} — ${tache.descriptionCourte}'),
         subtitle: Text(
-          'Échéance le ${formaterDateFr(tache.dateDeclenchante)} — '
-          'apparaîtra dans "À traiter" dans $joursAvantActivation jours',
+          AppLocalizations.of(context)!.aTraiterEnAttenteEcheance(
+            formaterDateFr(tache.dateDeclenchante),
+            joursAvantActivation,
+          ),
         ),
         onTap: () => Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => DossierDetailScreen(dossierId: tache.dossierId),
@@ -305,12 +306,13 @@ class _LigneTache extends StatelessWidget {
   /// Pastille courte et colorée plutôt qu'une phrase complète — plus
   /// scannable d'un coup d'œil dans une liste (design épuré, inspiré de
   /// Todoist, demandé par Tobie le 2026-08-09).
-  String get _texteCourt {
-    if (tache.estEnRetard) return 'En retard';
+  String _texteCourt(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    if (tache.estEnRetard) return l10n.aTraiterEnRetard;
     final j = _joursRestants;
-    if (j <= 0) return 'Aujourd\'hui';
-    if (j == 1) return 'Demain';
-    return 'Dans $j j';
+    if (j <= 0) return l10n.aTraiterAujourdhui;
+    if (j == 1) return l10n.aTraiterDemain;
+    return l10n.aTraiterDansJours(j);
   }
 
   Color get _couleurEcheance {
@@ -323,6 +325,7 @@ class _LigneTache extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return ListTile(
       leading: Icon(
         tache.estEnRetard ? Icons.warning_amber_rounded : Icons.schedule,
@@ -341,7 +344,7 @@ class _LigneTache extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                _texteCourt,
+                _texteCourt(context),
                 style: TextStyle(color: _couleurEcheance, fontSize: 11, fontWeight: FontWeight.w600),
               ),
             ),
@@ -359,16 +362,17 @@ class _LigneTache extends StatelessWidget {
       // double confirmation reste inchangée dans les deux cas.
       trailing: FilledButton(
         onPressed: () => _confirmerFait(context),
-        child: const Text('C\'est fait'),
+        child: Text(l10n.aTraiterCestFait),
       ),
     );
   }
 
   Future<void> _confirmerFait(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirme = await demanderDoubleConfirmation(
       context,
-      titre: 'Marquer comme fait ?',
-      message: '"${tache.descriptionCourte}" sera marquée comme faite.',
+      titre: l10n.aTraiterMarquerFaitTitre,
+      message: l10n.aTraiterMarquerFaitMessage(tache.descriptionCourte),
     );
     if (confirme) {
       await FirestoreService.instance.marquerFait(tache.id);

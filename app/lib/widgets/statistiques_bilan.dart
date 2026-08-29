@@ -1,8 +1,15 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../l10n/app_localizations.dart';
 import '../models/tache.dart';
 
-const _joursFr = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+/// Abréviation localisée d'un jour de semaine (1=lundi ... 7=dimanche) sans
+/// dépendre d'une liste de libellés codée en dur — 1er janvier 2024 était un
+/// lundi, sert juste de base de calcul pour intl.
+String _abregeJour(String codeLangue, int jourSemaine) =>
+    DateFormat.E(codeLangue == 'en' ? 'en_US' : 'fr_FR').format(DateTime(2024, 1, jourSemaine));
+
 const _paletteNatures = [
   Colors.indigo, Colors.teal, Colors.orange, Colors.purple,
   Colors.green, Colors.pink, Colors.brown, Colors.blueGrey,
@@ -36,6 +43,7 @@ class StatistiquesBilan extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final fiabilite = _joursSansRetard(toutesLesTaches);
     final parJour = <int, int>{};
     for (final t in tachesFaitesPeriode) {
@@ -69,8 +77,8 @@ class StatistiquesBilan extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         fiabilite == null
-                            ? 'Aucune tâche terminée en retard pour l\'instant.'
-                            : '$fiabilite jour(s) sans tâche terminée en retard.',
+                            ? l10n.statistiquesAucuneTacheEnRetard
+                            : l10n.statistiquesJoursSansRetard(fiabilite),
                         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                       ),
                     ],
@@ -90,8 +98,8 @@ class StatistiquesBilan extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         tauxAchevement == null
-                            ? 'Rien sur cette période.'
-                            : '${(tauxAchevement * 100).round()}% de taux d\'achèvement',
+                            ? l10n.statistiquesRienSurPeriode
+                            : l10n.statistiquesTauxAchevement((tauxAchevement * 100).round()),
                         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                       ),
                     ],
@@ -103,7 +111,7 @@ class StatistiquesBilan extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         if (parNature.isNotEmpty) ...[
-          Text('Répartition par type', style: Theme.of(context).textTheme.titleSmall),
+          Text(l10n.statistiquesRepartitionParType, style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
           SizedBox(
             height: 160,
@@ -150,12 +158,12 @@ class StatistiquesBilan extends StatelessWidget {
           const SizedBox(height: 12),
         ],
         if (parJour.isNotEmpty) ...[
-          Text('Tâches terminées par jour de la semaine', style: Theme.of(context).textTheme.titleSmall),
+          Text(l10n.statistiquesTachesParJour, style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
           SizedBox(height: 120, child: _GraphiqueParJour(parJour: parJour)),
           const SizedBox(height: 12),
         ],
-        Text('Activité des 12 dernières semaines', style: Theme.of(context).textTheme.titleSmall),
+        Text(l10n.statistiquesActiviteSemaines, style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 8),
         _CarteDeChaleur(toutesLesTaches: toutesLesTaches),
       ],
@@ -190,6 +198,7 @@ class _GraphiqueParJour extends StatelessWidget {
   Widget build(BuildContext context) {
     final maxY = parJour.values.isEmpty ? 1.0 : parJour.values.reduce((a, b) => a > b ? a : b).toDouble();
     final couleur = Theme.of(context).colorScheme.primary;
+    final codeLangue = Localizations.localeOf(context).languageCode;
     return BarChart(
       BarChartData(
         maxY: maxY + 1,
@@ -204,7 +213,7 @@ class _GraphiqueParJour extends StatelessWidget {
               showTitles: true,
               getTitlesWidget: (valeur, meta) => Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text(_joursFr[valeur.toInt()], style: const TextStyle(fontSize: 10)),
+                child: Text(_abregeJour(codeLangue, valeur.toInt() + 1), style: const TextStyle(fontSize: 10)),
               ),
             ),
           ),
@@ -267,7 +276,7 @@ class _CarteDeChaleur extends StatelessWidget {
               final futur = jour.isAfter(aujourdHui);
               return Expanded(
                 child: Tooltip(
-                  message: '${jour.day}/${jour.month} : $compte tâche(s)',
+                  message: AppLocalizations.of(context)!.statistiquesTooltipJour(jour.day, jour.month, compte),
                   child: Container(
                     margin: const EdgeInsets.all(1.5),
                     height: 13,

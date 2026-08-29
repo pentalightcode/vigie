@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/nature_dossier.dart';
 import '../services/firestore_service.dart';
 import '../services/nature_dossier_service.dart';
@@ -58,10 +59,11 @@ class _AjoutGroupeScreenState extends State<AjoutGroupeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final nombreValide = _lignes.where((l) => l.controller.text.trim().isNotEmpty).length;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Ajout groupé')),
+      appBar: AppBar(title: Text(l10n.ajoutGroupeTitre)),
       body: Column(
         children: [
           StreamBuilder<List<NatureDossier>>(
@@ -78,7 +80,7 @@ class _AjoutGroupeScreenState extends State<AjoutGroupeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text('Tous ces dossiers sont de type :'),
+                    Text(l10n.ajoutGroupeTousTypeLabel),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<NatureDossier>(
                       initialValue: _nature,
@@ -93,9 +95,9 @@ class _AjoutGroupeScreenState extends State<AjoutGroupeScreen> {
               );
             },
           ),
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('Remplis une ligne par dossier — la date est optionnelle.'),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(l10n.ajoutGroupeInstructions),
           ),
           Expanded(
             child: ListView.builder(
@@ -112,8 +114,8 @@ class _AjoutGroupeScreenState extends State<AjoutGroupeScreen> {
                         child: TextField(
                           controller: ligne.controller,
                           decoration: InputDecoration(
-                            labelText: 'Nom de code',
-                            hintText: 'Dossier ${i + 1}',
+                            labelText: l10n.creationDossierChampNomCode,
+                            hintText: l10n.ajoutGroupeNomCodeHint(i + 1),
                             border: const OutlineInputBorder(),
                           ),
                           onChanged: (_) => setState(() {}),
@@ -127,7 +129,7 @@ class _AjoutGroupeScreenState extends State<AjoutGroupeScreen> {
                           icon: const Icon(Icons.event, size: 18),
                           label: Text(
                             ligne.date == null
-                                ? 'Date'
+                                ? l10n.ajoutGroupeDateBouton
                                 : '${ligne.date!.day}/${ligne.date!.month}',
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -151,7 +153,7 @@ class _AjoutGroupeScreenState extends State<AjoutGroupeScreen> {
                 OutlinedButton.icon(
                   onPressed: _ajouterLigne,
                   icon: const Icon(Icons.add),
-                  label: const Text('Ajouter une ligne'),
+                  label: Text(l10n.ajoutGroupeAjouterLigne),
                 ),
                 const SizedBox(height: 12),
                 FilledButton(
@@ -159,9 +161,7 @@ class _AjoutGroupeScreenState extends State<AjoutGroupeScreen> {
                   child: _enCours
                       ? const SizedBox(
                           height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : Text(nombreValide == 0
-                          ? 'Enregistrer'
-                          : 'Enregistrer ($nombreValide dossier${nombreValide > 1 ? 's' : ''})'),
+                      : Text(l10n.ajoutGroupeEnregistrerBouton(nombreValide)),
                 ),
               ],
             ),

@@ -1,10 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/connexion_google.dart';
 import '../models/profession.dart';
 import '../models/reglages_utilisateur.dart';
 import '../services/auth_service.dart';
 import '../services/gmail_service.dart';
+import '../services/locale_service.dart';
 import '../services/theme_service.dart';
 import '../services/utilisateur_service.dart';
 import '../utils/confirmation.dart';
@@ -19,8 +21,9 @@ class ProfilScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: const Text('Profil')),
+      appBar: AppBar(title: Text(l10n.profilTitre)),
       body: StreamBuilder<ReglagesUtilisateur>(
         stream: UtilisateurService.instance.reglages(),
         builder: (context, snapshot) {
@@ -28,6 +31,10 @@ class ProfilScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           final reglages = snapshot.data!;
+          final libelleProfession = reglages.profession == Profession.autre &&
+                  (reglages.professionPersonnalisee?.isNotEmpty ?? false)
+              ? reglages.professionPersonnalisee!
+              : reglages.profession?.libelle(context) ?? '';
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -36,14 +43,14 @@ class ProfilScreen extends StatelessWidget {
                 child: ListTile(
                   leading: Icon(Icons.auto_awesome, color: Theme.of(context).colorScheme.onPrimaryContainer),
                   title: Text(
-                    'Pourquoi Vigie ?',
+                    l10n.profilPourquoiVigieTitre,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Theme.of(context).colorScheme.onPrimaryContainer,
                     ),
                   ),
                   subtitle: Text(
-                    'Ce qui rend Vigie différent',
+                    l10n.profilPourquoiVigieSousTitre,
                     style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer),
                   ),
                   trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onPrimaryContainer),
@@ -56,13 +63,13 @@ class ProfilScreen extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.alternate_email),
                 title: Text(
-                  'Connecté en tant que ${FirebaseAuth.instance.currentUser?.email ?? 'inconnu'}',
+                  l10n.profilConnecteEnTantQue(FirebaseAuth.instance.currentUser?.email ?? l10n.profilEmailInconnu),
                 ),
               ),
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.badge_outlined),
-                title: Text(reglages.pseudo ?? 'Pseudo non défini'),
+                title: Text(reglages.pseudo ?? l10n.profilPseudoNonDefini),
                 trailing: IconButton(
                   icon: const Icon(Icons.edit_outlined),
                   onPressed: () => _modifierPseudo(context, reglages.pseudo ?? ''),
@@ -70,7 +77,7 @@ class ProfilScreen extends StatelessWidget {
               ),
               ListTile(
                 leading: const Icon(Icons.work_outline),
-                title: Text(reglages.libelleProfession.isEmpty ? 'Profession non définie' : reglages.libelleProfession),
+                title: Text(libelleProfession.isEmpty ? l10n.profilProfessionNonDefinie : libelleProfession),
                 trailing: IconButton(
                   icon: const Icon(Icons.edit_outlined),
                   onPressed: () => _modifierProfession(
@@ -83,8 +90,8 @@ class ProfilScreen extends StatelessWidget {
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.schedule),
-                title: const Text('Délai de rappel'),
-                subtitle: Text('${reglages.delaiRappelJours} jours avant l\'échéance'),
+                title: Text(l10n.profilDelaiRappelTitre),
+                subtitle: Text(l10n.profilDelaiRappelSousTitre(reglages.delaiRappelJours)),
                 trailing: IconButton(
                   icon: const Icon(Icons.edit_outlined),
                   onPressed: () => _modifierDelai(context, reglages.delaiRappelJours),
@@ -92,15 +99,21 @@ class ProfilScreen extends StatelessWidget {
               ),
               ListTile(
                 leading: const Icon(Icons.category_outlined),
-                title: const Text('Mes types de dossier'),
-                subtitle: const Text('Ajouter ou supprimer tes catégories personnalisées'),
+                title: Text(l10n.profilTypesDossierTitre),
+                subtitle: Text(l10n.profilTypesDossierSousTitre),
                 onTap: () => GestionNaturesSheet.ouvrir(context),
               ),
               ListTile(
                 leading: const Icon(Icons.palette_outlined),
-                title: const Text('Thème'),
-                subtitle: const Text('Couleur et mode clair/sombre'),
+                title: Text(l10n.profilThemeTitre),
+                subtitle: Text(l10n.profilThemeSousTitre),
                 onTap: () => _ouvrirChoixTheme(context),
+              ),
+              ListTile(
+                leading: const Icon(Icons.language_outlined),
+                title: Text(l10n.profilLangueTitre),
+                subtitle: Text(l10n.profilLangueSousTitre),
+                onTap: () => _ouvrirChoixLangue(context),
               ),
               StreamBuilder<List<ConnexionGoogle>>(
                 stream: GmailService.instance.connexionsGoogle(),
@@ -109,13 +122,13 @@ class ProfilScreen extends StatelessWidget {
                   final nombre = connexions.length;
                   return ListTile(
                     leading: const Icon(Icons.auto_awesome_outlined),
-                    title: const Text('Automatisation'),
+                    title: Text(l10n.profilAutomatisationTitre),
                     subtitle: Text(
                       nombre == 0
-                          ? 'Connecter un compte Google pour détecter les dates automatiquement'
+                          ? l10n.profilAutomatisationAucunCompte
                           : nombre == 1
-                              ? '1 compte Google connecté'
-                              : '2 comptes Google connectés',
+                              ? l10n.profilAutomatisationUnCompte
+                              : l10n.profilAutomatisationDeuxComptes,
                     ),
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const AutomatisationScreen()),
@@ -126,12 +139,12 @@ class ProfilScreen extends StatelessWidget {
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.logout),
-                title: const Text('Se déconnecter'),
+                title: Text(l10n.profilSeDeconnecterTitre),
                 onTap: () => _seDeconnecter(context),
               ),
               ListTile(
                 leading: const Icon(Icons.delete_forever, color: Colors.red),
-                title: const Text('Supprimer mon compte', style: TextStyle(color: Colors.red)),
+                title: Text(l10n.profilSupprimerCompteTitre, style: const TextStyle(color: Colors.red)),
                 onTap: () => _supprimerCompte(context),
               ),
             ],
@@ -142,17 +155,18 @@ class ProfilScreen extends StatelessWidget {
   }
 
   Future<void> _modifierPseudo(BuildContext context, String pseudoActuel) async {
+    final l10n = AppLocalizations.of(context)!;
     final controller = TextEditingController(text: pseudoActuel);
     final nouveau = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Modifier le pseudo'),
-        content: TextField(controller: controller, decoration: const InputDecoration(labelText: 'Pseudo')),
+        title: Text(l10n.profilModifierPseudoTitre),
+        content: TextField(controller: controller, decoration: InputDecoration(labelText: l10n.profilPseudoLabel)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.commonAnnuler)),
           FilledButton(
             onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Enregistrer'),
+            child: Text(l10n.commonEnregistrer),
           ),
         ],
       ),
@@ -180,15 +194,16 @@ class ProfilScreen extends StatelessWidget {
   }
 
   Future<void> _modifierDelai(BuildContext context, int delaiActuel) async {
+    final l10n = AppLocalizations.of(context)!;
     final nouveau = await showDialog<int>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Délai de rappel'),
+        title: Text(l10n.profilDelaiRappelTitre),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [7, 14, 21, 30]
               .map((j) => ListTile(
-                    title: Text('$j jours avant'),
+                    title: Text(l10n.joursAvant(j)),
                     trailing: j == delaiActuel ? const Icon(Icons.check) : null,
                     onTap: () => Navigator.pop(context, j),
                   ))
@@ -202,10 +217,11 @@ class ProfilScreen extends StatelessWidget {
   }
 
   Future<void> _seDeconnecter(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirme = await demanderDoubleConfirmation(
       context,
-      titre: 'Se déconnecter ?',
-      message: 'Tu devras te reconnecter par email pour rouvrir l\'app.',
+      titre: l10n.profilSeDeconnecterConfirmationTitre,
+      message: l10n.profilSeDeconnecterConfirmationMessage,
     );
     if (confirme) {
       await AuthService.instance.seDeconnecter();
@@ -213,23 +229,24 @@ class ProfilScreen extends StatelessWidget {
   }
 
   Future<void> _supprimerCompte(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
     final messages = [
-      'Tous tes dossiers et toutes tes tâches seront supprimés définitivement. Il n\'y a aucun moyen de les récupérer ensuite.',
-      'Ton compte de connexion sera lui aussi supprimé — tu ne pourras plus te reconnecter avec cet email sans recréer un compte, vide, à zéro.',
-      'Dernière alerte : cette action est irréversible et immédiate. Es-tu vraiment certain de vouloir supprimer ton compte ?',
+      l10n.profilSupprimerCompteMessage1,
+      l10n.profilSupprimerCompteMessage2,
+      l10n.profilSupprimerCompteMessage3,
     ];
     for (final message in messages) {
       final confirme = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Supprimer le compte'),
+          title: Text(l10n.profilSupprimerCompteDialogueTitre),
           content: Text(message),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l10n.commonAnnuler)),
             FilledButton.tonal(
               style: FilledButton.styleFrom(foregroundColor: Colors.red),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Continuer'),
+              child: Text(l10n.commonContinuer),
             ),
           ],
         ),
@@ -246,13 +263,21 @@ class ProfilScreen extends StatelessWidget {
       builder: (context) => const _FeuilleChoixTheme(),
     );
   }
+
+  Future<void> _ouvrirChoixLangue(BuildContext context) async {
+    await showModalBottomSheet(
+      context: context,
+      builder: (context) => const _FeuilleChoixLangue(),
+    );
+  }
 }
 
-class _FeuilleChoixTheme extends StatelessWidget {
-  const _FeuilleChoixTheme();
+class _FeuilleChoixLangue extends StatelessWidget {
+  const _FeuilleChoixLangue();
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -260,7 +285,42 @@ class _FeuilleChoixTheme extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Couleur', style: Theme.of(context).textTheme.titleMedium),
+            Text(l10n.profilLangueTitre, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            ValueListenableBuilder<Locale?>(
+              valueListenable: LocaleService.instance.locale,
+              builder: (context, _, _) {
+                return SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'fr', label: Text('Français')),
+                    ButtonSegment(value: 'en', label: Text('English')),
+                  ],
+                  selected: {Localizations.localeOf(context).languageCode},
+                  onSelectionChanged: (s) => LocaleService.instance.definirLangue(s.first),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FeuilleChoixTheme extends StatelessWidget {
+  const _FeuilleChoixTheme();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.profilThemeCouleurLabel, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
             ValueListenableBuilder<Color>(
               valueListenable: ThemeService.instance.couleur,
@@ -287,7 +347,7 @@ class _FeuilleChoixTheme extends StatelessWidget {
                             child: selectionnee ? const Icon(Icons.check, color: Colors.white) : null,
                           ),
                           const SizedBox(height: 4),
-                          Text(entree.key, style: const TextStyle(fontSize: 11)),
+                          Text(_libelleCouleur(l10n, entree.key), style: const TextStyle(fontSize: 11)),
                         ],
                       ),
                     );
@@ -296,16 +356,16 @@ class _FeuilleChoixTheme extends StatelessWidget {
               },
             ),
             const SizedBox(height: 20),
-            Text('Mode', style: Theme.of(context).textTheme.titleMedium),
+            Text(l10n.profilThemeModeLabel, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
             ValueListenableBuilder<ThemeMode>(
               valueListenable: ThemeService.instance.mode,
               builder: (context, modeActuel, _) {
                 return SegmentedButton<ThemeMode>(
-                  segments: const [
-                    ButtonSegment(value: ThemeMode.system, label: Text('Système')),
-                    ButtonSegment(value: ThemeMode.light, label: Text('Clair')),
-                    ButtonSegment(value: ThemeMode.dark, label: Text('Sombre')),
+                  segments: [
+                    ButtonSegment(value: ThemeMode.system, label: Text(l10n.profilThemeModeSysteme)),
+                    ButtonSegment(value: ThemeMode.light, label: Text(l10n.profilThemeModeClair)),
+                    ButtonSegment(value: ThemeMode.dark, label: Text(l10n.profilThemeModeSombre)),
                   ],
                   selected: {modeActuel},
                   onSelectionChanged: (s) => ThemeService.instance.definirMode(s.first),
@@ -318,6 +378,19 @@ class _FeuilleChoixTheme extends StatelessWidget {
     );
   }
 }
+
+/// [couleursTheme] est indexée par un nom français fixe (clé de stockage
+/// SharedPreferences, ne doit pas changer) — ce switch ne fait que choisir
+/// le libellé affiché selon la langue active.
+String _libelleCouleur(AppLocalizations l10n, String nomInterne) => switch (nomInterne) {
+      'Indigo' => l10n.couleurIndigo,
+      'Bleu' => l10n.couleurBleu,
+      'Sarcelle' => l10n.couleurSarcelle,
+      'Vert' => l10n.couleurVert,
+      'Violet' => l10n.couleurViolet,
+      'Orange' => l10n.couleurOrange,
+      _ => nomInterne,
+    };
 
 class _DialogueProfession extends StatefulWidget {
   const _DialogueProfession({
@@ -338,8 +411,9 @@ class _DialogueProfessionState extends State<_DialogueProfession> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
-      title: const Text('Modifier la profession'),
+      title: Text(l10n.profilModifierProfessionTitre),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -347,7 +421,7 @@ class _DialogueProfessionState extends State<_DialogueProfession> {
           DropdownButtonFormField<Profession>(
             initialValue: _profession,
             items: Profession.values
-                .map((p) => DropdownMenuItem(value: p, child: Text(p.libelle)))
+                .map((p) => DropdownMenuItem(value: p, child: Text(p.libelle(context))))
                 .toList(),
             onChanged: (p) => setState(() => _profession = p!),
           ),
@@ -355,16 +429,16 @@ class _DialogueProfessionState extends State<_DialogueProfession> {
             const SizedBox(height: 12),
             TextField(
               controller: _controller,
-              decoration: const InputDecoration(labelText: 'Précise ta profession'),
+              decoration: InputDecoration(labelText: l10n.profilPreciseProfessionLabel),
             ),
           ],
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.commonAnnuler)),
         FilledButton(
           onPressed: () => Navigator.pop(context, (_profession, _controller.text.trim())),
-          child: const Text('Enregistrer'),
+          child: Text(l10n.commonEnregistrer),
         ),
       ],
     );

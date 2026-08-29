@@ -1,0 +1,632 @@
+{
+  "@@locale": "fr",
+  "navATraiter": "À traiter",
+  "navAgenda": "Agenda",
+  "navBilan": "Bilan",
+  "navProfil": "Profil",
+  "professionMedecin": "Médecin / Professionnel de santé",
+  "professionEnseignant": "Enseignant / Professeur",
+  "professionAvocatJuriste": "Avocat / Juriste",
+  "professionMagistrat": "Magistrat",
+  "professionComptable": "Comptable / Expert-comptable",
+  "professionConsultant": "Consultant / Indépendant",
+  "professionCommercial": "Commercial / Chargé de clientèle",
+  "professionArchitecteIngenieur": "Architecte / Ingénieur",
+  "professionAgentImmobilier": "Agent immobilier",
+  "professionArtisanBatiment": "Artisan / Entrepreneur du bâtiment",
+  "professionBeauteBienEtre": "Coiffeur / Esthéticienne / Bien-être",
+  "professionEntrepreneur": "Entrepreneur / Chef d'entreprise",
+  "professionAutre": "Autre",
+  "joursAvant": "{jours} jours avant",
+  "@joursAvant": {
+    "placeholders": {
+      "jours": {"type": "int"}
+    }
+  },
+  "profilPreciseProfessionLabel": "Précise ta profession",
+  "onboardingBienvenue": "Bienvenue !",
+  "onboardingSousTitre": "Quelques infos pour personnaliser ton assistant.",
+  "onboardingChampPrenom": "Prénom",
+  "onboardingChampPseudo": "Pseudo (comment l'app t'appelle)",
+  "onboardingChampProfession": "Ta profession",
+  "onboardingNoteNaturesPreremplies": "On pré-remplira des types de dossier adaptés à ton métier — modifiables ensuite.",
+  "onboardingChampDelaiRappel": "Être prévenu combien de jours à l'avance ?",
+  "onboardingBoutonCommencer": "Commencer",
+  "onboardingErreurPrenomPseudo": "Renseigne au moins ton prénom et un pseudo.",
+  "onboardingErreurProfession": "Précise le nom de ta profession.",
+  "onboardingErreurConnexion": "Impossible d'enregistrer. Vérifie ta connexion.",
+  "commonAnnuler": "Annuler",
+  "commonContinuer": "Continuer",
+  "commonEnregistrer": "Enregistrer",
+  "profilTitre": "Profil",
+  "profilPourquoiVigieTitre": "Pourquoi Vigie ?",
+  "profilPourquoiVigieSousTitre": "Ce qui rend Vigie différent",
+  "profilConnecteEnTantQue": "Connecté en tant que {email}",
+  "@profilConnecteEnTantQue": {
+    "placeholders": {
+      "email": {"type": "String"}
+    }
+  },
+  "profilEmailInconnu": "inconnu",
+  "profilPseudoNonDefini": "Pseudo non défini",
+  "profilProfessionNonDefinie": "Profession non définie",
+  "profilDelaiRappelTitre": "Délai de rappel",
+  "profilDelaiRappelSousTitre": "{jours} jours avant l'échéance",
+  "@profilDelaiRappelSousTitre": {
+    "placeholders": {
+      "jours": {"type": "int"}
+    }
+  },
+  "profilTypesDossierTitre": "Mes types de dossier",
+  "profilTypesDossierSousTitre": "Ajouter ou supprimer tes catégories personnalisées",
+  "profilThemeTitre": "Thème",
+  "profilThemeSousTitre": "Couleur et mode clair/sombre",
+  "profilLangueTitre": "Langue",
+  "profilLangueSousTitre": "Français / English",
+  "profilThemeCouleurLabel": "Couleur",
+  "profilThemeModeLabel": "Mode",
+  "profilThemeModeSysteme": "Système",
+  "profilThemeModeClair": "Clair",
+  "profilThemeModeSombre": "Sombre",
+  "couleurIndigo": "Indigo",
+  "couleurBleu": "Bleu",
+  "couleurSarcelle": "Sarcelle",
+  "couleurVert": "Vert",
+  "couleurViolet": "Violet",
+  "couleurOrange": "Orange",
+  "profilAutomatisationTitre": "Automatisation",
+  "profilAutomatisationAucunCompte": "Connecter un compte Google pour détecter les dates automatiquement",
+  "profilAutomatisationUnCompte": "1 compte Google connecté",
+  "profilAutomatisationDeuxComptes": "2 comptes Google connectés",
+  "profilSeDeconnecterTitre": "Se déconnecter",
+  "profilSupprimerCompteTitre": "Supprimer mon compte",
+  "profilSeDeconnecterConfirmationTitre": "Se déconnecter ?",
+  "profilSeDeconnecterConfirmationMessage": "Tu devras te reconnecter par email pour rouvrir l'app.",
+  "profilSupprimerCompteMessage1": "Tous tes dossiers et toutes tes tâches seront supprimés définitivement. Il n'y a aucun moyen de les récupérer ensuite.",
+  "profilSupprimerCompteMessage2": "Ton compte de connexion sera lui aussi supprimé — tu ne pourras plus te reconnecter avec cet email sans recréer un compte, vide, à zéro.",
+  "profilSupprimerCompteMessage3": "Dernière alerte : cette action est irréversible et immédiate. Es-tu vraiment certain de vouloir supprimer ton compte ?",
+  "profilSupprimerCompteDialogueTitre": "Supprimer le compte",
+  "profilModifierPseudoTitre": "Modifier le pseudo",
+  "profilPseudoLabel": "Pseudo",
+  "profilModifierProfessionTitre": "Modifier la profession",
+  "creerPinErreurTropCourt": "Le code doit faire au moins 4 chiffres.",
+  "creerPinErreurNeCorrespondentPas": "Les deux codes ne correspondent pas.",
+  "creerPinInstructions": "Crée un code PIN pour protéger l'app.\nÀ chaque ouverture, ce code (ou ton empreinte/Face ID) sera demandé.",
+  "creerPinChampNouveauCode": "Nouveau code PIN",
+  "creerPinChampRetaperCode": "Retape le code",
+  "creerPinBoutonValider": "Valider",
+  "verrouCodeIncorrect": "Code incorrect.",
+  "verrouTropDeTentatives": "Trop d'essais. Réessaie dans {secondes} s.",
+  "@verrouTropDeTentatives": {
+    "placeholders": { "secondes": { "type": "int" } }
+  },
+  "verrouCodeOublieTitre": "Code PIN oublié ?",
+  "verrouCodeOublieMessage": "Tu vas devoir te reconnecter par email pour prouver que c'est bien toi, puis créer un nouveau code. Tes dossiers et tâches ne seront pas touchés.",
+  "verrouConfirmeIdentite": "Confirme ton identité, ou entre ton code PIN.",
+  "verrouEntreCodePin": "Entre ton code PIN pour ouvrir l'app.",
+  "verrouChampCodePin": "Code PIN",
+  "verrouBoutonDeverrouiller": "Déverrouiller",
+  "verrouReessayerBiometrie": "Réessayer avec l'empreinte / Face ID",
+  "natureChampNouveauType": "Nouveau type (ex: Consultation)",
+  "natureBoutonAjouter": "Ajouter ce type",
+  "creationDossierTitre": "Ajouter à un dossier",
+  "creationDossierChampNomCode": "Nom de code",
+  "creationDossierExempleNomCode": "ex : Dossier Alpha",
+  "creationDossierChampType": "Type de dossier",
+  "creationDossierNotesTitre": "Notes",
+  "creationDossierChampResteAVerifier": "Reste à vérifier",
+  "creationDossierChampEnAttenteDe": "En attente de",
+  "creationDossierChampAutre": "Autre",
+  "creationDossierAvertissementSensible": "Comme pour le nom du dossier, évite d'écrire de vraies informations sensibles ici.",
+  "creationDossierBoutonCreer": "Créer",
+  "commonFermer": "Fermer",
+  "banniereNouvelleVersionAvecNumero": "Nouvelle version disponible ({version}).",
+  "@banniereNouvelleVersionAvecNumero": {
+    "placeholders": {
+      "version": {"type": "String"}
+    }
+  },
+  "banniereNouvelleVersionSansNumero": "Une nouvelle version de l'app est disponible.",
+  "banniereInstructionTelechargement": "Va sur vigie.pentalightcode.com pour la télécharger.",
+  "banniereIgnorerTitre": "Ignorer cette mise à jour ?",
+  "banniereIgnorerMessage": "La bannière réapparaîtra au prochain lancement de l'app tant que tu n'auras pas mis à jour.",
+  "banniereIgnorerBouton": "Ignorer",
+  "aTraiterNotificationsTooltip": "Notifications",
+  "aTraiterPropositionsTooltip": "{nombre} proposition(s) de dossier à valider",
+  "@aTraiterPropositionsTooltip": {
+    "placeholders": {
+      "nombre": {"type": "int"}
+    }
+  },
+  "aTraiterErreur": "Erreur : {erreur}",
+  "@aTraiterErreur": {
+    "placeholders": {
+      "erreur": {"type": "String"}
+    }
+  },
+  "aTraiterRienAFaire": "Rien à faire pour l'instant.",
+  "aTraiterEnAttenteTitre": "En attente (pas encore actif)",
+  "aTraiterEnAttenteExplication": "Ces dossiers existent déjà — inutile de les recréer. Ils passeront automatiquement dans la liste ci-dessus quand leur moment arrivera.",
+  "aTraiterAjouterTooltip": "Ajouter",
+  "aTraiterProgressionDossier": "{faites}/{total} tâches faites ({pourcentage}%)",
+  "@aTraiterProgressionDossier": {
+    "placeholders": {
+      "faites": {"type": "int"},
+      "total": {"type": "int"},
+      "pourcentage": {"type": "int"}
+    }
+  },
+  "aTraiterEnAttenteEcheance": "Échéance le {date} — apparaîtra dans \"À traiter\" dans {jours} jours",
+  "@aTraiterEnAttenteEcheance": {
+    "placeholders": {
+      "date": {"type": "String"},
+      "jours": {"type": "int"}
+    }
+  },
+  "aTraiterEnRetard": "En retard",
+  "aTraiterAujourdhui": "Aujourd'hui",
+  "aTraiterDemain": "Demain",
+  "aTraiterDansJours": "Dans {jours} j",
+  "@aTraiterDansJours": {
+    "placeholders": {
+      "jours": {"type": "int"}
+    }
+  },
+  "aTraiterCestFait": "C'est fait",
+  "aTraiterMarquerFaitTitre": "Marquer comme fait ?",
+  "aTraiterMarquerFaitMessage": "\"{description}\" sera marquée comme faite.",
+  "@aTraiterMarquerFaitMessage": {
+    "placeholders": {
+      "description": {"type": "String"}
+    }
+  },
+  "agendaErreurLecture": "Impossible de lire le calendrier : {erreur}",
+  "@agendaErreurLecture": {
+    "placeholders": {
+      "erreur": {"type": "String"}
+    }
+  },
+  "agendaAucunCompteConnecte": "Connecte d'abord un compte Google dans Automatisation pour voir ton agenda ici.",
+  "agendaAjouterTache": "Ajouter une tâche",
+  "agendaRienCeJour": "Rien le {date}.",
+  "@agendaRienCeJour": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "agendaJourneeEntiere": "Journée entière",
+  "bilanPeriodeSemaine": "Semaine",
+  "bilanPeriodeMois": "Mois",
+  "bilanPeriodeTrimestre": "Trimestre",
+  "bilanPeriodeSemestre": "Semestre",
+  "bilanPeriodeAnnee": "Année",
+  "bilanLibellePeriodeTrimestre": "T{numero} {annee}",
+  "@bilanLibellePeriodeTrimestre": {
+    "placeholders": {
+      "numero": {"type": "int"},
+      "annee": {"type": "int"}
+    }
+  },
+  "bilanLibellePeriodeSemestre": "S{numero} {annee}",
+  "@bilanLibellePeriodeSemestre": {
+    "placeholders": {
+      "numero": {"type": "int"},
+      "annee": {"type": "int"}
+    }
+  },
+  "bilanPartagerTooltip": "Partager ce bilan",
+  "bilanRienAAfficher": "Rien à afficher pour l'instant.",
+  "bilanFait": "Fait",
+  "bilanEnRetard": "En retard",
+  "bilanAVenir": "À venir",
+  "bilanNoteEnRetardPeriodePassee": "\"En retard\" n'est affiché que sur la période en cours — ça n'a pas de sens pour une période déjà passée.",
+  "bilanStatistiquesTitre": "Statistiques",
+  "bilanResumeIaTitre": "Résumé & recommandations",
+  "bilanResumeIaDesactiverTooltip": "Désactiver",
+  "bilanResumeIaDescription": "Un résumé et des recommandations générés par une IA (Groq), à partir des mêmes chiffres anonymisés que le partage du Bilan — désactivé par défaut.",
+  "bilanResumeIaActiverBouton": "Activer",
+  "bilanResumeIaGenererBouton": "Générer",
+  "bilanResumeIaRegenererBouton": "Régénérer",
+  "bilanResumeIaConfirmationTitre": "Avant d'activer le résumé IA",
+  "bilanResumeIaConfirmationMessage": "Le texte du Bilan (chiffres et noms de code, jamais de vraies informations — le même contenu déjà utilisé pour le partage) est envoyé à un service d'intelligence artificielle tiers (Groq) pour générer un résumé.",
+  "bilanResumeIaErreurGeneration": "Impossible de générer le résumé : {erreur}",
+  "@bilanResumeIaErreurGeneration": {
+    "placeholders": {
+      "erreur": {"type": "String"}
+    }
+  },
+  "bilanTexteEnTete": "Bilan Vigie — {periode}",
+  "@bilanTexteEnTete": {
+    "placeholders": {
+      "periode": {"type": "String"}
+    }
+  },
+  "bilanTexteTotalAvecRetard": "Total : {fait} fait, {enRetard} en retard, {aVenir} à venir",
+  "@bilanTexteTotalAvecRetard": {
+    "placeholders": {
+      "fait": {"type": "int"},
+      "enRetard": {"type": "int"},
+      "aVenir": {"type": "int"}
+    }
+  },
+  "bilanTexteTotalSansRetard": "Total : {fait} fait, {aVenir} à venir",
+  "@bilanTexteTotalSansRetard": {
+    "placeholders": {
+      "fait": {"type": "int"},
+      "aVenir": {"type": "int"}
+    }
+  },
+  "bilanTexteDossierAvecRetard": "{nom} : {fait} fait, {enRetard} en retard, {aVenir} à venir",
+  "@bilanTexteDossierAvecRetard": {
+    "placeholders": {
+      "nom": {"type": "String"},
+      "fait": {"type": "int"},
+      "enRetard": {"type": "int"},
+      "aVenir": {"type": "int"}
+    }
+  },
+  "bilanTexteDossierSansRetard": "{nom} : {fait} fait, {aVenir} à venir",
+  "@bilanTexteDossierSansRetard": {
+    "placeholders": {
+      "nom": {"type": "String"},
+      "fait": {"type": "int"},
+      "aVenir": {"type": "int"}
+    }
+  },
+  "bilanTextePartageSignature": "Généré par Vigie — noms de code choisis par l'utilisateur, aucune information sensible.",
+  "statistiquesAucuneTacheEnRetard": "Aucune tâche terminée en retard pour l'instant.",
+  "statistiquesJoursSansRetard": "{jours} jour(s) sans tâche terminée en retard.",
+  "@statistiquesJoursSansRetard": {
+    "placeholders": {
+      "jours": {"type": "int"}
+    }
+  },
+  "statistiquesRienSurPeriode": "Rien sur cette période.",
+  "statistiquesTauxAchevement": "{pourcentage}% de taux d'achèvement",
+  "@statistiquesTauxAchevement": {
+    "placeholders": {
+      "pourcentage": {"type": "int"}
+    }
+  },
+  "statistiquesRepartitionParType": "Répartition par type",
+  "statistiquesTachesParJour": "Tâches terminées par jour de la semaine",
+  "statistiquesActiviteSemaines": "Activité des 12 dernières semaines",
+  "statistiquesTooltipJour": "{jour}/{mois} : {compte} tâche(s)",
+  "@statistiquesTooltipJour": {
+    "placeholders": {
+      "jour": {"type": "int"},
+      "mois": {"type": "int"},
+      "compte": {"type": "int"}
+    }
+  },
+  "automatisationComptesGoogleTitre": "Comptes Google",
+  "automatisationComptesGoogleDescription": "Connecte autant de comptes que tu veux (perso, secondaire...) — donne-leur un nom pour t'y retrouver, si tu veux.",
+  "automatisationConnecterCompte": "Connecter un compte Google",
+  "automatisationConnecterAutreCompte": "Connecter un autre compte",
+  "automatisationPropositionsAValiderAvecNombre": "Propositions à valider ({nombre})",
+  "@automatisationPropositionsAValiderAvecNombre": {
+    "placeholders": {
+      "nombre": {"type": "int"}
+    }
+  },
+  "automatisationPropositionsAValider": "Propositions à valider",
+  "automatisationCompteConnecte": "Compte connecté : {email}",
+  "@automatisationCompteConnecte": {
+    "placeholders": {
+      "email": {"type": "String"}
+    }
+  },
+  "automatisationConnexionImpossible": "Connexion impossible : {erreur}",
+  "@automatisationConnexionImpossible": {
+    "placeholders": {
+      "erreur": {"type": "String"}
+    }
+  },
+  "automatisationDeconnecterTitre": "Déconnecter ce compte Google ?",
+  "automatisationDeconnecterMessage": "\"{compte}\" ne sera plus scanné automatiquement (emails, tâches, agenda).",
+  "@automatisationDeconnecterMessage": {
+    "placeholders": {
+      "compte": {"type": "String"}
+    }
+  },
+  "automatisationRenommerTitre": "Renommer ce compte",
+  "automatisationRenommerChampNom": "Nom (facultatif)",
+  "automatisationRenommerTooltip": "Renommer",
+  "automatisationDeconnecterTooltip": "Déconnecter",
+  "automatisationMethodeTitre": "Méthode d'extraction des dates",
+  "automatisationMethodeMotifTitre": "Recherche de motif (recommandé)",
+  "automatisationMethodeMotifDescription": "Gratuit — reste entièrement dans nos serveurs, rien envoyé ailleurs.",
+  "automatisationMethodeIaTitre": "Intelligence artificielle",
+  "automatisationMethodeIaDescription": "Plus fiable sur des emails mal formatés — voir les risques avant d'activer.",
+  "automatisationAvantActiverIaTitre": "Avant d'activer l'IA",
+  "automatisationAvantActiverIaMessage": "Avec cette option, le contenu complet de chaque email reçu d'un expéditeur de confiance est envoyé à un service d'intelligence artificielle tiers pour y être lu — pas seulement la date trouvée. Pour des emails judiciaires réels, c'est une exposition à prendre au sérieux. La recherche de motif (option recommandée) ne fait jamais sortir aucune donnée de nos serveurs.",
+  "automatisationActiverQuandMeme": "Activer quand même",
+  "automatisationExpediteursTitre": "Expéditeurs favoris",
+  "automatisationExpediteursDescription": "Seuls les emails venant de ces adresses seront lus (ex : celle du tribunal).",
+  "automatisationChoisirDepuisBoite": "Choisir depuis ma boîte mail",
+  "automatisationOuAjouteManuellement": "Ou ajoute une adresse manuellement :",
+  "automatisationChampAdresseEmail": "Adresse email",
+  "automatisationAucunExpediteur": "Aucun expéditeur ajouté pour l'instant.",
+  "automatisationRetirerTitre": "Retirer cet expéditeur ?",
+  "automatisationRetirerMessage": "Les emails de \"{email}\" ne seront plus lus automatiquement.",
+  "@automatisationRetirerMessage": {
+    "placeholders": {
+      "email": {"type": "String"}
+    }
+  },
+  "automatisationRetirerBouton": "Retirer",
+  "automatisationAdresseInvalide": "Adresse email invalide.",
+  "automatisationDomaineIntrouvableTitre": "Ce domaine semble introuvable",
+  "automatisationDomaineIntrouvableMessage": "Aucun serveur mail trouvé pour \"{domaine}\" — vérifie qu'il n'y a pas de faute de frappe.\n\nAjouter quand même : {email} ?",
+  "@automatisationDomaineIntrouvableMessage": {
+    "placeholders": {
+      "domaine": {"type": "String"},
+      "email": {"type": "String"}
+    }
+  },
+  "automatisationAjouterQuandMeme": "Ajouter quand même",
+  "automatisationAjouterExpediteurTitre": "Ajouter cet expéditeur ?",
+  "automatisationAjouterExpediteurMessage": "Vérifie bien qu'il n'y a pas de faute de frappe :\n\n{email}",
+  "@automatisationAjouterExpediteurMessage": {
+    "placeholders": {
+      "email": {"type": "String"}
+    }
+  },
+  "automatisationAjouterBouton": "Ajouter",
+  "automatisationErreurLectureBoite": "Impossible de lire la boîte mail : {erreur}",
+  "@automatisationErreurLectureBoite": {
+    "placeholders": {
+      "erreur": {"type": "String"}
+    }
+  },
+  "automatisationAucunNouvelExpediteur": "Aucun nouvel expéditeur trouvé dans les emails récents.",
+  "automatisationExpediteursTrouvesTitre": "Expéditeurs trouvés",
+  "automatisationCocheConfiance": "Coche ceux à qui tu fais confiance (ex : le tribunal).",
+  "automatisationEmailsRecents": "{nombre} email(s) récent(s)",
+  "@automatisationEmailsRecents": {
+    "placeholders": {
+      "nombre": {"type": "int"}
+    }
+  },
+  "automatisationAjouterAvecNombre": "Ajouter ({nombre})",
+  "@automatisationAjouterAvecNombre": {
+    "placeholders": {
+      "nombre": {"type": "int"}
+    }
+  },
+  "automatisationVerificationAutoTitre": "Vérification automatique",
+  "automatisationEtatPasEncoreVerifie": "{service} : pas encore vérifié",
+  "@automatisationEtatPasEncoreVerifie": {
+    "placeholders": {
+      "service": {"type": "String"}
+    }
+  },
+  "automatisationEtatAvecDate": "{service} : {statut} — {date}",
+  "@automatisationEtatAvecDate": {
+    "placeholders": {
+      "service": {"type": "String"},
+      "statut": {"type": "String"},
+      "date": {"type": "String"}
+    }
+  },
+  "automatisationEtatSansDate": "{service} : {statut}",
+  "@automatisationEtatSansDate": {
+    "placeholders": {
+      "service": {"type": "String"},
+      "statut": {"type": "String"}
+    }
+  },
+  "automatisationEtatOk": "OK",
+  "automatisationEtatErreur": "Erreur",
+  "propositionsTitre": "Propositions",
+  "propositionsAucunePourLInstant": "Aucune proposition pour l'instant. Dès qu'une date sera trouvée dans un email, une tâche Google Tasks ou un événement Google Calendar, elle apparaîtra ici.",
+  "propositionsFiltreTout": "Tout",
+  "propositionsDateInconnue": "Date inconnue",
+  "propositionsDeExpediteur": "De : {expediteur}",
+  "@propositionsDeExpediteur": {
+    "placeholders": {
+      "expediteur": {"type": "String"}
+    }
+  },
+  "propositionsIgnorerBouton": "Ignorer",
+  "propositionsCreerDossierBouton": "Créer le dossier",
+  "propositionsIgnorerTitre": "Ignorer cette proposition ?",
+  "propositionsIgnorerMessage": "Aucun dossier ne sera créé pour \"{sujet}\".",
+  "@propositionsIgnorerMessage": {
+    "placeholders": {
+      "sujet": {"type": "String"}
+    }
+  },
+  "ajouterErreurNomCode": "Donne un nom de code au dossier.",
+  "ajouterErreurNature": "Choisis une nature de dossier.",
+  "ajouterDossierAjoute": "Dossier ajouté.",
+  "ajouterTitre": "Ajouter un dossier",
+  "ajouterAjoutGroupeTooltip": "Ajout groupé (plusieurs dossiers d'un coup)",
+  "ajouterTypeDossierLabel": "Type de dossier",
+  "ajouterGererTypesBouton": "Gérer mes types de dossier",
+  "ajouterDetailLabel": "Détail (pour distinguer plusieurs tâches)",
+  "ajouterDetailExemple": "ex : Conclusions en défense",
+  "ajouterDans2Semaines": "Dans 2 semaines",
+  "ajouterDans1Mois": "Dans 1 mois",
+  "ajouterChoisirDate": "Choisir une date",
+  "ajouterRetirerDate": "Retirer",
+  "ajouterAucuneDateChoisie": "Aucune date choisie (optionnel).",
+  "ajouterEcheanceAvecDate": "Échéance : {date}",
+  "@ajouterEcheanceAvecDate": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "ajouterNoteTitre": "Ajouter une note",
+  "ajoutGroupeTitre": "Ajout groupé",
+  "ajoutGroupeTousTypeLabel": "Tous ces dossiers sont de type :",
+  "ajoutGroupeInstructions": "Remplis une ligne par dossier — la date est optionnelle.",
+  "ajoutGroupeNomCodeHint": "Dossier {numero}",
+  "@ajoutGroupeNomCodeHint": {
+    "placeholders": {
+      "numero": {"type": "int"}
+    }
+  },
+  "ajoutGroupeDateBouton": "Date",
+  "ajoutGroupeAjouterLigne": "Ajouter une ligne",
+  "ajoutGroupeEnregistrerBouton": "{nombre, plural, =0{Enregistrer} =1{Enregistrer (1 dossier)} other{Enregistrer ({nombre} dossiers)}}",
+  "@ajoutGroupeEnregistrerBouton": {
+    "placeholders": {
+      "nombre": {"type": "int"}
+    }
+  },
+  "confirmerEmailErreurVide": "Entre l'adresse email utilisée pour demander le lien.",
+  "confirmerEmailErreurLienInvalide": "Ce lien ne correspond pas à cette adresse, ou il a expiré.",
+  "confirmerEmailInstructions": "Confirme ton adresse email pour terminer la connexion.",
+  "confirmerEmailBouton": "Confirmer",
+  "accueilPage1Titre": "Vigie",
+  "accueilPage1Texte": "Le suivi d'échéances qui reste confidentiel — pour les professions où chaque dossier compte.",
+  "accueilPage2Titre": "Ajouter",
+  "accueilPage2Texte": "Crée un dossier avec un nom de code, une date, et laisse Vigie calculer quand te rappeler.",
+  "accueilPage3Titre": "Suivre",
+  "accueilPage3Texte": "Vigie te relance jusqu'à confirmation que c'est fait — jamais de tâche oubliée en silence.",
+  "accueilPage4Titre": "Faire le bilan",
+  "accueilPage4Texte": "Un résumé de ton activité, dossier par dossier, pour garder une vue d'ensemble.",
+  "accueilConfidentialiteNote": "Aucune vraie information sur tes affaires n'est jamais requise — tu choisis toi-même un nom de code pour chaque dossier.",
+  "accueilBoutonPasser": "Passer",
+  "accueilBoutonSuivant": "Suivant",
+  "accueilBoutonSeConnecter": "Se connecter",
+  "connexionChampEmail": "Adresse email",
+  "connexionErreurEmailInvalide": "Entre une adresse email valide.",
+  "connexionErreurEnvoiLien": "Impossible d'envoyer le lien. Vérifie ta connexion.",
+  "connexionTelechargerAvecVersion": "Télécharger l'app Android (v{version})",
+  "@connexionTelechargerAvecVersion": {
+    "placeholders": {
+      "version": {"type": "String"}
+    }
+  },
+  "connexionTelechargerSansVersion": "Télécharger l'app Android (recommandé)",
+  "connexionVersionInstalleeMeilleure": "La version installée fonctionne mieux que le site (notifications, Gmail...).",
+  "connexionInstructions": "Entre ton adresse email, tu recevras un lien de connexion — pas besoin de mot de passe.",
+  "connexionRecevoirLienBouton": "Recevoir le lien de connexion",
+  "connexionLienEnvoye": "Un lien a été envoyé à {email}.\nOuvre ta boîte mail et clique sur le lien pour te connecter.",
+  "@connexionLienEnvoye": {
+    "placeholders": {
+      "email": {"type": "String"}
+    }
+  },
+  "connexionMauvaiseAdresse": "Mauvaise adresse ? Recommencer",
+  "notificationsTitre": "Notifications",
+  "notificationsAucunePourLInstant": "Aucune notification pour l'instant.",
+  "notificationsAucunePourCeType": "Aucune notification pour ce type.",
+  "notificationsFiltreTous": "Tous",
+  "notificationsChipTypeCompte": "{type} : {valeur}",
+  "@notificationsChipTypeCompte": {
+    "placeholders": {
+      "type": {"type": "String"},
+      "valeur": {"type": "int"}
+    }
+  },
+  "pourquoiVigieAppBarTitre": "Pourquoi Vigie",
+  "pourquoiVigieTitre1": "Des rappels qui s'adaptent, pas un message figé",
+  "pourquoiVigieTexte1": "Le ton se durcit avec le retard — neutre, puis ferme, puis prioritaire — au lieu de répéter éternellement la même phrase. Une échéance qui approche est signalée même sans retard.",
+  "pourquoiVigieTitre2": "Confidentialité par conception",
+  "pourquoiVigieTexte2": "Les dossiers sont désignés par des noms de code choisis par toi, jamais par les vraies informations sensibles — du nom du dossier jusqu'au journal de bord et au bilan exporté.",
+  "pourquoiVigieTitre3": "Toutes tes sources, une seule validation",
+  "pourquoiVigieTexte3": "Gmail, Google Tasks et Google Calendar alimentent le même écran de propositions, codées par couleur selon leur origine — tu choisis ce qui devient un vrai dossier. L'état de chaque vérification est visible, pas une boîte noire.",
+  "pourquoiVigieTitre4": "Un bilan qui raconte une histoire",
+  "pourquoiVigieTexte4": "Carte de chaleur d'activité, répartition par type de dossier, jour le plus chargé, taux d'achèvement, et un indicateur de fiabilité — pas juste des compteurs bruts.",
+  "pourquoiVigieTitre5": "Un journal de bord, pas des cases à cocher",
+  "pourquoiVigieTexte5": "Documente l'avancement d'un dossier étape par étape : chaque note s'ajoute à la suite, rien n'est jamais écrasé — une vraie mémoire de la progression, pas un simple statut.",
+  "pourquoiVigieTitre6": "Un rapport sûr à partager, par construction",
+  "pourquoiVigieTexte6": "Le bilan s'exporte en un clic — et comme tout est déjà en noms de code, il n'y a jamais rien de sensible dedans, où qu'il soit partagé.",
+  "commonSupprimer": "Supprimer",
+  "dossierDetailModifierTooltip": "Modifier le dossier",
+  "dossierDetailSupprimerTooltip": "Supprimer le dossier",
+  "dossierDetailDateAvecValeur": "Date : {date}",
+  "@dossierDetailDateAvecValeur": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "dossierDetailPasDeDate": "Pas de date renseignée",
+  "dossierDetailTachesLieesTitre": "Tâches liées",
+  "dossierDetailAucuneTache": "Aucune tâche pour l'instant.",
+  "dossierDetailAjouterTacheBouton": "Ajouter une tâche",
+  "dossierDetailSupprimerDossierTitre": "Supprimer ce dossier ?",
+  "dossierDetailSupprimerDossierMessage": "Le dossier \"{nom}\" et toutes ses tâches seront supprimés définitivement.",
+  "@dossierDetailSupprimerDossierMessage": {
+    "placeholders": {
+      "nom": {"type": "String"}
+    }
+  },
+  "dossierDetailNatureEtDate": "{nature} — {date}",
+  "@dossierDetailNatureEtDate": {
+    "placeholders": {
+      "nature": {"type": "String"},
+      "date": {"type": "String"}
+    }
+  },
+  "dossierDetailConfirmerTitre": "Confirmer ?",
+  "dossierDetailBasculerMarquerFait": "marquer cette tâche comme faite",
+  "dossierDetailBasculerRemettreAFaire": "remettre cette tâche à \"à faire\"",
+  "dossierDetailBasculerMessage": "Tu veux {action} : \"{description}\".",
+  "@dossierDetailBasculerMessage": {
+    "placeholders": {
+      "action": {"type": "String"},
+      "description": {"type": "String"}
+    }
+  },
+  "dossierDetailSupprimerTacheTitre": "Supprimer cette tâche ?",
+  "dossierDetailSupprimerTacheMessage": "\"{description}\" sera supprimée définitivement.",
+  "@dossierDetailSupprimerTacheMessage": {
+    "placeholders": {
+      "description": {"type": "String"}
+    }
+  },
+  "dossierDetailAjouterTacheTitre": "Ajouter une tâche",
+  "dossierDetailModifierTacheTitre": "Modifier la tâche",
+  "dossierDetailDetailTacheLabel": "Détail de la tâche",
+  "journalTypeAvancement": "Avancement",
+  "journalTypeBlocage": "Blocage",
+  "journalTypeDecision": "Décision",
+  "dossierDetailJournalTitre": "Journal de bord",
+  "dossierDetailJournalDescription": "Documente l'avancement étape par étape — chaque note s'ajoute à la suite, rien n'est écrasé. Comme pour le nom du dossier, évite d'y écrire de vraies informations sensibles.",
+  "dossierDetailJournalHint": "Ex : appelé X, en attente de sa réponse...",
+  "dossierDetailAjouterJournalBouton": "Ajouter au journal",
+  "dossierDetailErreurAjoutJournal": "Impossible d'ajouter cette entrée : {erreur}",
+  "@dossierDetailErreurAjoutJournal": {
+    "placeholders": {
+      "erreur": {"type": "String"}
+    }
+  },
+  "dossierDetailErreurModifJournal": "Impossible de modifier cette entrée : {erreur}",
+  "@dossierDetailErreurModifJournal": {
+    "placeholders": {
+      "erreur": {"type": "String"}
+    }
+  },
+  "dossierDetailSupprimerEntreeTitre": "Supprimer cette entrée du journal ?",
+  "dossierDetailSupprimerEntreeMessage": "Cette note du {date} sera supprimée définitivement.",
+  "@dossierDetailSupprimerEntreeMessage": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "dossierDetailModifierEntreeTitre": "Modifier cette entrée",
+  "dossierDetailHistoriqueTitre": "Historique",
+  "dossierDetailAucuneEntree": "Aucune entrée pour l'instant.",
+  "dossierDetailAucuneEntreeType": "Aucune entrée de ce type.",
+  "dossierDetailErreurLectureJournal": "Impossible de lire le journal : {erreur}",
+  "@dossierDetailErreurLectureJournal": {
+    "placeholders": {
+      "erreur": {"type": "String"}
+    }
+  },
+  "dossierDetailHier": "Hier",
+  "dossierDetailModifieSuffixe": "· modifié",
+  "commonConfirmer": "Confirmer",
+  "commonTuEsSur": "Tu es sûr ?",
+  "commonDerniereConfirmation": "Dernière confirmation : {message}",
+  "@commonDerniereConfirmation": {
+    "placeholders": {
+      "message": {"type": "String"}
+    }
+  },
+  "connexionGoogleAdresseInconnue": "Compte connecté (reconnecte-toi pour voir l'adresse)"
+}

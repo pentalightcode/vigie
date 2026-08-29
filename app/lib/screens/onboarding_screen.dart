@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/profession.dart';
 import '../services/utilisateur_service.dart';
 
@@ -25,14 +26,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String? _erreur;
 
   Future<void> _valider() async {
+    final l10n = AppLocalizations.of(context)!;
     final nom = _nomController.text.trim();
     final pseudo = _pseudoController.text.trim();
     if (nom.isEmpty || pseudo.isEmpty) {
-      setState(() => _erreur = 'Renseigne au moins ton prénom et un pseudo.');
+      setState(() => _erreur = l10n.onboardingErreurPrenomPseudo);
       return;
     }
     if (_profession == Profession.autre && _professionPersonnaliseeController.text.trim().isEmpty) {
-      setState(() => _erreur = 'Précise le nom de ta profession.');
+      setState(() => _erreur = l10n.onboardingErreurProfession);
       return;
     }
     setState(() {
@@ -49,7 +51,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       );
       widget.onTermine();
     } catch (e) {
-      setState(() => _erreur = 'Impossible d\'enregistrer. Vérifie ta connexion.');
+      setState(() => _erreur = l10n.onboardingErreurConnexion);
     } finally {
       if (mounted) setState(() => _enCours = false);
     }
@@ -57,6 +59,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -68,34 +71,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               const Icon(Icons.waving_hand_outlined, size: 48, color: Colors.amber),
               const SizedBox(height: 12),
               Text(
-                'Bienvenue !',
+                l10n.onboardingBienvenue,
                 style: Theme.of(context).textTheme.headlineMedium,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Quelques infos pour personnaliser ton assistant.',
+              Text(
+                l10n.onboardingSousTitre,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
               TextField(
                 controller: _nomController,
-                decoration: const InputDecoration(labelText: 'Prénom', border: OutlineInputBorder()),
+                decoration: InputDecoration(labelText: l10n.onboardingChampPrenom, border: const OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _pseudoController,
-                decoration: const InputDecoration(
-                  labelText: 'Pseudo (comment l\'app t\'appelle)',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l10n.onboardingChampPseudo,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<Profession>(
                 initialValue: _profession,
-                decoration: const InputDecoration(labelText: 'Ta profession', border: OutlineInputBorder()),
+                decoration: InputDecoration(labelText: l10n.onboardingChampProfession, border: const OutlineInputBorder()),
                 items: Profession.values
-                    .map((p) => DropdownMenuItem(value: p, child: Text(p.libelle)))
+                    .map((p) => DropdownMenuItem(value: p, child: Text(p.libelle(context))))
                     .toList(),
                 onChanged: (p) => setState(() => _profession = p!),
               ),
@@ -103,29 +106,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _professionPersonnaliseeController,
-                  decoration: const InputDecoration(
-                    labelText: 'Précise ta profession',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.profilPreciseProfessionLabel,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
               ],
               const SizedBox(height: 4),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Text(
-                  'On pré-remplira des types de dossier adaptés à ton métier — modifiables ensuite.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  l10n.onboardingNoteNaturesPreremplies,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
                 initialValue: _delaiRappelJours,
-                decoration: const InputDecoration(
-                  labelText: 'Être prévenu combien de jours à l\'avance ?',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l10n.onboardingChampDelaiRappel,
+                  border: const OutlineInputBorder(),
                 ),
-                items: const [7, 14, 21, 30]
-                    .map((j) => DropdownMenuItem(value: j, child: Text('$j jours avant')))
+                items: [7, 14, 21, 30]
+                    .map((j) => DropdownMenuItem(value: j, child: Text(l10n.joursAvant(j))))
                     .toList(),
                 onChanged: (j) => setState(() => _delaiRappelJours = j!),
               ),
@@ -138,7 +141,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 onPressed: _enCours ? null : _valider,
                 child: _enCours
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Commencer'),
+                    : Text(l10n.onboardingBoutonCommencer),
               ),
             ],
           ),

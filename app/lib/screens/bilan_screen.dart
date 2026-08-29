@@ -1,6 +1,8 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
+import '../l10n/app_localizations.dart';
 import '../models/reglages_utilisateur.dart';
 import '../models/tache.dart';
 import '../services/firestore_service.dart';
@@ -12,12 +14,12 @@ import 'dossier_detail_screen.dart';
 enum _Periode { semaine, mois, trimestre, semestre, annee }
 
 extension on _Periode {
-  String get libelle => switch (this) {
-        _Periode.semaine => 'Semaine',
-        _Periode.mois => 'Mois',
-        _Periode.trimestre => 'Trimestre',
-        _Periode.semestre => 'Semestre',
-        _Periode.annee => 'Année',
+  String libelle(AppLocalizations l10n) => switch (this) {
+        _Periode.semaine => l10n.bilanPeriodeSemaine,
+        _Periode.mois => l10n.bilanPeriodeMois,
+        _Periode.trimestre => l10n.bilanPeriodeTrimestre,
+        _Periode.semestre => l10n.bilanPeriodeSemestre,
+        _Periode.annee => l10n.bilanPeriodeAnnee,
       };
 
   /// null = calculé en jours (semaine), sinon en blocs de mois.
@@ -57,18 +59,14 @@ extension on _Periode {
   return (debut: debutDuBloc(indexPeriodeCible), fin: debutDuBloc(indexPeriodeCible + 1));
 }
 
-const _moisFrPlein = [
-  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
-];
-
-String _libellePeriode(_Periode periode, DateTime debut, DateTime finExclusive) {
+String _libellePeriode(AppLocalizations l10n, String codeLangue, _Periode periode, DateTime debut, DateTime finExclusive) {
   final finInclusive = finExclusive.subtract(const Duration(days: 1));
+  final locale = codeLangue == 'en' ? 'en_US' : 'fr_FR';
   return switch (periode) {
     _Periode.semaine => '${formaterDateFr(debut)} - ${formaterDateFr(finInclusive)}',
-    _Periode.mois => '${_moisFrPlein[debut.month - 1]} ${debut.year}',
-    _Periode.trimestre => 'T${((debut.month - 1) ~/ 3) + 1} ${debut.year}',
-    _Periode.semestre => 'S${((debut.month - 1) ~/ 6) + 1} ${debut.year}',
+    _Periode.mois => DateFormat.yMMMM(locale).format(debut),
+    _Periode.trimestre => l10n.bilanLibellePeriodeTrimestre(((debut.month - 1) ~/ 3) + 1, debut.year),
+    _Periode.semestre => l10n.bilanLibellePeriodeSemestre(((debut.month - 1) ~/ 6) + 1, debut.year),
     _Periode.annee => '${debut.year}',
   };
 }
@@ -105,19 +103,21 @@ class _BilanScreenState extends State<BilanScreen> {
     return StreamBuilder<List<Tache>>(
         stream: FirestoreService.instance.toutesLesTaches(),
         builder: (context, snapshot) {
+          final l10n = AppLocalizations.of(context)!;
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Scaffold(
-              appBar: AppBar(title: const Text('Bilan')),
+              appBar: AppBar(title: Text(l10n.navBilan)),
               body: const Center(child: CircularProgressIndicator()),
             );
           }
           if (snapshot.hasError) {
             return Scaffold(
-              appBar: AppBar(title: const Text('Bilan')),
-              body: Center(child: Text('Erreur : ${snapshot.error}')),
+              appBar: AppBar(title: Text(l10n.navBilan)),
+              body: Center(child: Text(l10n.aTraiterErreur(snapshot.error.toString()))),
             );
           }
           final taches = snapshot.data ?? [];
+          final codeLangue = Localizations.localeOf(context).languageCode;
 
           bool estFaitDansLaPeriode(Tache t) =>
               t.statut == StatutTache.fait &&
@@ -141,10 +141,10 @@ class _BilanScreenState extends State<BilanScreen> {
 
           return Scaffold(
             appBar: AppBar(
-              title: const Text('Bilan'),
+              title: Text(l10n.navBilan),
               actions: [
                 IconButton(
-                  tooltip: 'Partager ce bilan',
+                  tooltip: l10n.bilanPartagerTooltip,
                   icon: const Icon(Icons.ios_share),
                   onPressed: () => _partager(
                     bornes: bornes,
@@ -167,7 +167,7 @@ class _BilanScreenState extends State<BilanScreen> {
                   scrollDirection: Axis.horizontal,
                   child: SegmentedButton<_Periode>(
                     segments: _Periode.values
-                        .map((p) => ButtonSegment(value: p, label: Text(p.libelle)))
+                        .map((p) => ButtonSegment(value: p, label: Text(p.libelle(l10n))))
                         .toList(),
                     selected: {_periode},
                     onSelectionChanged: (s) => _changerPeriode(s.first),
@@ -185,7 +185,7 @@ class _BilanScreenState extends State<BilanScreen> {
                       onPressed: () => setState(() => _decalage -= 1),
                     ),
                     Text(
-                      _libellePeriode(_periode, bornes.debut, bornes.fin),
+                      _libellePeriode(l10n, codeLangue, _periode, bornes.debut, bornes.fin),
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     IconButton(
@@ -201,7 +201,7 @@ class _BilanScreenState extends State<BilanScreen> {
               ),
               Expanded(
                 child: taches.isEmpty
-                    ? const Center(child: Text('Rien à afficher pour l\'instant.'))
+                    ? Center(child: Text(l10n.bilanRienAAfficher))
                     : ListView(
                         padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                         children: [
@@ -212,28 +212,27 @@ class _BilanScreenState extends State<BilanScreen> {
                               child: Wrap(
                                 spacing: 8,
                                 children: [
-                                  _Compteur(label: 'Fait', valeur: totalFait, couleur: Colors.green),
+                                  _Compteur(label: l10n.bilanFait, valeur: totalFait, couleur: Colors.green),
                                   if (periodeEnCours)
-                                    _Compteur(label: 'En retard', valeur: totalEnRetard, couleur: Colors.red),
-                                  _Compteur(label: 'À venir', valeur: totalAVenir, couleur: Colors.grey),
+                                    _Compteur(label: l10n.bilanEnRetard, valeur: totalEnRetard, couleur: Colors.red),
+                                  _Compteur(label: l10n.bilanAVenir, valeur: totalAVenir, couleur: Colors.grey),
                                 ],
                               ),
                             ),
                           ),
                           if (!periodeEnCours)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 6),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
                               child: Text(
-                                '"En retard" n\'est affiché que sur la période en cours — '
-                                'ça n\'a pas de sens pour une période déjà passée.',
-                                style: TextStyle(fontSize: 12, color: Colors.grey),
+                                l10n.bilanNoteEnRetardPeriodePassee,
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
                               ),
                             ),
                           const SizedBox(height: 6),
                           Card(
                             child: ExpansionTile(
                               leading: const Icon(Icons.insights_outlined),
-                              title: const Text('Statistiques'),
+                              title: Text(l10n.bilanStatistiquesTitre),
                               childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                               children: [
                                 StatistiquesBilan(
@@ -292,10 +291,10 @@ class _BilanScreenState extends State<BilanScreen> {
                                       Wrap(
                                         spacing: 8,
                                         children: [
-                                          _Compteur(label: 'Fait', valeur: fait, couleur: Colors.green),
+                                          _Compteur(label: l10n.bilanFait, valeur: fait, couleur: Colors.green),
                                           if (periodeEnCours)
-                                            _Compteur(label: 'En retard', valeur: enRetard, couleur: Colors.red),
-                                          _Compteur(label: 'À venir', valeur: aVenir, couleur: Colors.grey),
+                                            _Compteur(label: l10n.bilanEnRetard, valeur: enRetard, couleur: Colors.red),
+                                          _Compteur(label: l10n.bilanAVenir, valeur: aVenir, couleur: Colors.grey),
                                         ],
                                       ),
                                     ],
@@ -329,12 +328,16 @@ class _BilanScreenState extends State<BilanScreen> {
     required bool Function(Tache) estFaitDansLaPeriode,
     required bool Function(Tache) estAVenirDansLaPeriode,
   }) {
+    final l10n = AppLocalizations.of(context)!;
+    final codeLangue = Localizations.localeOf(context).languageCode;
     final buffer = StringBuffer()
-      ..writeln('Bilan Vigie — ${_libellePeriode(_periode, bornes.debut, bornes.fin)}')
+      ..writeln(l10n.bilanTexteEnTete(_libellePeriode(l10n, codeLangue, _periode, bornes.debut, bornes.fin)))
       ..writeln()
-      ..write('Total : $totalFait fait, ')
-      ..write(periodeEnCours ? '$totalEnRetard en retard, ' : '')
-      ..writeln('$totalAVenir à venir')
+      ..writeln(
+        periodeEnCours
+            ? l10n.bilanTexteTotalAvecRetard(totalFait, totalEnRetard, totalAVenir)
+            : l10n.bilanTexteTotalSansRetard(totalFait, totalAVenir),
+      )
       ..writeln();
 
     for (final entree in parDossier.entries) {
@@ -344,9 +347,11 @@ class _BilanScreenState extends State<BilanScreen> {
       final enRetard = tachesDossier.where((t) => t.estEnRetard).length;
       final aVenir = tachesDossier.where(estAVenirDansLaPeriode).length;
       if (fait == 0 && (!periodeEnCours || enRetard == 0) && aVenir == 0) continue;
-      buffer.write('$nomDossier : $fait fait, ');
-      if (periodeEnCours) buffer.write('$enRetard en retard, ');
-      buffer.writeln('$aVenir à venir');
+      buffer.writeln(
+        periodeEnCours
+            ? l10n.bilanTexteDossierAvecRetard(nomDossier, fait, enRetard, aVenir)
+            : l10n.bilanTexteDossierSansRetard(nomDossier, fait, aVenir),
+      );
     }
     return buffer.toString();
   }
@@ -374,10 +379,7 @@ class _BilanScreenState extends State<BilanScreen> {
     final buffer = StringBuffer()
       ..write(texte)
       ..writeln()
-      ..write(
-        'Généré par Vigie — noms de code choisis par l\'utilisateur, '
-        'aucune information sensible.',
-      );
+      ..write(AppLocalizations.of(context)!.bilanTextePartageSignature);
 
     await Share.share(buffer.toString());
   }
@@ -423,6 +425,7 @@ class _SectionResumeIaState extends State<_SectionResumeIa> {
     return StreamBuilder<ReglagesUtilisateur>(
       stream: UtilisateurService.instance.reglages(),
       builder: (context, snapshot) {
+        final l10n = AppLocalizations.of(context)!;
         final actif = snapshot.data?.bilanIaActif ?? false;
         return Card(
           child: Padding(
@@ -434,15 +437,15 @@ class _SectionResumeIaState extends State<_SectionResumeIa> {
                   children: [
                     const Icon(Icons.auto_awesome_outlined, size: 20),
                     const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text('Résumé & recommandations', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Expanded(
+                      child: Text(l10n.bilanResumeIaTitre, style: const TextStyle(fontWeight: FontWeight.bold)),
                     ),
                     if (actif)
                       SizedBox(
                         width: 28,
                         height: 28,
                         child: IconButton(
-                          tooltip: 'Désactiver',
+                          tooltip: l10n.bilanResumeIaDesactiverTooltip,
                           padding: EdgeInsets.zero,
                           icon: const Icon(Icons.close, size: 16),
                           onPressed: _desactiver,
@@ -452,16 +455,15 @@ class _SectionResumeIaState extends State<_SectionResumeIa> {
                 ),
                 const SizedBox(height: 6),
                 if (!actif) ...[
-                  const Text(
-                    'Un résumé et des recommandations générés par une IA (Groq), à partir '
-                    'des mêmes chiffres anonymisés que le partage du Bilan — désactivé par défaut.',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  Text(
+                    l10n.bilanResumeIaDescription,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton.icon(
                     onPressed: _activer,
                     icon: const Icon(Icons.auto_awesome_outlined, size: 18),
-                    label: const Text('Activer'),
+                    label: Text(l10n.bilanResumeIaActiverBouton),
                   ),
                 ] else ...[
                   FilledButton.icon(
@@ -469,7 +471,7 @@ class _SectionResumeIaState extends State<_SectionResumeIa> {
                     icon: _enCours
                         ? const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.auto_awesome_outlined, size: 18),
-                    label: Text(_resume == null ? 'Générer' : 'Régénérer'),
+                    label: Text(_resume == null ? l10n.bilanResumeIaGenererBouton : l10n.bilanResumeIaRegenererBouton),
                   ),
                   if (_erreur != null) ...[
                     const SizedBox(height: 8),
@@ -489,18 +491,15 @@ class _SectionResumeIaState extends State<_SectionResumeIa> {
   }
 
   Future<void> _activer() async {
+    final l10n = AppLocalizations.of(context)!;
     final confirme = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Avant d\'activer le résumé IA'),
-        content: const Text(
-          'Le texte du Bilan (chiffres et noms de code, jamais de vraies informations '
-          '— le même contenu déjà utilisé pour le partage) est envoyé à un service '
-          'd\'intelligence artificielle tiers (Groq) pour générer un résumé.',
-        ),
+        title: Text(l10n.bilanResumeIaConfirmationTitre),
+        content: Text(l10n.bilanResumeIaConfirmationMessage),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Activer')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l10n.commonAnnuler)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(l10n.bilanResumeIaActiverBouton)),
         ],
       ),
     );
@@ -525,7 +524,9 @@ class _SectionResumeIaState extends State<_SectionResumeIa> {
           .call({'texteBilan': widget.texteBilan});
       if (mounted) setState(() => _resume = resultat.data['resume'] as String);
     } catch (e) {
-      if (mounted) setState(() => _erreur = 'Impossible de générer le résumé : $e');
+      if (mounted) {
+        setState(() => _erreur = AppLocalizations.of(context)!.bilanResumeIaErreurGeneration(e.toString()));
+      }
     } finally {
       if (mounted) setState(() => _enCours = false);
     }

@@ -1,3 +1,6 @@
+import 'package:flutter/widgets.dart';
+import '../l10n/app_localizations.dart';
+
 /// Top 12 professions les plus courantes, tous secteurs confondus — pas
 /// seulement le droit (correction demandée par Tobie : l'app ne doit pas
 /// sembler réservée aux juristes).
@@ -18,21 +21,24 @@ enum Profession {
 }
 
 extension ProfessionLabel on Profession {
-  String get libelle => switch (this) {
-        Profession.medecin => 'Médecin / Professionnel de santé',
-        Profession.enseignant => 'Enseignant / Professeur',
-        Profession.avocatJuriste => 'Avocat / Juriste',
-        Profession.magistrat => 'Magistrat',
-        Profession.comptable => 'Comptable / Expert-comptable',
-        Profession.consultant => 'Consultant / Indépendant',
-        Profession.commercial => 'Commercial / Chargé de clientèle',
-        Profession.architecteIngenieur => 'Architecte / Ingénieur',
-        Profession.agentImmobilier => 'Agent immobilier',
-        Profession.artisanBatiment => 'Artisan / Entrepreneur du bâtiment',
-        Profession.beauteBienEtre => 'Coiffeur / Esthéticienne / Bien-être',
-        Profession.entrepreneur => 'Entrepreneur / Chef d\'entreprise',
-        Profession.autre => 'Autre',
-      };
+  String libelle(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return switch (this) {
+      Profession.medecin => l10n.professionMedecin,
+      Profession.enseignant => l10n.professionEnseignant,
+      Profession.avocatJuriste => l10n.professionAvocatJuriste,
+      Profession.magistrat => l10n.professionMagistrat,
+      Profession.comptable => l10n.professionComptable,
+      Profession.consultant => l10n.professionConsultant,
+      Profession.commercial => l10n.professionCommercial,
+      Profession.architecteIngenieur => l10n.professionArchitecteIngenieur,
+      Profession.agentImmobilier => l10n.professionAgentImmobilier,
+      Profession.artisanBatiment => l10n.professionArtisanBatiment,
+      Profession.beauteBienEtre => l10n.professionBeauteBienEtre,
+      Profession.entrepreneur => l10n.professionEntrepreneur,
+      Profession.autre => l10n.professionAutre,
+    };
+  }
 }
 
 /// Un type de dossier "de départ", proposé selon la profession choisie à

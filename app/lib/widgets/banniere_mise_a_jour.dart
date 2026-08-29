@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../services/version_service.dart';
 import '../utils/confirmation.dart';
 
@@ -38,6 +39,7 @@ class _BanniereMiseAJourState extends State<BanniereMiseAJour> {
     final infos = _infos;
     if (infos == null) return const SizedBox.shrink();
 
+    final l10n = AppLocalizations.of(context)!;
     final couleurTexte = Theme.of(context).colorScheme.onPrimaryContainer;
 
     return Material(
@@ -52,14 +54,14 @@ class _BanniereMiseAJourState extends State<BanniereMiseAJour> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  '${infos.version.isNotEmpty ? 'Nouvelle version disponible (${infos.version}).' : 'Une nouvelle version de l\'app est disponible.'} '
-                  'Va sur vigie.pentalightcode.com pour la télécharger.',
+                  '${infos.version.isNotEmpty ? l10n.banniereNouvelleVersionAvecNumero(infos.version) : l10n.banniereNouvelleVersionSansNumero} '
+                  '${l10n.banniereInstructionTelechargement}',
                   style: TextStyle(color: couleurTexte),
                 ),
               ),
               IconButton(
                 icon: const Icon(Icons.close),
-                tooltip: 'Fermer',
+                tooltip: l10n.commonFermer,
                 onPressed: () => _fermer(context),
               ),
             ],
@@ -70,15 +72,16 @@ class _BanniereMiseAJourState extends State<BanniereMiseAJour> {
   }
 
   Future<void> _fermer(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
     // Double confirmation demandée par Tobie (2026-08-17) : un clic accidentel
     // ne doit pas faire disparaître l'alerte de mise à jour. Elle réapparaîtra
     // de toute façon au prochain lancement complet de l'app tant que la
     // version installée n'aura pas rattrapé celle publiée.
     final confirme = await demanderDoubleConfirmation(
       context,
-      titre: 'Ignorer cette mise à jour ?',
-      message: 'La bannière réapparaîtra au prochain lancement de l\'app tant que tu n\'auras pas mis à jour.',
-      texteBouton: 'Ignorer',
+      titre: l10n.banniereIgnorerTitre,
+      message: l10n.banniereIgnorerMessage,
+      texteBouton: l10n.banniereIgnorerBouton,
     );
     if (confirme && mounted) setState(() => _infos = null);
   }

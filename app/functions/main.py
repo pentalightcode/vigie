@@ -25,7 +25,7 @@ from email.utils import parseaddr
 import dns.resolver
 import requests
 from cryptography.fernet import Fernet
-from firebase_admin import firestore, initialize_app, messaging
+from firebase_admin import auth as firebase_auth, firestore, initialize_app, messaging
 from firebase_functions import https_fn, scheduler_fn
 from firebase_functions.params import SecretParam
 
@@ -35,6 +35,16 @@ initialize_app()
 # choisies plutôt qu'un vrai calcul astronomique (décision du 2026-08-07).
 _HORAIRE = "0 */3 * * *"
 _FUSEAU = "Africa/Porto-Novo"
+
+# Trouvé lors de l'audit du 2026-08-29 (signalé par Tobie : notifications
+# "fantômes", quasi jamais reçues sauf vers minuit) : _situation_a_change
+# compare une urgence calculée en jours entiers, qui ne change donc qu'une
+# fois par 24h, pile au passage à minuit — sur les 8 vérifications
+# quotidiennes (toutes les 3h), une seule détectait un changement. Ces deux
+# créneaux (9h/18h, les plus proches de "matin/soir" dans la grille
+# existante) forcent l'envoi même sans changement de situation, tant qu'il y
+# a quelque chose à traiter — la grille _HORAIRE reste inchangée.
+_HEURES_RAPPEL_GARANTI = {9, 18}
 
 # --- Connexion Gmail (automatisation) ---------------------------------
 # ID client "Application Web" auto-créé par Firebase (voir GoogleSignIn côté
@@ -167,6 +177,27 @@ def _echanger_refresh_token(refresh_token_chiffre: str) -> str | None:
     return reponse.json()["access_token"]
 
 
+def _revoquer_connexion_google(refresh_token_chiffre: str) -> None:
+    """Révoque vraiment l'accès auprès de Google (pas juste "on oublie le
+    jeton de notre côté"). Trouvé lors de l'audit du 2026-08-29 : ni
+    deconnecter_gmail ni la suppression de compte n'appelaient ça — le
+    consentement OAuth restait actif côté Google indéfiniment (Google ne
+    l'expire jamais tout seul), donc le jeton chiffré stocké restait
+    valide et exploitable même après "déconnexion" côté Vigie. Best-effort
+    : un jeton déjà révoqué/expiré ne doit jamais bloquer la suite
+    (déconnexion ou suppression de compte doivent réussir dans tous les cas)."""
+    try:
+        fernet = Fernet(_token_chiffrement_cle.value.encode())
+        refresh_token = fernet.decrypt(refresh_token_chiffre.encode()).decode()
+        requests.post(
+            "https://oauth2.googleapis.com/revoke",
+            params={"token": refresh_token},
+            timeout=10,
+        )
+    except Exception as e:  # pylint: disable=broad-except
+        print(f"Échec de révocation Google (jeton probablement déjà invalide) : {type(e).__name__}: {e}")
+
+
 _MAX_EMAILS_CATALOGUE = 500  # plafond d'une seule page Gmail — au-delà, il faudrait paginer sur plusieurs appels.
 
 
@@ -237,16 +268,22 @@ def lister_expediteurs_recents(req: https_fn.CallableRequest) -> dict:
     return {"expediteurs": [{"email": e, "nombre": n} for e, n in expediteurs]}
 
 
-@https_fn.on_call()
+@https_fn.on_call(secrets=[_token_chiffrement_cle])
 def deconnecter_gmail(req: https_fn.CallableRequest) -> dict:
     if req.auth is None:
         raise https_fn.HttpsError(https_fn.FunctionsErrorCode.UNAUTHENTICATED, "Non connecté.")
     connexion_id = (req.data or {}).get("connexionId")
     if not connexion_id:
         raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "connexionId manquant.")
-    firestore.client().collection("utilisateurs").document(req.auth.uid).collection(
+    ref = firestore.client().collection("utilisateurs").document(req.auth.uid).collection(
         "connexionsGoogle"
-    ).document(connexion_id).delete()
+    ).document(connexion_id)
+    doc = ref.get()
+    if doc.exists:
+        chiffre = (doc.to_dict() or {}).get("refreshTokenChiffre")
+        if chiffre:
+            _revoquer_connexion_google(chiffre)
+    ref.delete()
     return {"ok": True}
 
 
@@ -281,6 +318,8 @@ def digest_quotidien(event: scheduler_fn.ScheduledEvent) -> None:
     fréquentes, sans que ça devienne du spam à répéter le même message)."""
     db = firestore.client()
     maintenant = datetime.now(timezone.utc)
+    heure_locale = (maintenant.hour + 1) % 24  # Africa/Porto-Novo = UTC+1 fixe
+    rappel_garanti = heure_locale in _HEURES_RAPPEL_GARANTI
 
     for doc_utilisateur in db.collection("utilisateurs").stream():
         uid = doc_utilisateur.id
@@ -290,7 +329,7 @@ def digest_quotidien(event: scheduler_fn.ScheduledEvent) -> None:
 
         try:
             for digest in _construire_digests(db, uid, maintenant):
-                if not _situation_a_change(db, uid, digest, maintenant):
+                if not _situation_a_change(db, uid, digest, maintenant) and not rappel_garanti:
                     continue
                 _envoyer(uid, token, digest)
                 _enregistrer_historique(db, uid, digest)
@@ -452,7 +491,21 @@ def _rappel_alimentation_si_besoin(db, uid: str, maintenant: datetime) -> str | 
     return "Rien à traiter pour l'instant, pense à ajouter des tâches aux dossiers de la semaine."
 
 
-def _envoyer(uid: str, token: str, digest: dict, lien: str | None = None) -> None:
+_CORPS_PUBLIC_PAR_DEFAUT = "Tu as une nouvelle notification dans Vigie."
+
+
+def _envoyer(uid: str, token: str, digest: dict, lien: str | None = None, corps_public: str | None = None) -> None:
+    # Trouvé lors de l'audit de sécurité du 2026-08-29 (demandé par Tobie) :
+    # digest["corps"] contient parfois le nom de code du dossier ou l'objet
+    # d'un email (voir _corps_escalade et le rappel manuel emails) — hors de
+    # question de l'envoyer tel quel à FCM, ce texte s'affiche sur l'écran
+    # verrouillé indépendamment du code de l'app (le réglage dépend du
+    # téléphone, pas de nous). Par défaut on pousse un message générique ;
+    # seuls les appelants qui ont vérifié que leur contenu est sans donnée
+    # sensible passent explicitement corps_public. Le détail réel reste
+    # disponible dans l'historique in-app (_enregistrer_historique), protégé
+    # par l'auth + le verrou PIN.
+    corps_affiche = corps_public if corps_public is not None else _CORPS_PUBLIC_PAR_DEFAUT
     data = {"dossierId": digest["dossierId"] or ""}
     if lien:
         # Champ réservé (documenté dans les options "lien" de la console
@@ -464,7 +517,7 @@ def _envoyer(uid: str, token: str, digest: dict, lien: str | None = None) -> Non
         # jamais pour les rappels de dossier normaux.
         data["gcm.n.link"] = lien
     message = messaging.Message(
-        notification=messaging.Notification(title="Vigie", body=digest["corps"]),
+        notification=messaging.Notification(title="Vigie", body=corps_affiche),
         data=data,
         android=messaging.AndroidConfig(
             priority="high",
@@ -473,6 +526,10 @@ def _envoyer(uid: str, token: str, digest: dict, lien: str | None = None) -> Non
                 sound="default",
                 priority="high",
                 default_vibrate_timings=True,
+                # Défense en profondeur : force le comportement même sur les
+                # téléphones dont le réglage écran verrouillé par défaut
+                # afficherait tout le contenu.
+                visibility="private",
             ),
         ),
         token=token,
@@ -580,7 +637,7 @@ def _extraire_avec_ia(sujet: str, texte: str) -> dict:
                 "model": _MODELE_GROQ,
                 "messages": [
                     {"role": "system", "content": _SYSTEME_EXTRACTION_EMAIL},
-                    {"role": "user", "content": f"Objet : {sujet}\n\n{texte[:6000]}"},
+                    {"role": "user", "content": f"Objet : {sujet[:200]}\n\n{texte[:6000]}"},
                 ],
                 "temperature": 0,
                 "max_tokens": 300,
@@ -708,7 +765,7 @@ def scanner_emails(event: scheduler_fn.ScheduledEvent) -> None:
                 "parType": {}, "total": 0, "enRetard": 0,
             }
             if token:
-                _envoyer(uid, token, digest)
+                _envoyer(uid, token, digest, corps_public=digest["corps"])
             _enregistrer_historique(db, uid, digest)
 
         # La recherche de motif n'a rien trouvé d'exploitable dans ces
@@ -913,7 +970,7 @@ def publier_version_admin(req: https_fn.Request) -> https_fn.Response:
                 ),
                 "parType": {}, "total": 0, "enRetard": 0,
             }
-            _envoyer(doc_utilisateur.id, token, digest, lien="https://vigie.pentalightcode.com")
+            _envoyer(doc_utilisateur.id, token, digest, lien="https://vigie.pentalightcode.com", corps_public=digest["corps"])
             _enregistrer_historique(db, doc_utilisateur.id, digest)
             nb_notifies += 1
 
@@ -965,7 +1022,7 @@ def scanner_taches_google(event: scheduler_fn.ScheduledEvent) -> None:
                 "parType": {}, "total": 0, "enRetard": 0,
             }
             if token:
-                _envoyer(uid, token, digest)
+                _envoyer(uid, token, digest, corps_public=digest["corps"])
             _enregistrer_historique(db, uid, digest)
 
 
@@ -1064,7 +1121,7 @@ def scanner_calendrier_google(event: scheduler_fn.ScheduledEvent) -> None:
                 "parType": {}, "total": 0, "enRetard": 0,
             }
             if token:
-                _envoyer(uid, token, digest)
+                _envoyer(uid, token, digest, corps_public=digest["corps"])
             _enregistrer_historique(db, uid, digest)
 
 
@@ -1228,7 +1285,7 @@ def generer_resume_bilan(req: https_fn.CallableRequest) -> dict:
     if req.auth is None:
         raise https_fn.HttpsError(https_fn.FunctionsErrorCode.UNAUTHENTICATED, "Non connecté.")
 
-    texte_bilan = ((req.data or {}).get("texteBilan") or "").strip()
+    texte_bilan = ((req.data or {}).get("texteBilan") or "").strip()[:8000]
     if not texte_bilan:
         raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "Bilan vide.")
 
@@ -1258,3 +1315,80 @@ def generer_resume_bilan(req: https_fn.CallableRequest) -> dict:
     resultat = reponse.json()
     resume = resultat["choices"][0]["message"]["content"].strip()
     return {"resume": resume}
+
+
+# --- Suppression définitive de compte -----------------------------------
+# Trouvé lors de l'audit du 2026-08-29 : la suppression de compte se faisait
+# entièrement côté téléphone (utilisateur_service.dart), et ne supprimait
+# QUE dossiers/taches/naturesDossier/le document racine — jamais journalDossier
+# (notes de dossier), notifications (historique), propositions,
+# connexionsGoogle (jeton Google chiffré, ni supprimé ni révoqué auprès de
+# Google !), etatSync, etatsNotifies. Un compte "définitivement supprimé"
+# laissait donc des données sensibles orphelines pour toujours, et une
+# autorisation Google active à vie. Bougé côté serveur : c'est le seul
+# endroit qui a la clé pour révoquer les jetons Google, et Admin SDK peut
+# découvrir TOUTES les sous-collections automatiquement (.collections()),
+# donc reste correct même si de nouvelles sous-collections sont ajoutées
+# plus tard sans qu'on pense à mettre cette fonction à jour.
+
+def _supprimer_sous_collections(doc_ref) -> None:
+    """Parcourt récursivement toutes les sous-collections d'un document et
+    supprime chaque document trouvé, par lots de 400 (limite du batch
+    Firestore : 500) plutôt qu'un par un — les collections de suivi interne
+    (emails/tâches/événements "déjà traités") peuvent accumuler beaucoup de
+    documents sur un compte utilisé depuis des mois."""
+    a_supprimer: list = []
+
+    def _explorer(ref) -> None:
+        for sous_collection in ref.collections():
+            for sous_doc in sous_collection.stream():
+                if sous_collection.id == "connexionsGoogle":
+                    chiffre = (sous_doc.to_dict() or {}).get("refreshTokenChiffre")
+                    if chiffre:
+                        _revoquer_connexion_google(chiffre)
+                _explorer(sous_doc.reference)
+                a_supprimer.append(sous_doc.reference)
+
+    _explorer(doc_ref)
+
+    db = firestore.client()
+    for i in range(0, len(a_supprimer), 400):
+        batch = db.batch()
+        for ref in a_supprimer[i:i + 400]:
+            batch.delete(ref)
+        batch.commit()
+
+
+def _supprimer_par_lots(query, taille_lot: int = 400) -> None:
+    db = firestore.client()
+    docs = list(query.stream())
+    for i in range(0, len(docs), taille_lot):
+        batch = db.batch()
+        for doc in docs[i:i + taille_lot]:
+            batch.delete(doc.reference)
+        batch.commit()
+
+
+@https_fn.on_call(secrets=[_token_chiffrement_cle], timeout_sec=120)
+def supprimer_compte_definitivement(req: https_fn.CallableRequest) -> dict:
+    """Supprime VRAIMENT tout : révoque chaque connexion Google auprès de
+    Google, efface toutes les données Firestore (collections de premier
+    niveau filtrées par uid + toutes les sous-collections, découvertes
+    automatiquement), puis supprime le compte de connexion (Admin SDK).
+    Irréversible — protégé par la triple confirmation déjà en place côté
+    écran Profil, qui n'appelle plus que cette fonction désormais."""
+    if req.auth is None:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.UNAUTHENTICATED, "Non connecté.")
+    uid = req.auth.uid
+    db = firestore.client()
+
+    _supprimer_par_lots(db.collection("dossiers").where("uid", "==", uid))
+    _supprimer_par_lots(db.collection("taches").where("uid", "==", uid))
+    _supprimer_par_lots(db.collection("journalDossier").where("uid", "==", uid))
+
+    doc_utilisateur_ref = db.collection("utilisateurs").document(uid)
+    _supprimer_sous_collections(doc_utilisateur_ref)
+    doc_utilisateur_ref.delete()
+
+    firebase_auth.delete_user(uid)
+    return {"ok": True}

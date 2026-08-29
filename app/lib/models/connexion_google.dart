@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/widgets.dart';
+import '../l10n/app_localizations.dart';
 
 /// Un compte Google connecté — aucun rôle prédéfini côté app (revu le
 /// 2026-08-21, sur retour de Tobie après test réel : une première tentative
@@ -17,10 +19,10 @@ class ConnexionGoogle {
   /// Le libellé personnalisé si renseigné, sinon l'adresse connectée —
   /// jamais vide même si les deux le sont (connexion créée avant le
   /// correctif du 2026-08-21, à reconnecter pour retrouver la vraie adresse).
-  String get affichage {
+  String affichage(BuildContext context) {
     if (libelle.isNotEmpty) return libelle;
     if (emailConnecte.isNotEmpty) return emailConnecte;
-    return 'Compte connecté (reconnecte-toi pour voir l\'adresse)';
+    return AppLocalizations.of(context)!.connexionGoogleAdresseInconnue;
   }
 
   factory ConnexionGoogle.depuisDocument(DocumentSnapshot doc) {

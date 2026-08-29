@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 
 /// Demande une confirmation en deux étapes successives (décidé avec Tobie :
 /// fixe pour tout le monde, pour les actions à risque — marquer fait,
@@ -8,18 +9,20 @@ Future<bool> demanderDoubleConfirmation(
   BuildContext context, {
   required String titre,
   required String message,
-  String texteBouton = 'Confirmer',
+  String? texteBouton,
   bool destructif = false,
 }) async {
-  final premiereConfirmation = await _dialogue(context, titre, message, texteBouton, destructif);
+  final l10n = AppLocalizations.of(context)!;
+  final bouton = texteBouton ?? l10n.commonConfirmer;
+  final premiereConfirmation = await _dialogue(context, titre, message, bouton, destructif);
   if (premiereConfirmation != true) return false;
   if (!context.mounted) return false;
 
   final secondeConfirmation = await _dialogue(
     context,
-    'Tu es sûr ?',
-    'Dernière confirmation : $message',
-    texteBouton,
+    l10n.commonTuEsSur,
+    l10n.commonDerniereConfirmation(message),
+    bouton,
     destructif,
   );
   return secondeConfirmation == true;
@@ -38,7 +41,10 @@ Future<bool?> _dialogue(
       title: Text(titre),
       content: Text(message),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(AppLocalizations.of(context)!.commonAnnuler),
+        ),
         destructif
             ? FilledButton.tonal(
                 style: FilledButton.styleFrom(foregroundColor: Colors.red),

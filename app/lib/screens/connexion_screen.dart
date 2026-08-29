@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../services/auth_service.dart';
 import '../services/version_service.dart';
 import '../utils/telechargement.dart';
@@ -31,9 +32,10 @@ class _ConnexionScreenState extends State<ConnexionScreen> {
   }
 
   Future<void> _envoyerLien() async {
+    final l10n = AppLocalizations.of(context)!;
     final email = _emailController.text.trim();
     if (email.isEmpty || !email.contains('@')) {
-      setState(() => _erreur = 'Entre une adresse email valide.');
+      setState(() => _erreur = l10n.connexionErreurEmailInvalide);
       return;
     }
     setState(() {
@@ -46,7 +48,7 @@ class _ConnexionScreenState extends State<ConnexionScreen> {
     } catch (e) {
       // ignore: avoid_print
       print('DEBUG erreur envoi lien: $e');
-      setState(() => _erreur = 'Impossible d\'envoyer le lien. Vérifie ta connexion.');
+      setState(() => _erreur = l10n.connexionErreurEnvoiLien);
     } finally {
       setState(() => _envoiEnCours = false);
     }
@@ -67,6 +69,7 @@ class _ConnexionScreenState extends State<ConnexionScreen> {
   }
 
   Widget _vueSaisieEmail() {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -87,23 +90,23 @@ class _ConnexionScreenState extends State<ConnexionScreen> {
             icon: const Icon(Icons.android),
             label: Text(
               _versionDisponible != null
-                  ? 'Télécharger l\'app Android (v$_versionDisponible)'
-                  : 'Télécharger l\'app Android (recommandé)',
+                  ? l10n.connexionTelechargerAvecVersion(_versionDisponible!)
+                  : l10n.connexionTelechargerSansVersion,
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'La version installée fonctionne mieux que le site (notifications, Gmail...).',
+          Text(
+            l10n.connexionVersionInstalleeMeilleure,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
           const SizedBox(height: 20),
           const Divider(),
         ],
         const SizedBox(height: 8),
-        const Text(
-          'Entre ton adresse email, tu recevras un lien de connexion — pas besoin de mot de passe.',
+        Text(
+          l10n.connexionInstructions,
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
@@ -111,9 +114,9 @@ class _ConnexionScreenState extends State<ConnexionScreen> {
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
           autofillHints: const [AutofillHints.email],
-          decoration: const InputDecoration(
-            labelText: 'Adresse email',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l10n.connexionChampEmail,
+            border: const OutlineInputBorder(),
           ),
         ),
         if (_erreur != null) ...[
@@ -129,7 +132,7 @@ class _ConnexionScreenState extends State<ConnexionScreen> {
                   width: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Recevoir le lien de connexion'),
+              : Text(l10n.connexionRecevoirLienBouton),
         ),
       ],
     );
@@ -146,19 +149,20 @@ class _ConnexionScreenState extends State<ConnexionScreen> {
   }
 
   Widget _vueAttente() {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         const Icon(Icons.mark_email_read_outlined, size: 64),
         const SizedBox(height: 16),
         Text(
-          'Un lien a été envoyé à ${_emailController.text.trim()}.\nOuvre ta boîte mail et clique sur le lien pour te connecter.',
+          l10n.connexionLienEnvoye(_emailController.text.trim()),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
         TextButton(
           onPressed: () => setState(() => _lienEnvoye = false),
-          child: const Text('Mauvaise adresse ? Recommencer'),
+          child: Text(l10n.connexionMauvaiseAdresse),
         ),
       ],
     );

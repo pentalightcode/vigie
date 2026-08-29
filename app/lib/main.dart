@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'firebase_options.dart';
+import 'l10n/app_localizations.dart';
 import 'models/reglages_utilisateur.dart';
 import 'screens/a_traiter_screen.dart';
+import 'screens/accueil_screen.dart';
 import 'screens/agenda_screen.dart';
 import 'screens/bilan_screen.dart';
 import 'screens/confirmer_email_screen.dart';
@@ -18,6 +20,7 @@ import 'screens/verrou_screen.dart';
 import 'services/auth_service.dart';
 import 'services/deep_link_service.dart';
 import 'services/lock_service.dart';
+import 'services/locale_service.dart';
 import 'services/notification_service.dart';
 import 'services/theme_service.dart';
 import 'services/utilisateur_service.dart';
@@ -27,7 +30,9 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await initializeDateFormatting('fr_FR');
+  await initializeDateFormatting('en_US');
   await ThemeService.instance.charger();
+  await LocaleService.instance.charger();
   runApp(const SecretaireAjeApp());
 }
 
@@ -41,7 +46,9 @@ class SecretaireAjeApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([ThemeService.instance.couleur, ThemeService.instance.mode]),
+      listenable: Listenable.merge(
+        [ThemeService.instance.couleur, ThemeService.instance.mode, LocaleService.instance.locale],
+      ),
       builder: (context, _) {
         final seed = ThemeService.instance.couleur.value;
         return MaterialApp(
@@ -49,6 +56,9 @@ class SecretaireAjeApp extends StatelessWidget {
           theme: ThemeData(colorSchemeSeed: seed, brightness: Brightness.light, useMaterial3: true),
           darkTheme: ThemeData(colorSchemeSeed: seed, brightness: Brightness.dark, useMaterial3: true),
           themeMode: ThemeService.instance.mode.value,
+          locale: LocaleService.instance.locale.value,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: const _PorteDEntree(),
         );
       },
@@ -67,10 +77,14 @@ class _PorteDEntree extends StatefulWidget {
 
 class _PorteDEntreeState extends State<_PorteDEntree> {
   String? _lienEnAttenteDeConfirmation;
+  bool? _accueilVu;
 
   @override
   void initState() {
     super.initState();
+    accueilDejaVu().then((vu) {
+      if (mounted) setState(() => _accueilVu = vu);
+    });
 
     // Sur le web, la source la plus fiable pour l'URL qui a chargé la page
     // est Uri.base (fournie par le navigateur) — on la vérifie en priorité.
@@ -117,6 +131,12 @@ class _PorteDEntreeState extends State<_PorteDEntree> {
         }
         final connecte = snapshot.data != null;
         if (!connecte) {
+          if (_accueilVu == null) {
+            return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          }
+          if (_accueilVu == false) {
+            return AccueilScreen(onTermine: () => setState(() => _accueilVu = true));
+          }
           return const Scaffold(body: ConnexionScreen());
         }
         return const _ZoneApresConnexion();
@@ -239,11 +259,11 @@ class _EcranPrincipalState extends State<_EcranPrincipal> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _ongletActif,
         onDestinationSelected: (i) => setState(() => _ongletActif = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.checklist), label: 'À traiter'),
-          NavigationDestination(icon: Icon(Icons.calendar_month_outlined), label: 'Agenda'),
-          NavigationDestination(icon: Icon(Icons.bar_chart), label: 'Bilan'),
-          NavigationDestination(icon: Icon(Icons.person_outline), label: 'Profil'),
+        destinations: [
+          NavigationDestination(icon: const Icon(Icons.checklist), label: AppLocalizations.of(context)!.navATraiter),
+          NavigationDestination(icon: const Icon(Icons.calendar_month_outlined), label: AppLocalizations.of(context)!.navAgenda),
+          NavigationDestination(icon: const Icon(Icons.bar_chart), label: AppLocalizations.of(context)!.navBilan),
+          NavigationDestination(icon: const Icon(Icons.person_outline), label: AppLocalizations.of(context)!.navProfil),
         ],
       ),
     );

@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "740523786640-sb166ohratdhmrrrepitli3i7vv8ugvn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "bj.pentalightcode.secretaire_aje",
+            "certificate_hash": "e723be72f7ff82d96e1f1316cfb3597bd945a7af"
+          }
+        },
+        {
           "client_id": "740523786640-sg7l9aj8t51577vjgsuvo2okub0tmh04.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

@@ -34,12 +34,6 @@ class ReglagesUtilisateur {
   /// avant activation, décision du 2026-08-15).
   final bool bilanIaActif;
 
-  /// Le libellé à afficher : le nom personnalisé si renseigné, sinon le libellé standard.
-  String get libelleProfession =>
-      (profession == Profession.autre && (professionPersonnalisee?.isNotEmpty ?? false))
-          ? professionPersonnalisee!
-          : (profession?.libelle ?? '');
-
   factory ReglagesUtilisateur.depuisDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
     final professionTexte = data['profession'] as String?;

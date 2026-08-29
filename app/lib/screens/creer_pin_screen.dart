@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../l10n/app_localizations.dart';
 import '../services/lock_service.dart';
 
 /// Première ouverture : demande de créer un code PIN pour verrouiller l'app.
@@ -18,15 +19,16 @@ class _CreerPinScreenState extends State<CreerPinScreen> {
   String? _erreur;
 
   Future<void> _valider() async {
+    final l10n = AppLocalizations.of(context)!;
     final pin = _pinController.text;
     final confirmation = _confirmationController.text;
 
     if (pin.length < 4) {
-      setState(() => _erreur = 'Le code doit faire au moins 4 chiffres.');
+      setState(() => _erreur = l10n.creerPinErreurTropCourt);
       return;
     }
     if (pin != confirmation) {
-      setState(() => _erreur = 'Les deux codes ne correspondent pas.');
+      setState(() => _erreur = l10n.creerPinErreurNeCorrespondentPas);
       return;
     }
 
@@ -36,6 +38,7 @@ class _CreerPinScreenState extends State<CreerPinScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -47,8 +50,8 @@ class _CreerPinScreenState extends State<CreerPinScreen> {
               children: [
                 const Icon(Icons.lock_outline, size: 48),
                 const SizedBox(height: 12),
-                const Text(
-                  'Crée un code PIN pour protéger l\'app.\nÀ chaque ouverture, ce code (ou ton empreinte/Face ID) sera demandé.',
+                Text(
+                  l10n.creerPinInstructions,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
@@ -58,9 +61,9 @@ class _CreerPinScreenState extends State<CreerPinScreen> {
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   maxLength: 6,
-                  decoration: const InputDecoration(
-                    labelText: 'Nouveau code PIN',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.creerPinChampNouveauCode,
+                    border: const OutlineInputBorder(),
                     counterText: '',
                   ),
                 ),
@@ -71,9 +74,9 @@ class _CreerPinScreenState extends State<CreerPinScreen> {
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   maxLength: 6,
-                  decoration: const InputDecoration(
-                    labelText: 'Retape le code',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.creerPinChampRetaperCode,
+                    border: const OutlineInputBorder(),
                     counterText: '',
                   ),
                 ),
@@ -82,7 +85,7 @@ class _CreerPinScreenState extends State<CreerPinScreen> {
                   Text(_erreur!, style: const TextStyle(color: Colors.red)),
                 ],
                 const SizedBox(height: 16),
-                FilledButton(onPressed: _valider, child: const Text('Valider')),
+                FilledButton(onPressed: _valider, child: Text(l10n.creerPinBoutonValider)),
               ],
             ),
           ),

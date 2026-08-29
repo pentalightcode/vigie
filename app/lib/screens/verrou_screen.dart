@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../l10n/app_localizations.dart';
 import '../services/auth_service.dart';
 import '../services/lock_service.dart';
 
@@ -34,13 +35,16 @@ class _VerrouScreenState extends State<VerrouScreen> {
   }
 
   Future<void> _validerPin() async {
-    final correct = await LockService.instance.verifierPin(_pinController.text);
-    if (correct) {
+    final l10n = AppLocalizations.of(context)!;
+    final resultat = await LockService.instance.verifierPin(_pinController.text);
+    if (resultat.correct) {
       widget.onDeverrouille();
-    } else {
-      setState(() => _erreur = 'Code incorrect.');
-      _pinController.clear();
+      return;
     }
+    if (!mounted) return;
+    final attente = resultat.secondesAvantProchainEssai;
+    setState(() => _erreur = attente != null ? l10n.verrouTropDeTentatives(attente) : l10n.verrouCodeIncorrect);
+    _pinController.clear();
   }
 
   /// En cas d'oubli : on ne peut pas "retrouver" le code (il n'est pas
@@ -49,17 +53,15 @@ class _VerrouScreenState extends State<VerrouScreen> {
   /// Les dossiers/tâches ne sont pas affectés : ils sont liés au compte,
   /// pas au PIN.
   Future<void> _codeOublie() async {
+    final l10n = AppLocalizations.of(context)!;
     final confirme = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Code PIN oublié ?'),
-        content: const Text(
-          'Tu vas devoir te reconnecter par email pour prouver que c\'est bien toi, '
-          'puis créer un nouveau code. Tes dossiers et tâches ne seront pas touchés.',
-        ),
+        title: Text(l10n.verrouCodeOublieTitre),
+        content: Text(l10n.verrouCodeOublieMessage),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Continuer')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l10n.commonAnnuler)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(l10n.commonContinuer)),
         ],
       ),
     );
@@ -71,6 +73,7 @@ class _VerrouScreenState extends State<VerrouScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -83,9 +86,7 @@ class _VerrouScreenState extends State<VerrouScreen> {
                 const Icon(Icons.lock_outline, size: 48),
                 const SizedBox(height: 12),
                 Text(
-                  _biometrieProposee
-                      ? 'Confirme ton identité, ou entre ton code PIN.'
-                      : 'Entre ton code PIN pour ouvrir l\'app.',
+                  _biometrieProposee ? l10n.verrouConfirmeIdentite : l10n.verrouEntreCodePin,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
@@ -96,9 +97,9 @@ class _VerrouScreenState extends State<VerrouScreen> {
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   maxLength: 6,
-                  decoration: const InputDecoration(
-                    labelText: 'Code PIN',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.verrouChampCodePin,
+                    border: const OutlineInputBorder(),
                     counterText: '',
                   ),
                   onSubmitted: (_) => _validerPin(),
@@ -108,15 +109,15 @@ class _VerrouScreenState extends State<VerrouScreen> {
                   Text(_erreur!, style: const TextStyle(color: Colors.red)),
                 ],
                 const SizedBox(height: 16),
-                FilledButton(onPressed: _validerPin, child: const Text('Déverrouiller')),
+                FilledButton(onPressed: _validerPin, child: Text(l10n.verrouBoutonDeverrouiller)),
                 if (_biometrieProposee)
                   TextButton(
                     onPressed: _tenterBiometrie,
-                    child: const Text('Réessayer avec l\'empreinte / Face ID'),
+                    child: Text(l10n.verrouReessayerBiometrie),
                   ),
                 TextButton(
                   onPressed: _codeOublie,
-                  child: const Text('Code PIN oublié ?'),
+                  child: Text(l10n.verrouCodeOublieTitre),
                 ),
               ],
             ),

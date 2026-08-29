@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/nature_dossier.dart';
 import '../services/firestore_service.dart';
 import '../services/nature_dossier_service.dart';
@@ -42,18 +43,19 @@ class _DialogueCreationDossierState extends State<DialogueCreationDossier> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
-      title: const Text('Ajouter à un dossier'),
+      title: Text(l10n.creationDossierTitre),
       content: SingleChildScrollView(
         child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
             controller: _nomController,
-            decoration: const InputDecoration(
-              labelText: 'Nom de code',
-              hintText: 'ex : Dossier Alpha',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.creationDossierChampNomCode,
+              hintText: l10n.creationDossierExempleNomCode,
+              border: const OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 12),
@@ -76,7 +78,7 @@ class _DialogueCreationDossierState extends State<DialogueCreationDossier> {
               }
               return DropdownButtonFormField<NatureDossier>(
                 initialValue: _nature,
-                decoration: const InputDecoration(labelText: 'Type de dossier', border: OutlineInputBorder()),
+                decoration: InputDecoration(labelText: l10n.creationDossierChampType, border: const OutlineInputBorder()),
                 items: natures.map((n) => DropdownMenuItem(value: n, child: Text(n.nom))).toList(),
                 onChanged: (n) => setState(() => _nature = n),
               );
@@ -99,23 +101,23 @@ class _DialogueCreationDossierState extends State<DialogueCreationDossier> {
           const SizedBox(height: 16),
           Align(
             alignment: Alignment.centerLeft,
-            child: Text('Notes', style: Theme.of(context).textTheme.labelLarge),
+            child: Text(l10n.creationDossierNotesTitre, style: Theme.of(context).textTheme.labelLarge),
           ),
           const SizedBox(height: 8),
           TextField(
             controller: _resteController,
-            decoration: const InputDecoration(
-              labelText: 'Reste à vérifier',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.creationDossierChampResteAVerifier,
+              border: const OutlineInputBorder(),
               isDense: true,
             ),
           ),
           const SizedBox(height: 8),
           TextField(
             controller: _attenteController,
-            decoration: const InputDecoration(
-              labelText: 'En attente de',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.creationDossierChampEnAttenteDe,
+              border: const OutlineInputBorder(),
               isDense: true,
             ),
           ),
@@ -124,26 +126,25 @@ class _DialogueCreationDossierState extends State<DialogueCreationDossier> {
             controller: _autreController,
             maxLines: 3,
             minLines: 1,
-            decoration: const InputDecoration(
-              labelText: 'Autre',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.creationDossierChampAutre,
+              border: const OutlineInputBorder(),
               isDense: true,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            'Comme pour le nom du dossier, évite d\'écrire de vraies informations '
-            'sensibles ici.',
+            l10n.creationDossierAvertissementSensible,
             style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.outline),
           ),
         ],
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.commonAnnuler)),
         FilledButton(
           onPressed: _nature == null ? null : () => _valider(context),
-          child: const Text('Créer'),
+          child: Text(l10n.creationDossierBoutonCreer),
         ),
       ],
     );

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/profession.dart';
 import '../models/reglages_utilisateur.dart';
@@ -122,29 +123,22 @@ class UtilisateurService {
     await NatureDossierService.instance.initialiserPourProfession(profession);
   }
 
-  /// Supprime définitivement le compte : toutes les données (dossiers,
-  /// tâches, natures, réglages) puis le compte de connexion lui-même.
-  /// Irréversible — protégé par triple confirmation côté écran Profil.
+  /// Supprime définitivement le compte : révoque chaque connexion Google
+  /// auprès de Google, efface TOUTES les données (dossiers, tâches, notes
+  /// de dossier, natures, réglages, historique de notifications,
+  /// propositions, connexions Google...), puis le compte de connexion
+  /// lui-même. Irréversible — protégé par triple confirmation côté écran
+  /// Profil.
+  ///
+  /// Fait côté serveur (fonction `supprimer_compte_definitivement`) depuis
+  /// l'audit de sécurité du 2026-08-29 : la version précédente, entièrement
+  /// côté téléphone, oubliait plusieurs sous-collections (dont la connexion
+  /// Google — jamais révoquée auprès de Google, ni même supprimée) — seul
+  /// le serveur a la clé de déchiffrement nécessaire pour révoquer
+  /// proprement, et peut découvrir toutes les sous-collections
+  /// automatiquement sans les lister à la main.
   Future<void> supprimerCompteEtDonnees() async {
-    final uid = _uid;
-
-    final dossiers = await _db.collection('dossiers').where('uid', isEqualTo: uid).get();
-    final taches = await _db.collection('taches').where('uid', isEqualTo: uid).get();
-    final natures = await _document.collection('naturesDossier').get();
-
-    final batch = _db.batch();
-    for (final doc in dossiers.docs) {
-      batch.delete(doc.reference);
-    }
-    for (final doc in taches.docs) {
-      batch.delete(doc.reference);
-    }
-    for (final doc in natures.docs) {
-      batch.delete(doc.reference);
-    }
-    batch.delete(_document);
-    await batch.commit();
-
-    await FirebaseAuth.instance.currentUser?.delete();
+    await FirebaseFunctions.instance.httpsCallable('supprimer_compte_definitivement').call();
+    await FirebaseAuth.instance.signOut();
   }
 }

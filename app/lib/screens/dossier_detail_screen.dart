@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/dossier.dart';
 import '../models/entree_journal.dart';
 import '../models/nature_dossier.dart';
@@ -26,6 +27,7 @@ class DossierDetailScreen extends StatelessWidget {
           if (!snapshotDossier.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
+          final l10n = AppLocalizations.of(context)!;
           final dossier = snapshotDossier.data!;
           return CustomScrollView(
             slivers: [
@@ -34,12 +36,12 @@ class DossierDetailScreen extends StatelessWidget {
                 actions: [
                   IconButton(
                     icon: const Icon(Icons.edit),
-                    tooltip: 'Modifier le dossier',
+                    tooltip: l10n.dossierDetailModifierTooltip,
                     onPressed: () => _modifierDossier(context, dossier),
                   ),
                   IconButton(
                     icon: const Icon(Icons.delete_outline),
-                    tooltip: 'Supprimer le dossier',
+                    tooltip: l10n.dossierDetailSupprimerTooltip,
                     onPressed: () => _supprimerDossier(context, dossier),
                   ),
                 ],
@@ -49,16 +51,16 @@ class DossierDetailScreen extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   child: Text(
                     dossier.dateEvenement != null
-                        ? 'Date : ${formaterDateFr(dossier.dateEvenement!)}'
-                        : 'Pas de date renseignée',
+                        ? l10n.dossierDetailDateAvecValeur(formaterDateFr(dossier.dateEvenement!))
+                        : l10n.dossierDetailPasDeDate,
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                 ),
               ),
-              const SliverToBoxAdapter(
+              SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text('Tâches liées', style: TextStyle(fontWeight: FontWeight.bold)),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text(l10n.dossierDetailTachesLieesTitre, style: const TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
               StreamBuilder<List<Tache>>(
@@ -71,10 +73,10 @@ class DossierDetailScreen extends StatelessWidget {
                     );
                   }
                   if (taches.isEmpty) {
-                    return const SliverToBoxAdapter(
+                    return SliverToBoxAdapter(
                       child: Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Text('Aucune tâche pour l\'instant.'),
+                        padding: const EdgeInsets.all(16),
+                        child: Text(l10n.dossierDetailAucuneTache),
                       ),
                     );
                   }
@@ -98,7 +100,7 @@ class DossierDetailScreen extends StatelessWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _ajouterTache(context, dossierId),
         icon: const Icon(Icons.add),
-        label: const Text('Ajouter une tâche'),
+        label: Text(AppLocalizations.of(context)!.dossierDetailAjouterTacheBouton),
       ),
     );
   }
@@ -118,11 +120,12 @@ class DossierDetailScreen extends StatelessWidget {
   }
 
   Future<void> _supprimerDossier(BuildContext context, Dossier dossier) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirme = await demanderDoubleConfirmation(
       context,
-      titre: 'Supprimer ce dossier ?',
-      message: 'Le dossier "${dossier.nomCode}" et toutes ses tâches seront supprimés définitivement.',
-      texteBouton: 'Supprimer',
+      titre: l10n.dossierDetailSupprimerDossierTitre,
+      message: l10n.dossierDetailSupprimerDossierMessage(dossier.nomCode),
+      texteBouton: l10n.commonSupprimer,
       destructif: true,
     );
     if (confirme && context.mounted) {
@@ -171,7 +174,7 @@ class _BarreProgression extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '$faites/$total tâches faites (${(ratio * 100).round()}%)',
+            AppLocalizations.of(context)!.aTraiterProgressionDossier(faites, total, (ratio * 100).round()),
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
@@ -200,8 +203,8 @@ class _LigneTacheDetail extends StatelessWidget {
       ),
       subtitle: Text(
         tache.notesDetaillees?.isNotEmpty == true
-            ? '${tache.nature} — ${formaterDateFr(tache.dateDeclenchante)}\n${tache.notesDetaillees}'
-            : '${tache.nature} — ${formaterDateFr(tache.dateDeclenchante)}',
+            ? '${AppLocalizations.of(context)!.dossierDetailNatureEtDate(tache.nature, formaterDateFr(tache.dateDeclenchante))}\n${tache.notesDetaillees}'
+            : AppLocalizations.of(context)!.dossierDetailNatureEtDate(tache.nature, formaterDateFr(tache.dateDeclenchante)),
       ),
       isThreeLine: tache.notesDetaillees?.isNotEmpty == true,
       trailing: Row(
@@ -224,11 +227,12 @@ class _LigneTacheDetail extends StatelessWidget {
   }
 
   Future<void> _basculerStatut(BuildContext context, bool coche) async {
-    final action = coche ? 'marquer cette tâche comme faite' : 'remettre cette tâche à "à faire"';
+    final l10n = AppLocalizations.of(context)!;
+    final action = coche ? l10n.dossierDetailBasculerMarquerFait : l10n.dossierDetailBasculerRemettreAFaire;
     final confirme = await demanderDoubleConfirmation(
       context,
-      titre: 'Confirmer ?',
-      message: 'Tu veux $action : "${tache.descriptionCourte}".',
+      titre: l10n.dossierDetailConfirmerTitre,
+      message: l10n.dossierDetailBasculerMessage(action, tache.descriptionCourte),
     );
     if (!confirme) return;
     if (coche) {
@@ -239,11 +243,12 @@ class _LigneTacheDetail extends StatelessWidget {
   }
 
   Future<void> _supprimer(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirme = await demanderDoubleConfirmation(
       context,
-      titre: 'Supprimer cette tâche ?',
-      message: '"${tache.descriptionCourte}" sera supprimée définitivement.',
-      texteBouton: 'Supprimer',
+      titre: l10n.dossierDetailSupprimerTacheTitre,
+      message: l10n.dossierDetailSupprimerTacheMessage(tache.descriptionCourte),
+      texteBouton: l10n.commonSupprimer,
       destructif: true,
     );
     if (confirme) {
@@ -272,16 +277,17 @@ class _DialogueModifierDossierState extends State<_DialogueModifierDossier> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
-      title: const Text('Modifier le dossier'),
+      title: Text(l10n.dossierDetailModifierTooltip),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          TextField(controller: _nomController, decoration: const InputDecoration(labelText: 'Nom de code')),
+          TextField(controller: _nomController, decoration: InputDecoration(labelText: l10n.creationDossierChampNomCode)),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             icon: const Icon(Icons.event),
-            label: Text(_date == null ? 'Choisir une date' : formaterDateFr(_date!)),
+            label: Text(_date == null ? l10n.ajouterChoisirDate : formaterDateFr(_date!)),
             onPressed: () async {
               final d = await showDatePicker(
                 context: context,
@@ -295,10 +301,10 @@ class _DialogueModifierDossierState extends State<_DialogueModifierDossier> {
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.commonAnnuler)),
         FilledButton(
           onPressed: () => Navigator.pop(context, (nomCode: _nomController.text.trim(), date: _date)),
-          child: const Text('Enregistrer'),
+          child: Text(l10n.commonEnregistrer),
         ),
       ],
     );
@@ -327,15 +333,16 @@ class _DialogueTacheState extends State<_DialogueTache> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
-      title: Text(widget.tache == null ? 'Ajouter une tâche' : 'Modifier la tâche'),
+      title: Text(widget.tache == null ? l10n.dossierDetailAjouterTacheBouton : l10n.dossierDetailModifierTacheTitre),
       content: SingleChildScrollView(
         child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
             controller: _descriptionController,
-            decoration: const InputDecoration(labelText: 'Détail de la tâche'),
+            decoration: InputDecoration(labelText: l10n.dossierDetailDetailTacheLabel),
           ),
           const SizedBox(height: 12),
           StreamBuilder<List<NatureDossier>>(
@@ -346,7 +353,7 @@ class _DialogueTacheState extends State<_DialogueTache> {
                 (n) => n.nom == widget.tache?.nature,
                 orElse: () => natures.isNotEmpty
                     ? natures.first
-                    : NatureDossier(id: '', nom: widget.tache?.nature ?? 'Autre'),
+                    : NatureDossier(id: '', nom: widget.tache?.nature ?? l10n.professionAutre),
               );
               return DropdownButtonFormField<NatureDossier>(
                 initialValue: _nature,
@@ -374,23 +381,23 @@ class _DialogueTacheState extends State<_DialogueTache> {
           const SizedBox(height: 16),
           Align(
             alignment: Alignment.centerLeft,
-            child: Text('Notes', style: Theme.of(context).textTheme.labelLarge),
+            child: Text(l10n.creationDossierNotesTitre, style: Theme.of(context).textTheme.labelLarge),
           ),
           const SizedBox(height: 8),
           TextField(
             controller: _resteController,
-            decoration: const InputDecoration(
-              labelText: 'Reste à vérifier',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.creationDossierChampResteAVerifier,
+              border: const OutlineInputBorder(),
               isDense: true,
             ),
           ),
           const SizedBox(height: 8),
           TextField(
             controller: _attenteController,
-            decoration: const InputDecoration(
-              labelText: 'En attente de',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.creationDossierChampEnAttenteDe,
+              border: const OutlineInputBorder(),
               isDense: true,
             ),
           ),
@@ -399,23 +406,22 @@ class _DialogueTacheState extends State<_DialogueTache> {
             controller: _autreController,
             maxLines: 3,
             minLines: 1,
-            decoration: const InputDecoration(
-              labelText: 'Autre',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.creationDossierChampAutre,
+              border: const OutlineInputBorder(),
               isDense: true,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            'Comme pour le nom du dossier, évite d\'écrire de vraies informations '
-            'sensibles ici.',
+            l10n.creationDossierAvertissementSensible,
             style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.outline),
           ),
         ],
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.commonAnnuler)),
         FilledButton(
           onPressed: () async {
             final description = _descriptionController.text.trim();
@@ -453,7 +459,7 @@ class _DialogueTacheState extends State<_DialogueTache> {
             }
             if (context.mounted) Navigator.pop(context);
           },
-          child: const Text('Enregistrer'),
+          child: Text(l10n.commonEnregistrer),
         ),
       ],
     );
@@ -464,12 +470,15 @@ class _DialogueTacheState extends State<_DialogueTache> {
 /// proposant un choix rapide plutôt qu'un champ de texte libre générique
 /// (demandé par Tobie le 2026-08-20).
 extension _AffichageType on TypeEntreeJournal {
-  String get libelle => switch (this) {
-        TypeEntreeJournal.avancement => 'Avancement',
-        TypeEntreeJournal.blocage => 'Blocage',
-        TypeEntreeJournal.decision => 'Décision',
-        TypeEntreeJournal.autre => 'Autre',
-      };
+  String libelle(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return switch (this) {
+      TypeEntreeJournal.avancement => l10n.journalTypeAvancement,
+      TypeEntreeJournal.blocage => l10n.journalTypeBlocage,
+      TypeEntreeJournal.decision => l10n.journalTypeDecision,
+      TypeEntreeJournal.autre => l10n.professionAutre,
+    };
+  }
 
   IconData get icone => switch (this) {
         TypeEntreeJournal.avancement => Icons.trending_up,
@@ -518,7 +527,7 @@ class _SectionJournalState extends State<_SectionJournal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Impossible d\'ajouter cette entrée : $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.dossierDetailErreurAjoutJournal(e.toString()))),
         );
       }
     } finally {
@@ -527,11 +536,12 @@ class _SectionJournalState extends State<_SectionJournal> {
   }
 
   Future<void> _supprimer(BuildContext context, EntreeJournal entree) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirme = await demanderDoubleConfirmation(
       context,
-      titre: 'Supprimer cette entrée du journal ?',
-      message: 'Cette note du ${formaterDateHeureFr(entree.creeLe)} sera supprimée définitivement.',
-      texteBouton: 'Supprimer',
+      titre: l10n.dossierDetailSupprimerEntreeTitre,
+      message: l10n.dossierDetailSupprimerEntreeMessage(formaterDateHeureFr(entree.creeLe)),
+      texteBouton: l10n.commonSupprimer,
       destructif: true,
     );
     if (confirme) {
@@ -548,41 +558,44 @@ class _SectionJournalState extends State<_SectionJournal> {
     final enregistrer = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('Modifier cette entrée'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Wrap(
-                spacing: 6,
-                children: TypeEntreeJournal.values.map((t) {
-                  final selectionne = type == t;
-                  return ChoiceChip(
-                    label: Text(t.libelle),
-                    avatar: Icon(t.icone, size: 16, color: selectionne ? Colors.white : t.couleur),
-                    selected: selectionne,
-                    selectedColor: t.couleur,
-                    labelStyle: TextStyle(color: selectionne ? Colors.white : null, fontSize: 12),
-                    onSelected: (_) => setDialogState(() => type = t),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: controleur,
-                autofocus: true,
-                maxLines: 4,
-                minLines: 2,
-                decoration: const InputDecoration(border: OutlineInputBorder()),
-              ),
+        builder: (dialogContext, setDialogState) {
+          final l10n = AppLocalizations.of(dialogContext)!;
+          return AlertDialog(
+            title: Text(l10n.dossierDetailModifierEntreeTitre),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 6,
+                  children: TypeEntreeJournal.values.map((t) {
+                    final selectionne = type == t;
+                    return ChoiceChip(
+                      label: Text(t.libelle(dialogContext)),
+                      avatar: Icon(t.icone, size: 16, color: selectionne ? Colors.white : t.couleur),
+                      selected: selectionne,
+                      selectedColor: t.couleur,
+                      labelStyle: TextStyle(color: selectionne ? Colors.white : null, fontSize: 12),
+                      onSelected: (_) => setDialogState(() => type = t),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: controleur,
+                  autofocus: true,
+                  maxLines: 4,
+                  minLines: 2,
+                  decoration: const InputDecoration(border: OutlineInputBorder()),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(l10n.commonAnnuler)),
+              FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(l10n.commonEnregistrer)),
             ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Annuler')),
-            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Enregistrer')),
-          ],
-        ),
+          );
+        },
       ),
     );
     if (enregistrer != true) return;
@@ -593,7 +606,7 @@ class _SectionJournalState extends State<_SectionJournal> {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Impossible de modifier cette entrée : $e')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.dossierDetailErreurModifJournal(e.toString()))),
         );
       }
     }
@@ -601,6 +614,7 @@ class _SectionJournalState extends State<_SectionJournal> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
       child: Card(
@@ -613,14 +627,12 @@ class _SectionJournalState extends State<_SectionJournal> {
                 children: [
                   Icon(Icons.menu_book_outlined, color: Theme.of(context).colorScheme.primary),
                   const SizedBox(width: 8),
-                  const Text('Journal de bord', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(l10n.dossierDetailJournalTitre, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ],
               ),
               const SizedBox(height: 4),
               Text(
-                'Documente l\'avancement étape par étape — chaque note s\'ajoute à la '
-                'suite, rien n\'est écrasé. Comme pour le nom du dossier, évite d\'y '
-                'écrire de vraies informations sensibles.',
+                l10n.dossierDetailJournalDescription,
                 style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
               ),
               const SizedBox(height: 12),
@@ -629,7 +641,7 @@ class _SectionJournalState extends State<_SectionJournal> {
                 children: TypeEntreeJournal.values.map((type) {
                   final selectionne = _typeSelectionne == type;
                   return ChoiceChip(
-                    label: Text(type.libelle),
+                    label: Text(type.libelle(context)),
                     avatar: Icon(type.icone, size: 16, color: selectionne ? Colors.white : type.couleur),
                     selected: selectionne,
                     selectedColor: type.couleur,
@@ -643,9 +655,9 @@ class _SectionJournalState extends State<_SectionJournal> {
                 controller: _controleur,
                 maxLines: 4,
                 minLines: 2,
-                decoration: const InputDecoration(
-                  hintText: 'Ex : appelé X, en attente de sa réponse...',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  hintText: l10n.dossierDetailJournalHint,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 8),
@@ -657,7 +669,7 @@ class _SectionJournalState extends State<_SectionJournal> {
                       ? const SizedBox(
                           height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.add),
-                  label: const Text('Ajouter au journal'),
+                  label: Text(l10n.dossierDetailAjouterJournalBouton),
                 ),
               ),
               StreamBuilder<List<EntreeJournal>>(
@@ -667,7 +679,7 @@ class _SectionJournalState extends State<_SectionJournal> {
                     return Padding(
                       padding: const EdgeInsets.only(top: 16),
                       child: Text(
-                        'Impossible de lire le journal : ${snapshot.error}',
+                        l10n.dossierDetailErreurLectureJournal(snapshot.error.toString()),
                         style: const TextStyle(color: Colors.red, fontSize: 12),
                       ),
                     );
@@ -680,11 +692,11 @@ class _SectionJournalState extends State<_SectionJournal> {
                   }
                   final entrees = snapshot.data ?? [];
                   if (entrees.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.only(top: 16),
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 16),
                       child: Text(
-                        'Aucune entrée pour l\'instant.',
-                        style: TextStyle(color: Colors.grey, fontSize: 13),
+                        l10n.dossierDetailAucuneEntree,
+                        style: const TextStyle(color: Colors.grey, fontSize: 13),
                       ),
                     );
                   }
@@ -693,16 +705,16 @@ class _SectionJournalState extends State<_SectionJournal> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.only(top: 20, bottom: 10),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 20, bottom: 10),
                         child: Row(
                           children: [
-                            Expanded(child: Divider()),
+                            const Expanded(child: Divider()),
                             Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8),
-                              child: Text('Historique', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              child: Text(l10n.dossierDetailHistoriqueTitre, style: const TextStyle(color: Colors.grey, fontSize: 12)),
                             ),
-                            Expanded(child: Divider()),
+                            const Expanded(child: Divider()),
                           ],
                         ),
                       ),
@@ -715,14 +727,14 @@ class _SectionJournalState extends State<_SectionJournal> {
                         runSpacing: 4,
                         children: [
                           FilterChip(
-                            label: const Text('Tout'),
+                            label: Text(l10n.propositionsFiltreTout),
                             selected: _filtreType == null,
                             onSelected: (_) => setState(() => _filtreType = null),
                           ),
                           ...TypeEntreeJournal.values.map((t) {
                             final selectionne = _filtreType == t;
                             return FilterChip(
-                              label: Text(t.libelle),
+                              label: Text(t.libelle(context)),
                               avatar: Icon(t.icone, size: 14, color: selectionne ? Colors.white : t.couleur),
                               selected: selectionne,
                               selectedColor: t.couleur,
@@ -734,11 +746,11 @@ class _SectionJournalState extends State<_SectionJournal> {
                       ),
                       const SizedBox(height: 12),
                       if (entreesFiltrees.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 4),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
                           child: Text(
-                            'Aucune entrée de ce type.',
-                            style: TextStyle(color: Colors.grey, fontSize: 13),
+                            l10n.dossierDetailAucuneEntreeType,
+                            style: const TextStyle(color: Colors.grey, fontSize: 13),
                           ),
                         )
                       else
@@ -769,7 +781,7 @@ class _SectionJournalState extends State<_SectionJournal> {
         widgets.add(
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Text(_libelleJour(jour), style: Theme.of(context).textTheme.labelLarge),
+            child: Text(_libelleJour(context, jour), style: Theme.of(context).textTheme.labelLarge),
           ),
         );
         dernierJour = jour;
@@ -781,16 +793,21 @@ class _SectionJournalState extends State<_SectionJournal> {
     return widgets;
   }
 
-  String _libelleJour(DateTime jour) {
+  String _libelleJour(BuildContext context, DateTime jour) {
+    final l10n = AppLocalizations.of(context)!;
     final aujourdHui = DateTime.now();
     final aujourdHuiSansHeure = DateTime(aujourdHui.year, aujourdHui.month, aujourdHui.day);
-    if (jour == aujourdHuiSansHeure) return 'Aujourd\'hui';
-    if (jour == aujourdHuiSansHeure.subtract(const Duration(days: 1))) return 'Hier';
+    if (jour == aujourdHuiSansHeure) return l10n.aTraiterAujourdhui;
+    if (jour == aujourdHuiSansHeure.subtract(const Duration(days: 1))) return l10n.dossierDetailHier;
     return formaterDateFr(jour);
   }
 
   Widget _ligneEntree(BuildContext context, EntreeJournal entree, bool dernierDuJour) {
-    final heure = '${entree.creeLe.hour.toString().padLeft(2, '0')}h${entree.creeLe.minute.toString().padLeft(2, '0')}';
+    final l10n = AppLocalizations.of(context)!;
+    final estFrancais = Localizations.localeOf(context).languageCode != 'en';
+    final heure = estFrancais
+        ? '${entree.creeLe.hour.toString().padLeft(2, '0')}h${entree.creeLe.minute.toString().padLeft(2, '0')}'
+        : '${entree.creeLe.hour.toString().padLeft(2, '0')}:${entree.creeLe.minute.toString().padLeft(2, '0')}';
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -824,15 +841,15 @@ class _SectionJournalState extends State<_SectionJournal> {
                       Icon(entree.type.icone, size: 14, color: entree.type.couleur),
                       const SizedBox(width: 4),
                       Text(
-                        entree.type.libelle,
+                        entree.type.libelle(context),
                         style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: entree.type.couleur),
                       ),
                       const Spacer(),
                       Text(heure, style: const TextStyle(fontSize: 10, color: Colors.grey)),
                       if (entree.modifieLe != null)
-                        const Padding(
-                          padding: EdgeInsets.only(left: 4),
-                          child: Text('· modifié', style: TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic)),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Text(l10n.dossierDetailModifieSuffixe, style: const TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic)),
                         ),
                       SizedBox(
                         width: 28,

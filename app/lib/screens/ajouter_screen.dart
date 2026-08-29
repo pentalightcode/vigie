@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/nature_dossier.dart';
 import '../services/firestore_service.dart';
 import '../services/nature_dossier_service.dart';
@@ -48,13 +49,14 @@ class _AjouterScreenState extends State<AjouterScreen> {
   }
 
   Future<void> _enregistrer() async {
+    final l10n = AppLocalizations.of(context)!;
     final nomCode = _nomCodeController.text.trim();
     if (nomCode.isEmpty) {
-      setState(() => _erreur = 'Donne un nom de code au dossier.');
+      setState(() => _erreur = l10n.ajouterErreurNomCode);
       return;
     }
     if (_nature == null) {
-      setState(() => _erreur = 'Choisis une nature de dossier.');
+      setState(() => _erreur = l10n.ajouterErreurNature);
       return;
     }
     setState(() {
@@ -82,11 +84,11 @@ class _AjouterScreenState extends State<AjouterScreen> {
         _autreController.clear();
         setState(() => _dateEvenement = null);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Dossier ajouté.')),
+          SnackBar(content: Text(l10n.ajouterDossierAjoute)),
         );
       }
     } catch (e) {
-      setState(() => _erreur = 'Impossible d\'enregistrer. Vérifie ta connexion.');
+      setState(() => _erreur = l10n.onboardingErreurConnexion);
     } finally {
       if (mounted) setState(() => _enCours = false);
     }
@@ -94,12 +96,13 @@ class _AjouterScreenState extends State<AjouterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ajouter un dossier'),
+        title: Text(l10n.ajouterTitre),
         actions: [
           IconButton(
-            tooltip: 'Ajout groupé (plusieurs dossiers d\'un coup)',
+            tooltip: l10n.ajouterAjoutGroupeTooltip,
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const AjoutGroupeScreen()),
             ),
@@ -122,7 +125,7 @@ class _AjouterScreenState extends State<AjouterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Type de dossier', style: TextStyle(fontWeight: FontWeight.w600)),
+                Text(l10n.ajouterTypeDossierLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<NatureDossier>(
                   initialValue: _nature,
@@ -137,25 +140,25 @@ class _AjouterScreenState extends State<AjouterScreen> {
                   child: TextButton.icon(
                     onPressed: () => _gererNatures(context),
                     icon: const Icon(Icons.tune, size: 16),
-                    label: const Text('Gérer mes types de dossier'),
+                    label: Text(l10n.ajouterGererTypesBouton),
                   ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _nomCodeController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nom de code',
-                    hintText: 'ex : Dossier Alpha',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.creationDossierChampNomCode,
+                    hintText: l10n.creationDossierExempleNomCode,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Détail (pour distinguer plusieurs tâches)',
-                    hintText: 'ex : Conclusions en défense',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.ajouterDetailLabel,
+                    hintText: l10n.ajouterDetailExemple,
+                    border: const OutlineInputBorder(),
                   ),
                   onChanged: (_) => _descriptionModifieeManuellement = true,
                 ),
@@ -169,24 +172,24 @@ class _AjouterScreenState extends State<AjouterScreen> {
                   runSpacing: 8,
                   children: [
                     ActionChip(
-                      label: const Text('Dans 2 semaines'),
+                      label: Text(l10n.ajouterDans2Semaines),
                       onPressed: () =>
                           setState(() => _dateEvenement = DateTime.now().add(const Duration(days: 14))),
                     ),
                     ActionChip(
-                      label: const Text('Dans 1 mois'),
+                      label: Text(l10n.ajouterDans1Mois),
                       onPressed: () =>
                           setState(() => _dateEvenement = DateTime.now().add(const Duration(days: 30))),
                     ),
                     ActionChip(
                       avatar: const Icon(Icons.event, size: 16),
-                      label: const Text('Choisir une date'),
+                      label: Text(l10n.ajouterChoisirDate),
                       onPressed: _choisirDate,
                     ),
                     if (_dateEvenement != null)
                       ActionChip(
                         avatar: const Icon(Icons.close, size: 16),
-                        label: const Text('Retirer'),
+                        label: Text(l10n.ajouterRetirerDate),
                         onPressed: () => setState(() => _dateEvenement = null),
                       ),
                   ],
@@ -194,8 +197,8 @@ class _AjouterScreenState extends State<AjouterScreen> {
                 const SizedBox(height: 6),
                 Text(
                   _dateEvenement == null
-                      ? 'Aucune date choisie (optionnel).'
-                      : 'Échéance : ${formaterDateFr(_dateEvenement!)}',
+                      ? l10n.ajouterAucuneDateChoisie
+                      : l10n.ajouterEcheanceAvecDate(formaterDateFr(_dateEvenement!)),
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 8),
@@ -207,22 +210,22 @@ class _AjouterScreenState extends State<AjouterScreen> {
                   child: ExpansionTile(
                     tilePadding: EdgeInsets.zero,
                     childrenPadding: const EdgeInsets.only(bottom: 8),
-                    title: const Text('Ajouter une note', style: TextStyle(fontWeight: FontWeight.w600)),
+                    title: Text(l10n.ajouterNoteTitre, style: const TextStyle(fontWeight: FontWeight.w600)),
                     children: [
                       TextField(
                         controller: _resteController,
-                        decoration: const InputDecoration(
-                          labelText: 'Reste à vérifier',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l10n.creationDossierChampResteAVerifier,
+                          border: const OutlineInputBorder(),
                           isDense: true,
                         ),
                       ),
                       const SizedBox(height: 8),
                       TextField(
                         controller: _attenteController,
-                        decoration: const InputDecoration(
-                          labelText: 'En attente de',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l10n.creationDossierChampEnAttenteDe,
+                          border: const OutlineInputBorder(),
                           isDense: true,
                         ),
                       ),
@@ -231,16 +234,15 @@ class _AjouterScreenState extends State<AjouterScreen> {
                         controller: _autreController,
                         maxLines: 3,
                         minLines: 1,
-                        decoration: const InputDecoration(
-                          labelText: 'Autre',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l10n.creationDossierChampAutre,
+                          border: const OutlineInputBorder(),
                           isDense: true,
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Comme pour le nom du dossier, évite d\'écrire de vraies informations '
-                        'sensibles ici.',
+                        l10n.creationDossierAvertissementSensible,
                         style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.outline),
                       ),
                     ],
@@ -256,7 +258,7 @@ class _AjouterScreenState extends State<AjouterScreen> {
                   child: _enCours
                       ? const SizedBox(
                           height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Enregistrer'),
+                      : Text(l10n.commonEnregistrer),
                 ),
               ],
             ),
