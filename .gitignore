@@ -13,3 +13,9 @@ firestore-debug.log
 
 # Vidéos de démo (grosses, pas faites pour l'historique Git — hébergées sur Drive/YouTube)
 *.mp4
+
+# Sauvegardes du keystore Android — ne doivent JAMAIS entrer dans l'historique
+# (contiennent la vraie clé de signature + son mot de passe), même protégées
+# par mot de passe d'archive. Sécurité en profondeur : ce fichier doit de
+# toute façon vivre en dehors du dépôt, jamais dedans.
+vigie-keystore-backup.zip

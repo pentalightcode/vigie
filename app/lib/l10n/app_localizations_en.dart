@@ -1143,6 +1143,53 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dossierDetailAjouterJournalBouton => 'Add to the log';
 
   @override
+  String get dossierDetailBoutonDeverrouillerNotes => 'Unlock my notes';
+
+  @override
+  String get dossierDetailEntreeVerrouillee =>
+      'Encrypted entry — unlock your notes to read it.';
+
+  @override
+  String get phraseSecreteTitreCreation => 'Protect your case notes';
+
+  @override
+  String get phraseSecreteTitreDeverrouillage => 'Unlock notes';
+
+  @override
+  String get phraseSecreteAvertissement =>
+      'If you forget this password, these notes will be lost forever, for everyone — not even we can recover them. This is not your PIN — don\'t write it down anywhere on this phone.';
+
+  @override
+  String get phraseSecreteInstructionsDeverrouillage =>
+      'Enter your password to view and write in this case\'s journal.';
+
+  @override
+  String get phraseSecreteChamp => 'Password';
+
+  @override
+  String get phraseSecreteChampConfirmation => 'Retype the password';
+
+  @override
+  String get phraseSecreteErreurTropCourte =>
+      'Choose a password of at least 8 characters.';
+
+  @override
+  String get phraseSecreteErreurNeCorrespondentPas =>
+      'The two passwords don\'t match.';
+
+  @override
+  String get phraseSecreteErreurIncorrecte => 'Incorrect password.';
+
+  @override
+  String get phraseSecreteErreurGenerique => 'Something went wrong. Try again.';
+
+  @override
+  String get phraseSecreteBoutonCreer => 'Create';
+
+  @override
+  String get phraseSecreteBoutonDeverrouiller => 'Unlock';
+
+  @override
   String dossierDetailErreurAjoutJournal(String erreur) {
     return 'Couldn\'t add this entry: $erreur';
   }

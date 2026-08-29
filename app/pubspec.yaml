@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.16.3+46
+version: 1.17.1+48
 
 environment:
   sdk: ^3.12.2
@@ -44,10 +44,14 @@ dependencies:
   google_sign_in: ^7.2.0
   cloud_functions: ^6.3.6
   local_auth: ^3.0.2
-  # Pinné à 10.3.1 : la 11.0.0 entraîne un conflit de dépendances avec
-  # share_plus (win32 ^6.0.1 vs ^5.5.3) — nécessiterait aussi de monter
-  # share_plus vers sa version 13 (changements probables non testés). Rien
-  # à voir avec une fonctionnalité dont Vigie a besoin — pas urgent.
+  # Pinné à 10.3.1 : la 11.0.0 exige compileSdk 37 (le projet est sur 36,
+  # remonterait aussi l'Android Gradle Plugin) ET entraîne un conflit avec
+  # share_plus/package_info_plus (win32). Retesté le 2026-08-29 en montant
+  # les 3 ensemble (share_plus 13.3.0, package_info_plus 10.2.1) : la
+  # résolution de dépendances passe, mais share_plus 13.3.0 a un vrai bug de
+  # compilation Kotlin sur cette config (`ShareSuccessManager` introuvable,
+  # indépendant de notre code). Rien à voir avec une fonctionnalité dont
+  # Vigie a besoin — toujours pas urgent.
   flutter_secure_storage: 10.3.1
   cryptography: ^2.9.0
   intl: ^0.20.2

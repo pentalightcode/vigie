@@ -264,13 +264,22 @@ class FirestoreService {
         .map((snap) => snap.docs.map(EntreeJournal.depuisDocument).toList());
   }
 
-  Future<void> ajouterEntreeJournal(String dossierId, String texte, TypeEntreeJournal type) {
+  /// [chiffre] doit refléter si [texte] est déjà chiffré (voir
+  /// ChiffrementNotesService) — ce champ ne change jamais après coup,
+  /// même en cas de modification ultérieure de l'entrée.
+  Future<void> ajouterEntreeJournal(
+    String dossierId,
+    String texte,
+    TypeEntreeJournal type, {
+    required bool chiffre,
+  }) {
     return _db.collection('journalDossier').add({
       'uid': _uid,
       'dossierId': dossierId,
       'texte': texte,
       'type': type.name,
       'creeLe': Timestamp.now(),
+      'chiffre': chiffre,
     });
   }
 

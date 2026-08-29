@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'chiffrement_notes_service.dart';
 
 /// Gère la connexion par lien magique (email link, sans mot de passe).
 class AuthService {
@@ -55,5 +56,14 @@ class AuthService {
     await prefs.remove(_prefsEmailKey);
   }
 
-  Future<void> seDeconnecter() => _auth.signOut();
+  /// N'efface que la clé de chiffrement des notes EN MÉMOIRE, jamais son
+  /// cache disque — se reconnecter ensuite avec le même compte, sur ce même
+  /// appareil, ne doit pas obliger à retaper la phrase secrète (voir
+  /// ChiffrementNotesService). Évite surtout de garder en mémoire la clé
+  /// d'un compte si un AUTRE compte se connecte juste après sur le même
+  /// appareil.
+  Future<void> seDeconnecter() async {
+    ChiffrementNotesService.instance.oublierSession();
+    await _auth.signOut();
+  }
 }

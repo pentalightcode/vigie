@@ -1153,6 +1153,54 @@ class AppLocalizationsFr extends AppLocalizations {
   String get dossierDetailAjouterJournalBouton => 'Ajouter au journal';
 
   @override
+  String get dossierDetailBoutonDeverrouillerNotes => 'Déverrouiller mes notes';
+
+  @override
+  String get dossierDetailEntreeVerrouillee =>
+      'Entrée chiffrée — déverrouille tes notes pour la lire.';
+
+  @override
+  String get phraseSecreteTitreCreation => 'Protéger tes notes de dossier';
+
+  @override
+  String get phraseSecreteTitreDeverrouillage => 'Déverrouiller les notes';
+
+  @override
+  String get phraseSecreteAvertissement =>
+      'Si tu oublies ce mot de passe, ces notes seront perdues pour toujours, pour tout le monde — même nous ne pourrons pas les récupérer. Ce n\'est pas ton code PIN, ne le note nulle part sur ce téléphone.';
+
+  @override
+  String get phraseSecreteInstructionsDeverrouillage =>
+      'Entre ton mot de passe pour voir et écrire dans le journal de ce dossier.';
+
+  @override
+  String get phraseSecreteChamp => 'Mot de passe';
+
+  @override
+  String get phraseSecreteChampConfirmation => 'Retape le mot de passe';
+
+  @override
+  String get phraseSecreteErreurTropCourte =>
+      'Choisis un mot de passe d\'au moins 8 caractères.';
+
+  @override
+  String get phraseSecreteErreurNeCorrespondentPas =>
+      'Les deux mots de passe ne correspondent pas.';
+
+  @override
+  String get phraseSecreteErreurIncorrecte => 'Mot de passe incorrect.';
+
+  @override
+  String get phraseSecreteErreurGenerique =>
+      'Une erreur est survenue. Réessaie.';
+
+  @override
+  String get phraseSecreteBoutonCreer => 'Créer';
+
+  @override
+  String get phraseSecreteBoutonDeverrouiller => 'Déverrouiller';
+
+  @override
   String dossierDetailErreurAjoutJournal(String erreur) {
     return 'Impossible d\'ajouter cette entrée : $erreur';
   }

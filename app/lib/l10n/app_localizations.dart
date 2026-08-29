@@ -2017,6 +2017,90 @@ abstract class AppLocalizations {
   /// **'Ajouter au journal'**
   String get dossierDetailAjouterJournalBouton;
 
+  /// No description provided for @dossierDetailBoutonDeverrouillerNotes.
+  ///
+  /// In fr, this message translates to:
+  /// **'Déverrouiller mes notes'**
+  String get dossierDetailBoutonDeverrouillerNotes;
+
+  /// No description provided for @dossierDetailEntreeVerrouillee.
+  ///
+  /// In fr, this message translates to:
+  /// **'Entrée chiffrée — déverrouille tes notes pour la lire.'**
+  String get dossierDetailEntreeVerrouillee;
+
+  /// No description provided for @phraseSecreteTitreCreation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Protéger tes notes de dossier'**
+  String get phraseSecreteTitreCreation;
+
+  /// No description provided for @phraseSecreteTitreDeverrouillage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Déverrouiller les notes'**
+  String get phraseSecreteTitreDeverrouillage;
+
+  /// No description provided for @phraseSecreteAvertissement.
+  ///
+  /// In fr, this message translates to:
+  /// **'Si tu oublies ce mot de passe, ces notes seront perdues pour toujours, pour tout le monde — même nous ne pourrons pas les récupérer. Ce n\'est pas ton code PIN, ne le note nulle part sur ce téléphone.'**
+  String get phraseSecreteAvertissement;
+
+  /// No description provided for @phraseSecreteInstructionsDeverrouillage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Entre ton mot de passe pour voir et écrire dans le journal de ce dossier.'**
+  String get phraseSecreteInstructionsDeverrouillage;
+
+  /// No description provided for @phraseSecreteChamp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mot de passe'**
+  String get phraseSecreteChamp;
+
+  /// No description provided for @phraseSecreteChampConfirmation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retape le mot de passe'**
+  String get phraseSecreteChampConfirmation;
+
+  /// No description provided for @phraseSecreteErreurTropCourte.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisis un mot de passe d\'au moins 8 caractères.'**
+  String get phraseSecreteErreurTropCourte;
+
+  /// No description provided for @phraseSecreteErreurNeCorrespondentPas.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les deux mots de passe ne correspondent pas.'**
+  String get phraseSecreteErreurNeCorrespondentPas;
+
+  /// No description provided for @phraseSecreteErreurIncorrecte.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mot de passe incorrect.'**
+  String get phraseSecreteErreurIncorrecte;
+
+  /// No description provided for @phraseSecreteErreurGenerique.
+  ///
+  /// In fr, this message translates to:
+  /// **'Une erreur est survenue. Réessaie.'**
+  String get phraseSecreteErreurGenerique;
+
+  /// No description provided for @phraseSecreteBoutonCreer.
+  ///
+  /// In fr, this message translates to:
+  /// **'Créer'**
+  String get phraseSecreteBoutonCreer;
+
+  /// No description provided for @phraseSecreteBoutonDeverrouiller.
+  ///
+  /// In fr, this message translates to:
+  /// **'Déverrouiller'**
+  String get phraseSecreteBoutonDeverrouiller;
+
   /// No description provided for @dossierDetailErreurAjoutJournal.
   ///
   /// In fr, this message translates to:

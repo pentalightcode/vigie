@@ -4,11 +4,13 @@ import '../models/dossier.dart';
 import '../models/entree_journal.dart';
 import '../models/nature_dossier.dart';
 import '../models/tache.dart';
+import '../services/chiffrement_notes_service.dart';
 import '../services/firestore_service.dart';
 import '../services/nature_dossier_service.dart';
 import '../utils/confirmation.dart';
 import '../utils/dates_fr.dart';
 import '../utils/notes_structurees.dart';
+import '../widgets/dialogue_phrase_secrete.dart';
 
 /// Écran de détail d'un dossier — corrige le point le plus critique du
 /// dernier Red Team : voir/ajouter/modifier/supprimer les tâches d'un
@@ -495,6 +497,15 @@ extension _AffichageType on TypeEntreeJournal {
       };
 }
 
+/// Une entrée prête à afficher : [entree].texte est le texte réel (en clair)
+/// si [verrouillee] est faux, ou reste le texte chiffré (jamais affiché
+/// directement, voir _ligneEntree) si vrai.
+class _EntreeAffichable {
+  _EntreeAffichable({required this.entree, required this.verrouillee});
+  final EntreeJournal entree;
+  final bool verrouillee;
+}
+
 /// Journal de bord du dossier — des entrées datées et taguées qu'on ajoute
 /// au fil du temps pour documenter l'avancement étape par étape, jamais un
 /// champ qu'on écrase (demandé par Tobie le 2026-08-20 : "noter et
@@ -517,12 +528,31 @@ class _SectionJournalState extends State<_SectionJournal> {
   bool _enCours = false;
   TypeEntreeJournal? _filtreType;
 
+  @override
+  void initState() {
+    super.initState();
+    // Tente le déverrouillage automatique (clé déjà en cache sur cet
+    // appareil) dès l'ouverture, pour que le bouton "Déverrouiller mes
+    // notes" n'apparaisse pas inutilement le temps d'une interaction.
+    ChiffrementNotesService.instance.tenterDeverrouillageAutomatique().then((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
   Future<void> _ajouter() async {
     final texte = _controleur.text.trim();
     if (texte.isEmpty) return;
+    final deverrouille = await demanderPhraseSecrete(context);
+    if (!deverrouille || !mounted) return;
     setState(() => _enCours = true);
     try {
-      await FirestoreService.instance.ajouterEntreeJournal(widget.dossierId, texte, _typeSelectionne);
+      final texteChiffre = await ChiffrementNotesService.instance.chiffrer(texte);
+      await FirestoreService.instance.ajouterEntreeJournal(
+        widget.dossierId,
+        texteChiffre,
+        _typeSelectionne,
+        chiffre: true,
+      );
       _controleur.clear();
     } catch (e) {
       if (mounted) {
@@ -553,6 +583,10 @@ class _SectionJournalState extends State<_SectionJournal> {
   /// 2026-08-21, alors qu'au départ le journal était pensé "jamais écrasé" —
   /// choix assumé de Tobie malgré le compromis expliqué).
   Future<void> _editer(BuildContext context, EntreeJournal entree) async {
+    if (entree.chiffre) {
+      final deverrouille = await demanderPhraseSecrete(context);
+      if (!deverrouille || !context.mounted) return;
+    }
     final controleur = TextEditingController(text: entree.texte);
     var type = entree.type;
     final enregistrer = await showDialog<bool>(
@@ -602,7 +636,8 @@ class _SectionJournalState extends State<_SectionJournal> {
     final texte = controleur.text.trim();
     if (texte.isEmpty) return;
     try {
-      await FirestoreService.instance.modifierEntreeJournal(entree.id, texte, type);
+      final texteAEcrire = entree.chiffre ? await ChiffrementNotesService.instance.chiffrer(texte) : texte;
+      await FirestoreService.instance.modifierEntreeJournal(entree.id, texteAEcrire, type);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -610,6 +645,36 @@ class _SectionJournalState extends State<_SectionJournal> {
         );
       }
     }
+  }
+
+  /// Déchiffre chaque entrée marquée [EntreeJournal.chiffre] avec la clé en
+  /// mémoire, si elle est disponible — une entrée déjà en clair (écrite
+  /// avant l'introduction de ce chiffrement) n'a rien à déchiffrer. Une
+  /// entrée chiffrée mais pas encore déverrouillée reste marquée
+  /// [_EntreeAffichable.verrouillee], jamais affichée en clair par erreur.
+  Future<List<_EntreeAffichable>> _dechiffrerToutes(List<EntreeJournal> entrees) async {
+    final resultat = <_EntreeAffichable>[];
+    for (final entree in entrees) {
+      if (!entree.chiffre) {
+        resultat.add(_EntreeAffichable(entree: entree, verrouillee: false));
+        continue;
+      }
+      if (!ChiffrementNotesService.instance.estDeverrouille) {
+        resultat.add(_EntreeAffichable(entree: entree, verrouillee: true));
+        continue;
+      }
+      try {
+        final clair = await ChiffrementNotesService.instance.dechiffrer(entree.texte);
+        resultat.add(_EntreeAffichable(entree: entree.copierAvec(texte: clair), verrouillee: false));
+      } catch (_) {
+        // Improbable (mauvaise clé déjà validée par le vérificateur pour
+        // déverrouiller la session), mais si le déchiffrement échoue quand
+        // même sur une entrée précise, mieux vaut la montrer verrouillée
+        // que planter tout l'écran.
+        resultat.add(_EntreeAffichable(entree: entree, verrouillee: true));
+      }
+    }
+    return resultat;
   }
 
   @override
@@ -635,6 +700,17 @@ class _SectionJournalState extends State<_SectionJournal> {
                 l10n.dossierDetailJournalDescription,
                 style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
               ),
+              if (!ChiffrementNotesService.instance.estDeverrouille) ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final deverrouille = await demanderPhraseSecrete(context);
+                    if (deverrouille && mounted) setState(() {});
+                  },
+                  icon: const Icon(Icons.lock_open_outlined, size: 16),
+                  label: Text(l10n.dossierDetailBoutonDeverrouillerNotes),
+                ),
+              ],
               const SizedBox(height: 12),
               Wrap(
                 spacing: 6,
@@ -700,62 +776,79 @@ class _SectionJournalState extends State<_SectionJournal> {
                       ),
                     );
                   }
-                  final entreesFiltrees =
-                      _filtreType == null ? entrees : entrees.where((e) => e.type == _filtreType).toList();
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 20, bottom: 10),
-                        child: Row(
-                          children: [
-                            const Expanded(child: Divider()),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                              child: Text(l10n.dossierDetailHistoriqueTitre, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                            ),
-                            const Expanded(child: Divider()),
-                          ],
-                        ),
-                      ),
-                      // Filtre par type : pour ne pas mélanger visuellement tous les
-                      // types quand on veut suivre un seul fil (ex : juste les
-                      // blocages) — demandé par Tobie le 2026-08-21 ("mélangé,
-                      // trop en désordre").
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
+                  // Le déchiffrement est asynchrone (AES-GCM) — imbriqué dans un
+                  // second FutureBuilder plutôt que de bloquer le StreamBuilder
+                  // parent, pour que les nouvelles entrées Firestore continuent
+                  // d'arriver en direct pendant qu'une entrée se déchiffre.
+                  return FutureBuilder<List<_EntreeAffichable>>(
+                    future: _dechiffrerToutes(entrees),
+                    builder: (context, snapshotAffichables) {
+                      if (!snapshotAffichables.hasData) {
+                        return const Padding(
+                          padding: EdgeInsets.only(top: 16),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      final affichables = snapshotAffichables.data!;
+                      final affichablesFiltres = _filtreType == null
+                          ? affichables
+                          : affichables.where((a) => a.entree.type == _filtreType).toList();
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          FilterChip(
-                            label: Text(l10n.propositionsFiltreTout),
-                            selected: _filtreType == null,
-                            onSelected: (_) => setState(() => _filtreType = null),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 20, bottom: 10),
+                            child: Row(
+                              children: [
+                                const Expanded(child: Divider()),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  child: Text(l10n.dossierDetailHistoriqueTitre, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                ),
+                                const Expanded(child: Divider()),
+                              ],
+                            ),
                           ),
-                          ...TypeEntreeJournal.values.map((t) {
-                            final selectionne = _filtreType == t;
-                            return FilterChip(
-                              label: Text(t.libelle(context)),
-                              avatar: Icon(t.icone, size: 14, color: selectionne ? Colors.white : t.couleur),
-                              selected: selectionne,
-                              selectedColor: t.couleur,
-                              labelStyle: TextStyle(color: selectionne ? Colors.white : null, fontSize: 12),
-                              onSelected: (_) => setState(() => _filtreType = selectionne ? null : t),
-                            );
-                          }),
+                          // Filtre par type : pour ne pas mélanger visuellement tous les
+                          // types quand on veut suivre un seul fil (ex : juste les
+                          // blocages) — demandé par Tobie le 2026-08-21 ("mélangé,
+                          // trop en désordre").
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              FilterChip(
+                                label: Text(l10n.propositionsFiltreTout),
+                                selected: _filtreType == null,
+                                onSelected: (_) => setState(() => _filtreType = null),
+                              ),
+                              ...TypeEntreeJournal.values.map((t) {
+                                final selectionne = _filtreType == t;
+                                return FilterChip(
+                                  label: Text(t.libelle(context)),
+                                  avatar: Icon(t.icone, size: 14, color: selectionne ? Colors.white : t.couleur),
+                                  selected: selectionne,
+                                  selectedColor: t.couleur,
+                                  labelStyle: TextStyle(color: selectionne ? Colors.white : null, fontSize: 12),
+                                  onSelected: (_) => setState(() => _filtreType = selectionne ? null : t),
+                                );
+                              }),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (affichablesFiltres.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                l10n.dossierDetailAucuneEntreeType,
+                                style: const TextStyle(color: Colors.grey, fontSize: 13),
+                              ),
+                            )
+                          else
+                            ..._construireFrise(context, affichablesFiltres),
                         ],
-                      ),
-                      const SizedBox(height: 12),
-                      if (entreesFiltrees.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            l10n.dossierDetailAucuneEntreeType,
-                            style: const TextStyle(color: Colors.grey, fontSize: 13),
-                          ),
-                        )
-                      else
-                        ..._construireFrise(context, entreesFiltrees),
-                    ],
+                      );
+                    },
                   );
                 },
               ),
@@ -770,12 +863,13 @@ class _SectionJournalState extends State<_SectionJournal> {
   /// jour, puis juste l'heure pour chaque entrée en dessous, au lieu de
   /// répéter la date sur chaque ligne (clarifié avec Tobie le 2026-08-20 :
   /// "revoir l'architecture et la hiérarchie du journal").
-  List<Widget> _construireFrise(BuildContext context, List<EntreeJournal> entrees) {
+  List<Widget> _construireFrise(BuildContext context, List<_EntreeAffichable> entrees) {
     final widgets = <Widget>[];
     DateTime? dernierJour;
     for (var i = 0; i < entrees.length; i++) {
-      final entree = entrees[i];
-      final jour = DateTime(entree.creeLe.year, entree.creeLe.month, entree.creeLe.day);
+      final affichable = entrees[i];
+      final creeLe = affichable.entree.creeLe;
+      final jour = DateTime(creeLe.year, creeLe.month, creeLe.day);
       if (jour != dernierJour) {
         if (dernierJour != null) widgets.add(const SizedBox(height: 4));
         widgets.add(
@@ -786,9 +880,9 @@ class _SectionJournalState extends State<_SectionJournal> {
         );
         dernierJour = jour;
       }
-      final dernierDuJour =
-          i == entrees.length - 1 || DateTime(entrees[i + 1].creeLe.year, entrees[i + 1].creeLe.month, entrees[i + 1].creeLe.day) != jour;
-      widgets.add(_ligneEntree(context, entree, dernierDuJour));
+      final dernierDuJour = i == entrees.length - 1 ||
+          DateTime(entrees[i + 1].entree.creeLe.year, entrees[i + 1].entree.creeLe.month, entrees[i + 1].entree.creeLe.day) != jour;
+      widgets.add(_ligneEntree(context, affichable, dernierDuJour));
     }
     return widgets;
   }
@@ -802,7 +896,8 @@ class _SectionJournalState extends State<_SectionJournal> {
     return formaterDateFr(jour);
   }
 
-  Widget _ligneEntree(BuildContext context, EntreeJournal entree, bool dernierDuJour) {
+  Widget _ligneEntree(BuildContext context, _EntreeAffichable affichable, bool dernierDuJour) {
+    final entree = affichable.entree;
     final l10n = AppLocalizations.of(context)!;
     final estFrancais = Localizations.localeOf(context).languageCode != 'en';
     final heure = estFrancais
@@ -844,6 +939,10 @@ class _SectionJournalState extends State<_SectionJournal> {
                         entree.type.libelle(context),
                         style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: entree.type.couleur),
                       ),
+                      if (affichable.verrouillee) ...[
+                        const SizedBox(width: 4),
+                        const Icon(Icons.lock_outline, size: 12, color: Colors.grey),
+                      ],
                       const Spacer(),
                       Text(heure, style: const TextStyle(fontSize: 10, color: Colors.grey)),
                       if (entree.modifieLe != null)
@@ -857,7 +956,7 @@ class _SectionJournalState extends State<_SectionJournal> {
                         child: IconButton(
                           padding: EdgeInsets.zero,
                           icon: const Icon(Icons.edit_outlined, size: 16),
-                          onPressed: () => _editer(context, entree),
+                          onPressed: affichable.verrouillee ? null : () => _editer(context, entree),
                         ),
                       ),
                       SizedBox(
@@ -871,7 +970,13 @@ class _SectionJournalState extends State<_SectionJournal> {
                       ),
                     ],
                   ),
-                  Text(entree.texte),
+                  if (affichable.verrouillee)
+                    Text(
+                      l10n.dossierDetailEntreeVerrouillee,
+                      style: const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 13),
+                    )
+                  else
+                    Text(entree.texte),
                 ],
               ),
             ),
