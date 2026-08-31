@@ -72,6 +72,8 @@ Principe central : l'utilisateur ne désigne **jamais** ses dossiers par leur vr
 
 ## 5. Mise en route depuis zéro — installer et lancer le projet
 
+**Les étapes ci-dessous ont été vérifiées pour de vrai le 31/08/2026** — pas juste rédigées puis supposées correctes : un clonage indépendant du dépôt dans un dossier séparé, suivi pas à pas (`flutter pub get`, `flutter analyze`, `flutter test`, création du venv Python + `pip install -r requirements.txt`, import de `main.py`, `firebase deploy --only firestore:rules --dry-run`), tout a fonctionné exactement comme décrit. C'est en faisant cette vérification qu'un test cassé du projet a été trouvé et corrigé (voir `PROGRESS.md`, entrée du 31/08/2026) — sans ce test réel, l'erreur serait restée invisible.
+
 **Outils à installer** (versions utilisées sur la machine de développement actuelle, au 31/08/2026 — une version proche suffit généralement) :
 - Flutter 3.44.8, canal stable (inclut Dart 3.12.2) — `flutter --version` pour vérifier. Contrainte du projet : `sdk: ^3.12.2` dans `app/pubspec.yaml`.
 - Firebase CLI ≥ 15.26.0 (`npm install -g firebase-tools`) — nécessite Node.js (v24.14.0 utilisé ici) + npm.
@@ -82,7 +84,7 @@ Principe central : l'utilisateur ne désigne **jamais** ses dossiers par leur vr
 1. Cloner le dépôt : `git clone https://github.com/pentalightcode/vigie.git` (ou l'URL SSH si un accès en écriture a été provisionné, voir section 14).
 2. `google-services.json` (`app/android/app/`) et `firebase_options.dart` (`app/lib/`) sont **déjà dans le dépôt** — ce ne sont pas des secrets (identifiants client publics, la vraie protection vient des règles Firestore, voir section 13), rien à régénérer via `flutterfire configure`.
 3. `cd app && flutter pub get`.
-4. `firebase login` avec un compte Google ayant accès au projet `secretaire-aje` (à faire provisionner par Tobie, section 14), puis depuis `app/` : `firebase use secretaire-aje`.
+4. `firebase login` avec un compte Google ayant accès au projet `secretaire-aje` (à faire provisionner par Tobie, section 14). `app/.firebaserc` fixe déjà `secretaire-aje` comme projet par défaut (fichier suivi par Git) — `firebase use secretaire-aje` n'est donc pas strictement nécessaire, mais ne fait pas de mal si vous préférez le confirmer explicitement.
 5. Pour toucher aux Cloud Functions (Python) : `cd app/functions && python3.14 -m venv venv && source venv/bin/activate && pip install -r requirements.txt`.
 6. `flutter analyze` (depuis `app/`) doit rester propre — seules 2 infos préexistantes sans rapport sont normales (`dart:html` déprécié dans `lib/utils/telechargement_web.dart`, sans impact réel).
 7. Lancer l'app en local : `flutter run` depuis `app/` (choisir la cible — Chrome pour le web, un appareil/émulateur Android connecté sinon).
