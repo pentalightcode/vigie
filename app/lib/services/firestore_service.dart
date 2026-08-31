@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/dossier.dart';
 import '../models/entree_journal.dart';
 import '../models/notification_envoyee.dart';
+import '../models/proposition_en_attente.dart';
 import '../models/tache.dart';
 import 'utilisateur_service.dart';
 
@@ -167,6 +168,99 @@ class FirestoreService {
 
   Future<void> supprimerTache(String tacheId) {
     return _db.collection('taches').doc(tacheId).delete();
+  }
+
+  // --- Workflow d'approbation (Phase 2, 2026-08-31) -----------------------
+  // Deux chemins, voir firestore.rules : l'auteur ou créateur/administrateur
+  // (avec 'modererContenu') écrit directement — modifierTache/marquerFait/
+  // marquerNonFait/supprimerTache ci-dessus, inchangées. Tout autre
+  // participant pose une proposition à la place (méthodes ci-dessous),
+  // approuvée/rejetée ensuite par le créateur/l'auteur (approuverProposition*/
+  // retirerProposition*, cette dernière servant aussi bien à rejeter la
+  // proposition d'un autre qu'à retirer la sienne — les règles Firestore
+  // distinguent déjà qui a le droit de le faire, la méthode est la même
+  // écriture des deux côtés).
+
+  Future<void> proposerModificationTache(Tache tache) {
+    return _db.collection('taches').doc(tache.id).update({
+      'propositionEnAttente': PropositionEnAttente(
+        type: 'modifier',
+        proposePar: _uid,
+        donnees: {
+          'descriptionCourte': tache.descriptionCourte,
+          'nature': tache.nature,
+          'dateDeclenchante': Timestamp.fromDate(tache.dateDeclenchante),
+          'notesDetaillees': tache.notesDetaillees,
+        },
+      ).versMap(),
+    });
+  }
+
+  Future<void> proposerMarquerFaitTache(String tacheId) {
+    return _db.collection('taches').doc(tacheId).update({
+      'propositionEnAttente': PropositionEnAttente(type: 'marquerFait', proposePar: _uid).versMap(),
+    });
+  }
+
+  Future<void> proposerMarquerNonFaitTache(String tacheId) {
+    return _db.collection('taches').doc(tacheId).update({
+      'propositionEnAttente': PropositionEnAttente(type: 'marquerNonFait', proposePar: _uid).versMap(),
+    });
+  }
+
+  Future<void> proposerSuppressionTache(String tacheId) {
+    return _db.collection('taches').doc(tacheId).update({
+      'propositionEnAttente': PropositionEnAttente(type: 'supprimer', proposePar: _uid).versMap(),
+    });
+  }
+
+  Future<void> retirerPropositionTache(String tacheId) {
+    return _db.collection('taches').doc(tacheId).update({'propositionEnAttente': null});
+  }
+
+  /// Applique la proposition en attente d'une tâche : les vraies valeurs
+  /// pour 'modifier' (recalcule datePremierRappel comme `modifierTache`,
+  /// mais à partir des valeurs PROPOSÉES) ou le statut pour 'marquerFait'/
+  /// 'marquerNonFait', et efface la proposition — en une seule écriture, sauf
+  /// pour 'supprimer' où la tâche est directement supprimée (la proposition
+  /// disparaît avec elle, rien à effacer séparément).
+  Future<void> approuverPropositionTache(Tache tache) async {
+    final proposition = tache.propositionEnAttente;
+    if (proposition == null) return;
+    final ref = _db.collection('taches').doc(tache.id);
+    switch (proposition.type) {
+      case 'supprimer':
+        await ref.delete();
+        return;
+      case 'marquerFait':
+        await ref.update({
+          'statut': StatutTache.fait.name,
+          'dateFait': Timestamp.now(),
+          'propositionEnAttente': null,
+        });
+        return;
+      case 'marquerNonFait':
+        await ref.update({
+          'statut': StatutTache.aFaire.name,
+          'dateFait': null,
+          'propositionEnAttente': null,
+        });
+        return;
+      default: // 'modifier'
+        final delai = await UtilisateurService.instance.delaiRappelJours();
+        final donnees = proposition.donnees;
+        final dateDeclenchante = (donnees['dateDeclenchante'] as Timestamp).toDate();
+        await ref.update({
+          'descriptionCourte': donnees['descriptionCourte'],
+          'nature': donnees['nature'],
+          'dateDeclenchante': donnees['dateDeclenchante'],
+          'datePremierRappel': Timestamp.fromDate(
+            Tache.calculerDatePremierRappel(dateDeclenchante, delai),
+          ),
+          'notesDetaillees': donnees['notesDetaillees'],
+          'propositionEnAttente': null,
+        });
+    }
   }
 
   /// Modifie les informations d'un dossier (nom de code, date de l'événement)
@@ -359,6 +453,46 @@ class FirestoreService {
       'texte': texte,
       'type': type.name,
       'modifieLe': Timestamp.now(),
+    });
+  }
+
+  // --- Workflow d'approbation, journal (Phase 2, 2026-08-31) ---------------
+  // Même principe que /taches ci-dessus (voir ces commentaires).
+
+  Future<void> proposerModificationEntreeJournal(EntreeJournal entree) {
+    return _db.collection('journalDossier').doc(entree.id).update({
+      'propositionEnAttente': PropositionEnAttente(
+        type: 'modifier',
+        proposePar: _uid,
+        donnees: {'texte': entree.texte, 'type': entree.type.name},
+      ).versMap(),
+    });
+  }
+
+  Future<void> proposerSuppressionEntreeJournal(String entreeId) {
+    return _db.collection('journalDossier').doc(entreeId).update({
+      'propositionEnAttente': PropositionEnAttente(type: 'supprimer', proposePar: _uid).versMap(),
+    });
+  }
+
+  Future<void> retirerPropositionEntreeJournal(String entreeId) {
+    return _db.collection('journalDossier').doc(entreeId).update({'propositionEnAttente': null});
+  }
+
+  Future<void> approuverPropositionEntreeJournal(EntreeJournal entree) async {
+    final proposition = entree.propositionEnAttente;
+    if (proposition == null) return;
+    final ref = _db.collection('journalDossier').doc(entree.id);
+    if (proposition.type == 'supprimer') {
+      await ref.delete();
+      return;
+    }
+    final donnees = proposition.donnees;
+    await ref.update({
+      'texte': donnees['texte'],
+      'type': donnees['type'],
+      'modifieLe': Timestamp.now(),
+      'propositionEnAttente': null,
     });
   }
 }

@@ -20,7 +20,9 @@
   "joursAvant": "{jours} jours avant",
   "@joursAvant": {
     "placeholders": {
-      "jours": {"type": "int"}
+      "jours": {
+        "type": "int"
+      }
     }
   },
   "profilPreciseProfessionLabel": "Précise ta profession",
@@ -44,7 +46,9 @@
   "profilConnecteEnTantQue": "Connecté en tant que {email}",
   "@profilConnecteEnTantQue": {
     "placeholders": {
-      "email": {"type": "String"}
+      "email": {
+        "type": "String"
+      }
     }
   },
   "profilEmailInconnu": "inconnu",
@@ -54,7 +58,9 @@
   "profilDelaiRappelSousTitre": "{jours} jours avant l'échéance",
   "@profilDelaiRappelSousTitre": {
     "placeholders": {
-      "jours": {"type": "int"}
+      "jours": {
+        "type": "int"
+      }
     }
   },
   "profilTypesDossierTitre": "Mes types de dossier",
@@ -98,7 +104,11 @@
   "verrouCodeIncorrect": "Code incorrect.",
   "verrouTropDeTentatives": "Trop d'essais. Réessaie dans {secondes} s.",
   "@verrouTropDeTentatives": {
-    "placeholders": { "secondes": { "type": "int" } }
+    "placeholders": {
+      "secondes": {
+        "type": "int"
+      }
+    }
   },
   "verrouCodeOublieTitre": "Code PIN oublié ?",
   "verrouCodeOublieMessage": "Tu vas devoir te reconnecter par email pour prouver que c'est bien toi, puis créer un nouveau code. Tes dossiers et tâches ne seront pas touchés.",
@@ -123,7 +133,9 @@
   "banniereNouvelleVersionAvecNumero": "Nouvelle version disponible ({version}).",
   "@banniereNouvelleVersionAvecNumero": {
     "placeholders": {
-      "version": {"type": "String"}
+      "version": {
+        "type": "String"
+      }
     }
   },
   "banniereNouvelleVersionSansNumero": "Une nouvelle version de l'app est disponible.",
@@ -135,13 +147,17 @@
   "aTraiterPropositionsTooltip": "{nombre} proposition(s) de dossier à valider",
   "@aTraiterPropositionsTooltip": {
     "placeholders": {
-      "nombre": {"type": "int"}
+      "nombre": {
+        "type": "int"
+      }
     }
   },
   "aTraiterErreur": "Erreur : {erreur}",
   "@aTraiterErreur": {
     "placeholders": {
-      "erreur": {"type": "String"}
+      "erreur": {
+        "type": "String"
+      }
     }
   },
   "aTraiterRienAFaire": "Rien à faire pour l'instant.",
@@ -151,16 +167,26 @@
   "aTraiterProgressionDossier": "{faites}/{total} tâches faites ({pourcentage}%)",
   "@aTraiterProgressionDossier": {
     "placeholders": {
-      "faites": {"type": "int"},
-      "total": {"type": "int"},
-      "pourcentage": {"type": "int"}
+      "faites": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "pourcentage": {
+        "type": "int"
+      }
     }
   },
   "aTraiterEnAttenteEcheance": "Échéance le {date} — apparaîtra dans \"À traiter\" dans {jours} jours",
   "@aTraiterEnAttenteEcheance": {
     "placeholders": {
-      "date": {"type": "String"},
-      "jours": {"type": "int"}
+      "date": {
+        "type": "String"
+      },
+      "jours": {
+        "type": "int"
+      }
     }
   },
   "aTraiterEnRetard": "En retard",
@@ -169,7 +195,9 @@
   "aTraiterDansJours": "Dans {jours} j",
   "@aTraiterDansJours": {
     "placeholders": {
-      "jours": {"type": "int"}
+      "jours": {
+        "type": "int"
+      }
     }
   },
   "aTraiterCestFait": "C'est fait",
@@ -177,13 +205,17 @@
   "aTraiterMarquerFaitMessage": "\"{description}\" sera marquée comme faite.",
   "@aTraiterMarquerFaitMessage": {
     "placeholders": {
-      "description": {"type": "String"}
+      "description": {
+        "type": "String"
+      }
     }
   },
   "agendaErreurLecture": "Impossible de lire le calendrier : {erreur}",
   "@agendaErreurLecture": {
     "placeholders": {
-      "erreur": {"type": "String"}
+      "erreur": {
+        "type": "String"
+      }
     }
   },
   "agendaAucunCompteConnecte": "Connecte d'abord un compte Google dans Automatisation pour voir ton agenda ici.",
@@ -191,7 +223,9 @@
   "agendaRienCeJour": "Rien le {date}.",
   "@agendaRienCeJour": {
     "placeholders": {
-      "date": {"type": "String"}
+      "date": {
+        "type": "String"
+      }
     }
   },
   "agendaJourneeEntiere": "Journée entière",
@@ -203,15 +237,23 @@
   "bilanLibellePeriodeTrimestre": "T{numero} {annee}",
   "@bilanLibellePeriodeTrimestre": {
     "placeholders": {
-      "numero": {"type": "int"},
-      "annee": {"type": "int"}
+      "numero": {
+        "type": "int"
+      },
+      "annee": {
+        "type": "int"
+      }
     }
   },
   "bilanLibellePeriodeSemestre": "S{numero} {annee}",
   "@bilanLibellePeriodeSemestre": {
     "placeholders": {
-      "numero": {"type": "int"},
-      "annee": {"type": "int"}
+      "numero": {
+        "type": "int"
+      },
+      "annee": {
+        "type": "int"
+      }
     }
   },
   "bilanPartagerTooltip": "Partager ce bilan",
@@ -232,45 +274,73 @@
   "bilanResumeIaErreurGeneration": "Impossible de générer le résumé : {erreur}",
   "@bilanResumeIaErreurGeneration": {
     "placeholders": {
-      "erreur": {"type": "String"}
+      "erreur": {
+        "type": "String"
+      }
     }
   },
   "bilanTexteEnTete": "Bilan Vigie — {periode}",
   "@bilanTexteEnTete": {
     "placeholders": {
-      "periode": {"type": "String"}
+      "periode": {
+        "type": "String"
+      }
     }
   },
   "bilanTexteTotalAvecRetard": "Total : {fait} fait, {enRetard} en retard, {aVenir} à venir",
   "@bilanTexteTotalAvecRetard": {
     "placeholders": {
-      "fait": {"type": "int"},
-      "enRetard": {"type": "int"},
-      "aVenir": {"type": "int"}
+      "fait": {
+        "type": "int"
+      },
+      "enRetard": {
+        "type": "int"
+      },
+      "aVenir": {
+        "type": "int"
+      }
     }
   },
   "bilanTexteTotalSansRetard": "Total : {fait} fait, {aVenir} à venir",
   "@bilanTexteTotalSansRetard": {
     "placeholders": {
-      "fait": {"type": "int"},
-      "aVenir": {"type": "int"}
+      "fait": {
+        "type": "int"
+      },
+      "aVenir": {
+        "type": "int"
+      }
     }
   },
   "bilanTexteDossierAvecRetard": "{nom} : {fait} fait, {enRetard} en retard, {aVenir} à venir",
   "@bilanTexteDossierAvecRetard": {
     "placeholders": {
-      "nom": {"type": "String"},
-      "fait": {"type": "int"},
-      "enRetard": {"type": "int"},
-      "aVenir": {"type": "int"}
+      "nom": {
+        "type": "String"
+      },
+      "fait": {
+        "type": "int"
+      },
+      "enRetard": {
+        "type": "int"
+      },
+      "aVenir": {
+        "type": "int"
+      }
     }
   },
   "bilanTexteDossierSansRetard": "{nom} : {fait} fait, {aVenir} à venir",
   "@bilanTexteDossierSansRetard": {
     "placeholders": {
-      "nom": {"type": "String"},
-      "fait": {"type": "int"},
-      "aVenir": {"type": "int"}
+      "nom": {
+        "type": "String"
+      },
+      "fait": {
+        "type": "int"
+      },
+      "aVenir": {
+        "type": "int"
+      }
     }
   },
   "bilanTextePartageSignature": "Généré par Vigie — noms de code choisis par l'utilisateur, aucune information sensible.",
@@ -278,14 +348,18 @@
   "statistiquesJoursSansRetard": "{jours} jour(s) sans tâche terminée en retard.",
   "@statistiquesJoursSansRetard": {
     "placeholders": {
-      "jours": {"type": "int"}
+      "jours": {
+        "type": "int"
+      }
     }
   },
   "statistiquesRienSurPeriode": "Rien sur cette période.",
   "statistiquesTauxAchevement": "{pourcentage}% de taux d'achèvement",
   "@statistiquesTauxAchevement": {
     "placeholders": {
-      "pourcentage": {"type": "int"}
+      "pourcentage": {
+        "type": "int"
+      }
     }
   },
   "statistiquesRepartitionParType": "Répartition par type",
@@ -294,9 +368,15 @@
   "statistiquesTooltipJour": "{jour}/{mois} : {compte} tâche(s)",
   "@statistiquesTooltipJour": {
     "placeholders": {
-      "jour": {"type": "int"},
-      "mois": {"type": "int"},
-      "compte": {"type": "int"}
+      "jour": {
+        "type": "int"
+      },
+      "mois": {
+        "type": "int"
+      },
+      "compte": {
+        "type": "int"
+      }
     }
   },
   "automatisationComptesGoogleTitre": "Comptes Google",
@@ -306,27 +386,35 @@
   "automatisationPropositionsAValiderAvecNombre": "Propositions à valider ({nombre})",
   "@automatisationPropositionsAValiderAvecNombre": {
     "placeholders": {
-      "nombre": {"type": "int"}
+      "nombre": {
+        "type": "int"
+      }
     }
   },
   "automatisationPropositionsAValider": "Propositions à valider",
   "automatisationCompteConnecte": "Compte connecté : {email}",
   "@automatisationCompteConnecte": {
     "placeholders": {
-      "email": {"type": "String"}
+      "email": {
+        "type": "String"
+      }
     }
   },
   "automatisationConnexionImpossible": "Connexion impossible : {erreur}",
   "@automatisationConnexionImpossible": {
     "placeholders": {
-      "erreur": {"type": "String"}
+      "erreur": {
+        "type": "String"
+      }
     }
   },
   "automatisationDeconnecterTitre": "Déconnecter ce compte Google ?",
   "automatisationDeconnecterMessage": "\"{compte}\" ne sera plus scanné automatiquement (emails, tâches, agenda).",
   "@automatisationDeconnecterMessage": {
     "placeholders": {
-      "compte": {"type": "String"}
+      "compte": {
+        "type": "String"
+      }
     }
   },
   "automatisationRenommerTitre": "Renommer ce compte",
@@ -351,7 +439,9 @@
   "automatisationRetirerMessage": "Les emails de \"{email}\" ne seront plus lus automatiquement.",
   "@automatisationRetirerMessage": {
     "placeholders": {
-      "email": {"type": "String"}
+      "email": {
+        "type": "String"
+      }
     }
   },
   "automatisationRetirerBouton": "Retirer",
@@ -360,8 +450,12 @@
   "automatisationDomaineIntrouvableMessage": "Aucun serveur mail trouvé pour \"{domaine}\" — vérifie qu'il n'y a pas de faute de frappe.\n\nAjouter quand même : {email} ?",
   "@automatisationDomaineIntrouvableMessage": {
     "placeholders": {
-      "domaine": {"type": "String"},
-      "email": {"type": "String"}
+      "domaine": {
+        "type": "String"
+      },
+      "email": {
+        "type": "String"
+      }
     }
   },
   "automatisationAjouterQuandMeme": "Ajouter quand même",
@@ -369,14 +463,18 @@
   "automatisationAjouterExpediteurMessage": "Vérifie bien qu'il n'y a pas de faute de frappe :\n\n{email}",
   "@automatisationAjouterExpediteurMessage": {
     "placeholders": {
-      "email": {"type": "String"}
+      "email": {
+        "type": "String"
+      }
     }
   },
   "automatisationAjouterBouton": "Ajouter",
   "automatisationErreurLectureBoite": "Impossible de lire la boîte mail : {erreur}",
   "@automatisationErreurLectureBoite": {
     "placeholders": {
-      "erreur": {"type": "String"}
+      "erreur": {
+        "type": "String"
+      }
     }
   },
   "automatisationAucunNouvelExpediteur": "Aucun nouvel expéditeur trouvé dans les emails récents.",
@@ -385,35 +483,51 @@
   "automatisationEmailsRecents": "{nombre} email(s) récent(s)",
   "@automatisationEmailsRecents": {
     "placeholders": {
-      "nombre": {"type": "int"}
+      "nombre": {
+        "type": "int"
+      }
     }
   },
   "automatisationAjouterAvecNombre": "Ajouter ({nombre})",
   "@automatisationAjouterAvecNombre": {
     "placeholders": {
-      "nombre": {"type": "int"}
+      "nombre": {
+        "type": "int"
+      }
     }
   },
   "automatisationVerificationAutoTitre": "Vérification automatique",
   "automatisationEtatPasEncoreVerifie": "{service} : pas encore vérifié",
   "@automatisationEtatPasEncoreVerifie": {
     "placeholders": {
-      "service": {"type": "String"}
+      "service": {
+        "type": "String"
+      }
     }
   },
   "automatisationEtatAvecDate": "{service} : {statut} — {date}",
   "@automatisationEtatAvecDate": {
     "placeholders": {
-      "service": {"type": "String"},
-      "statut": {"type": "String"},
-      "date": {"type": "String"}
+      "service": {
+        "type": "String"
+      },
+      "statut": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
     }
   },
   "automatisationEtatSansDate": "{service} : {statut}",
   "@automatisationEtatSansDate": {
     "placeholders": {
-      "service": {"type": "String"},
-      "statut": {"type": "String"}
+      "service": {
+        "type": "String"
+      },
+      "statut": {
+        "type": "String"
+      }
     }
   },
   "automatisationEtatOk": "OK",
@@ -425,7 +539,9 @@
   "propositionsDeExpediteur": "De : {expediteur}",
   "@propositionsDeExpediteur": {
     "placeholders": {
-      "expediteur": {"type": "String"}
+      "expediteur": {
+        "type": "String"
+      }
     }
   },
   "propositionsIgnorerBouton": "Ignorer",
@@ -434,7 +550,9 @@
   "propositionsIgnorerMessage": "Aucun dossier ne sera créé pour \"{sujet}\".",
   "@propositionsIgnorerMessage": {
     "placeholders": {
-      "sujet": {"type": "String"}
+      "sujet": {
+        "type": "String"
+      }
     }
   },
   "ajouterErreurNomCode": "Donne un nom de code au dossier.",
@@ -454,7 +572,9 @@
   "ajouterEcheanceAvecDate": "Échéance : {date}",
   "@ajouterEcheanceAvecDate": {
     "placeholders": {
-      "date": {"type": "String"}
+      "date": {
+        "type": "String"
+      }
     }
   },
   "ajouterNoteTitre": "Ajouter une note",
@@ -464,7 +584,9 @@
   "ajoutGroupeNomCodeHint": "Dossier {numero}",
   "@ajoutGroupeNomCodeHint": {
     "placeholders": {
-      "numero": {"type": "int"}
+      "numero": {
+        "type": "int"
+      }
     }
   },
   "ajoutGroupeDateBouton": "Date",
@@ -472,7 +594,9 @@
   "ajoutGroupeEnregistrerBouton": "{nombre, plural, =0{Enregistrer} =1{Enregistrer (1 dossier)} other{Enregistrer ({nombre} dossiers)}}",
   "@ajoutGroupeEnregistrerBouton": {
     "placeholders": {
-      "nombre": {"type": "int"}
+      "nombre": {
+        "type": "int"
+      }
     }
   },
   "confirmerEmailErreurVide": "Entre l'adresse email utilisée pour demander le lien.",
@@ -497,7 +621,9 @@
   "connexionTelechargerAvecVersion": "Télécharger l'app Android (v{version})",
   "@connexionTelechargerAvecVersion": {
     "placeholders": {
-      "version": {"type": "String"}
+      "version": {
+        "type": "String"
+      }
     }
   },
   "connexionTelechargerSansVersion": "Télécharger l'app Android (recommandé)",
@@ -507,7 +633,9 @@
   "connexionLienEnvoye": "Un lien a été envoyé à {email}.\nOuvre ta boîte mail et clique sur le lien pour te connecter.",
   "@connexionLienEnvoye": {
     "placeholders": {
-      "email": {"type": "String"}
+      "email": {
+        "type": "String"
+      }
     }
   },
   "connexionMauvaiseAdresse": "Mauvaise adresse ? Recommencer",
@@ -518,8 +646,12 @@
   "notificationsChipTypeCompte": "{type} : {valeur}",
   "@notificationsChipTypeCompte": {
     "placeholders": {
-      "type": {"type": "String"},
-      "valeur": {"type": "int"}
+      "type": {
+        "type": "String"
+      },
+      "valeur": {
+        "type": "int"
+      }
     }
   },
   "pourquoiVigieAppBarTitre": "Pourquoi Vigie",
@@ -541,7 +673,9 @@
   "dossierDetailDateAvecValeur": "Date : {date}",
   "@dossierDetailDateAvecValeur": {
     "placeholders": {
-      "date": {"type": "String"}
+      "date": {
+        "type": "String"
+      }
     }
   },
   "dossierDetailPasDeDate": "Pas de date renseignée",
@@ -552,14 +686,20 @@
   "dossierDetailSupprimerDossierMessage": "Le dossier \"{nom}\" et toutes ses tâches seront supprimés définitivement.",
   "@dossierDetailSupprimerDossierMessage": {
     "placeholders": {
-      "nom": {"type": "String"}
+      "nom": {
+        "type": "String"
+      }
     }
   },
   "dossierDetailNatureEtDate": "{nature} — {date}",
   "@dossierDetailNatureEtDate": {
     "placeholders": {
-      "nature": {"type": "String"},
-      "date": {"type": "String"}
+      "nature": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
     }
   },
   "dossierDetailConfirmerTitre": "Confirmer ?",
@@ -568,15 +708,21 @@
   "dossierDetailBasculerMessage": "Tu veux {action} : \"{description}\".",
   "@dossierDetailBasculerMessage": {
     "placeholders": {
-      "action": {"type": "String"},
-      "description": {"type": "String"}
+      "action": {
+        "type": "String"
+      },
+      "description": {
+        "type": "String"
+      }
     }
   },
   "dossierDetailSupprimerTacheTitre": "Supprimer cette tâche ?",
   "dossierDetailSupprimerTacheMessage": "\"{description}\" sera supprimée définitivement.",
   "@dossierDetailSupprimerTacheMessage": {
     "placeholders": {
-      "description": {"type": "String"}
+      "description": {
+        "type": "String"
+      }
     }
   },
   "dossierDetailAjouterTacheTitre": "Ajouter une tâche",
@@ -606,20 +752,26 @@
   "dossierDetailErreurAjoutJournal": "Impossible d'ajouter cette entrée : {erreur}",
   "@dossierDetailErreurAjoutJournal": {
     "placeholders": {
-      "erreur": {"type": "String"}
+      "erreur": {
+        "type": "String"
+      }
     }
   },
   "dossierDetailErreurModifJournal": "Impossible de modifier cette entrée : {erreur}",
   "@dossierDetailErreurModifJournal": {
     "placeholders": {
-      "erreur": {"type": "String"}
+      "erreur": {
+        "type": "String"
+      }
     }
   },
   "dossierDetailSupprimerEntreeTitre": "Supprimer cette entrée du journal ?",
   "dossierDetailSupprimerEntreeMessage": "Cette note du {date} sera supprimée définitivement.",
   "@dossierDetailSupprimerEntreeMessage": {
     "placeholders": {
-      "date": {"type": "String"}
+      "date": {
+        "type": "String"
+      }
     }
   },
   "dossierDetailModifierEntreeTitre": "Modifier cette entrée",
@@ -629,7 +781,9 @@
   "dossierDetailErreurLectureJournal": "Impossible de lire le journal : {erreur}",
   "@dossierDetailErreurLectureJournal": {
     "placeholders": {
-      "erreur": {"type": "String"}
+      "erreur": {
+        "type": "String"
+      }
     }
   },
   "dossierDetailHier": "Hier",
@@ -639,7 +793,9 @@
   "commonDerniereConfirmation": "Dernière confirmation : {message}",
   "@commonDerniereConfirmation": {
     "placeholders": {
-      "message": {"type": "String"}
+      "message": {
+        "type": "String"
+      }
     }
   },
   "connexionGoogleAdresseInconnue": "Compte connecté (reconnecte-toi pour voir l'adresse)",
@@ -654,7 +810,9 @@
   "participantsSousTitreMoi": "{role} · toi",
   "@participantsSousTitreMoi": {
     "placeholders": {
-      "role": {"type": "String"}
+      "role": {
+        "type": "String"
+      }
     }
   },
   "dossierAccesRevoqueMessage": "Tu n'as plus accès à ce dossier. Un administrateur t'a peut-être retiré pendant que tu le consultais.",
@@ -665,7 +823,9 @@
   "participantsRetirerMessage": "{affichage} n'aura plus accès à ce dossier.",
   "@participantsRetirerMessage": {
     "placeholders": {
-      "affichage": {"type": "String"}
+      "affichage": {
+        "type": "String"
+      }
     }
   },
   "participantsQuitterBouton": "Quitter",
@@ -674,7 +834,9 @@
   "participantsErreur": "Impossible d'effectuer cette action : {erreur}",
   "@participantsErreur": {
     "placeholders": {
-      "erreur": {"type": "String"}
+      "erreur": {
+        "type": "String"
+      }
     }
   },
   "participantsErreurAucunCompte": "Aucun compte Vigie n'existe avec cet email.",
@@ -687,5 +849,53 @@
   "participantsErreurGenerique": "Une erreur est survenue. Réessaie.",
   "participantsDialogueAjouterTitre": "Ajouter un participant",
   "participantsDialogueAjouterChampEmail": "Email du compte Vigie",
-  "participantsDialogueAjouterChampRole": "Rôle"
+  "participantsDialogueAjouterChampRole": "Rôle",
+  "propositionTypeModifier": "Modification",
+  "propositionTypeMarquerFait": "Marquage comme fait",
+  "propositionTypeMarquerNonFait": "Remise à faire",
+  "propositionTypeSupprimer": "Suppression",
+  "propositionBadgeTexte": "{type} proposée par {personne}, en attente d'approbation.",
+  "@propositionBadgeTexte": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      },
+      "personne": {
+        "type": "String"
+      }
+    }
+  },
+  "propositionBoutonApprouver": "Approuver",
+  "propositionBoutonRejeter": "Rejeter",
+  "propositionBoutonRetirer": "Retirer ma proposition",
+  "dossierDetailAttributionTache": "Ajoutée par {personne}",
+  "@dossierDetailAttributionTache": {
+    "placeholders": {
+      "personne": {
+        "type": "String"
+      }
+    }
+  },
+  "dossierDetailAttributionEntree": "Écrite par {personne}",
+  "@dossierDetailAttributionEntree": {
+    "placeholders": {
+      "personne": {
+        "type": "String"
+      }
+    }
+  },
+  "participantsPermissionsDialogueTitre": "Permissions de {personne}",
+  "@participantsPermissionsDialogueTitre": {
+    "placeholders": {
+      "personne": {
+        "type": "String"
+      }
+    }
+  },
+  "participantsPermissionGererParticipants": "Ajouter/retirer des participants, changer leur rôle",
+  "participantsPermissionSupprimerDossier": "Supprimer le dossier",
+  "participantsPermissionModererContenu": "Modifier/supprimer le contenu des autres sans validation",
+  "participantsMenuPermissions": "Permissions…",
+  "aTraiterOngletMesDossiers": "Mes dossiers",
+  "aTraiterOngletPartages": "Dossiers partagés"
 }

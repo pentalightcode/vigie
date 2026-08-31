@@ -60,6 +60,34 @@ service cloud.firestore {
         : (dossierData.uid == request.auth.uid ? 'createur' : null);
     }
 
+    // Phase 2 (2026-08-31) : QUI a un accès libre (sans passer par une
+    // proposition) au contenu créé par quelqu'un d'AUTRE. Le créateur
+    // toujours. Un administrateur SEULEMENT s'il a reçu 'modererContenu' du
+    // créateur — trouvé en red-teamant le plan initial, avant tout
+    // déploiement (posé à Tobie en question directe) : la première version
+    // gardait "créateur/administrateur" groupés comme avant, ce qui ne
+    // corrigeait AUCUNE des remarques du test réel ("un administrateur peut
+    // modifier/supprimer sans la confirmation du créateur" — répété 3 fois
+    // sur tâches, journal, et les deux ensemble). Sans 'modererContenu', un
+    // administrateur est donc traité EXACTEMENT comme un simple
+    // contributeur face au contenu des autres — libre seulement sur ce
+    // qu'il a lui-même écrit (voir estAuteurOuGestionnaire/
+    // estAuteurTacheOuGestionnaire ci-dessous, qui utilisent cette
+    // fonction). Absence totale de permissionsAdministrateur = dossier
+    // jamais touché par cette fonctionnalité = comportement historique
+    // complet conservé (rétrocompatibilité), même principe que
+    // peutSupprimerDossier plus bas.
+    function estGestionnaireContenu(dossierData) {
+      return role(dossierData) == 'createur'
+        || (
+          role(dossierData) == 'administrateur'
+          && (
+            !('permissionsAdministrateur' in dossierData)
+            || 'modererContenu' in dossierData.permissionsAdministrateur.get(request.auth.uid, [])
+          )
+        );
+    }
+
     // Modifier/supprimer une entrée de journal : son auteur, ou créateur/
     // administrateur du dossier (décision de Tobie le 2026-08-30, en
     // reposant la question du point "n'importe quel participant peut
@@ -84,7 +112,7 @@ service cloud.firestore {
           data.uid == request.auth.uid
           || (
             exists(/databases/$(database)/documents/dossiers/$(data.dossierId))
-            && role(get(/databases/$(database)/documents/dossiers/$(data.dossierId)).data) in ['createur', 'administrateur']
+            && estGestionnaireContenu(get(/databases/$(database)/documents/dossiers/$(data.dossierId)).data)
           )
         );
     }
@@ -105,9 +133,38 @@ service cloud.firestore {
           data.get('auteurUid', data.uid) == request.auth.uid
           || (
             exists(/databases/$(database)/documents/dossiers/$(data.dossierId))
-            && role(get(/databases/$(database)/documents/dossiers/$(data.dossierId)).data) in ['createur', 'administrateur']
+            && estGestionnaireContenu(get(/databases/$(database)/documents/dossiers/$(data.dossierId)).data)
           )
         );
+    }
+
+    // Phase 2 (2026-08-31) : qui peut supprimer le dossier lui-même. Le
+    // créateur peut toujours (jamais retirable, voir plus haut). Un
+    // administrateur seulement si le créateur lui a explicitement accordé
+    // 'supprimerDossier' — SAUF si permissionsAdministrateur est totalement
+    // absent du document, auquel cas ce dossier n'a jamais été touché par
+    // cette fonctionnalité et l'administrateur garde le comportement
+    // historique complet (rétrocompatibilité, décision de Tobie le
+    // 2026-08-31 : "le créateur sélectionne ce qui leur est permis").
+    function peutSupprimerDossier(data) {
+      return role(data) == 'createur'
+        || (
+          role(data) == 'administrateur'
+          && (
+            !('permissionsAdministrateur' in data)
+            || 'supprimerDossier' in data.permissionsAdministrateur.get(request.auth.uid, [])
+          )
+        );
+    }
+
+    // Phase 2 (2026-08-31) : une proposition ne peut être posée/retirée/
+    // révisée QUE par celui qui l'a créée — empêche d'écraser la proposition
+    // de quelqu'un d'autre, et empêche de forger une proposition au nom d'un
+    // tiers. `avant`/`apres` sont le champ propositionEnAttente avant/après
+    // l'écriture (null si absent).
+    function propositionValide(avant, apres, uid) {
+      return (avant == null || avant.proposePar == uid)
+        && (apres == null || apres.proposePar == uid);
     }
 
     // Empêche de forger une tâche/entrée de journal en y injectant l'uid de
@@ -203,10 +260,18 @@ service cloud.firestore {
         && request.resource.data.get('participantsUids', [request.auth.uid]) == [request.auth.uid]
         && request.resource.data.get('roles', {request.auth.uid: 'createur'}) == {request.auth.uid: 'createur'}
         && request.resource.data.get('participantsEmails', {}) == {};
-      // Modifier le contenu (nom, date) : tout participant, quel que soit
-      // son rôle (accès complet choisi par Tobie). Modifier QUI a accès
-      // (participantsUids/roles/participantsEmails) : PERSONNE, pas même le
-      // créateur — doit obligatoirement passer par `gerer_participant_dossier`.
+      // Modifier le contenu (nom, date) : réservé à créateur/administrateur
+      // (Phase 2, 2026-08-31, question posée et confirmée par Tobie —
+      // remplace "tout participant, quel que soit son rôle" du 29/08 : un
+      // simple contributeur ne doit plus pouvoir renommer/redater le dossier
+      // de quelqu'un d'autre sans confirmation). Pas gaté par
+      // 'modererContenu' (contrairement au contenu des tâches/journal
+      // ci-dessous) : c'est une métadonnée du dossier lui-même, pas le
+      // contenu créé par un participant précis — reste un droit de rôle
+      // simple, comme avant l'introduction des permissions à la carte.
+      // Modifier QUI a accès (participantsUids/roles/participantsEmails/
+      // permissionsAdministrateur) : PERSONNE, pas même le créateur — doit
+      // obligatoirement passer par `gerer_participant_dossier`.
       //
       // Ce champ était réservé au créateur seul jusqu'au 30/08 (décision du
       // même jour : un administrateur ne gère que des contributeurs) — trou
@@ -228,30 +293,46 @@ service cloud.firestore {
       // quand cette victime supprimait ensuite SON PROPRE compte,
       // `supprimer_compte_definitivement` (qui filtre par `uid==`) effaçait
       // le dossier de quelqu'un d'autre sans lien avec elle.
+      // permissionsAdministrateur figé aussi (Phase 2, 2026-08-31) : même
+      // raison que roles/participantsEmails — seule la fonction serveur
+      // gerer_participant_dossier (action definirPermissionsAdministrateur)
+      // a le droit de le changer, jamais une écriture directe.
       allow update: if estParticipant(resource.data)
+        && role(resource.data) in ['createur', 'administrateur']
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.get('participantsUids', []) == resource.data.get('participantsUids', [])
         && request.resource.data.get('roles', {}) == resource.data.get('roles', {})
-        && request.resource.data.get('participantsEmails', {}) == resource.data.get('participantsEmails', {});
-      // Supprimer le dossier : créateur ou administrateur seulement (voir
-      // Notes — un simple contributeur ne peut pas supprimer unilatéralement,
-      // le vrai workflow d'approbation à plusieurs reste pour la Phase 2).
-      allow delete: if estParticipant(resource.data)
-        && role(resource.data) in ['createur', 'administrateur'];
+        && request.resource.data.get('participantsEmails', {}) == resource.data.get('participantsEmails', {})
+        && request.resource.data.get('permissionsAdministrateur', {}) == resource.data.get('permissionsAdministrateur', {});
+      // Supprimer le dossier : créateur toujours, administrateur seulement
+      // s'il en a reçu la permission explicite (voir peutSupprimerDossier —
+      // Phase 2, 2026-08-31, remplace la règle "tout administrateur peut"
+      // du 2026-08-30, un simple contributeur ne peut toujours pas).
+      allow delete: if estParticipant(resource.data) && peutSupprimerDossier(resource.data);
     }
 
     match /taches/{tacheId} {
       allow read: if estParticipant(resource.data);
-      // Réservé à l'auteur ou à créateur/administrateur (décision de Tobie
-      // le 2026-08-31, "même règle que le journal") — un simple
-      // contributeur ne peut plus supprimer la tâche de quelqu'un d'autre.
+      // Réservé à l'auteur ou au créateur/administrateur — mais un
+      // administrateur n'y compte QUE s'il a reçu 'modererContenu' du
+      // créateur (voir estGestionnaireContenu ci-dessus, Phase 2,
+      // 2026-08-31, suite au test réel : "un administrateur peut
+      // supprimer... sans confirmation" était un des vrais problèmes
+      // remontés). Sans cette permission, un administrateur qui veut
+      // supprimer la tâche de quelqu'un d'autre pose une proposition
+      // (Chemin B de la règle update ci-dessous), comme un contributeur.
       allow delete: if estAuteurTacheOuGestionnaire(resource.data);
       // `uid` jamais vérifié à la création avant ce correctif (trouvé en Red
       // Team le 2026-08-30, via /code-review) : n'importe qui pouvait forger
       // une tâche avec `uid` = une victime réelle, exposée ensuite à cette
       // victime via `_taches_actives_visibles` (SDK Admin, ignore ces
       // règles) — voir tacheCoherente() ci-dessus.
-      allow create: if estParticipant(request.resource.data) && tacheCoherente(request.resource.data);
+      // propositionEnAttente doit être absent à la création (Phase 2,
+      // 2026-08-31) : la création reste libre pour tout participant (voir
+      // tacheCoherente), sans ce verrou elle deviendrait une porte dérobée
+      // pour planter directement une tâche "déjà en attente d'approbation".
+      allow create: if estParticipant(request.resource.data) && tacheCoherente(request.resource.data)
+        && request.resource.data.get('propositionEnAttente', null) == null;
       // participantsUids figé à l'update (trouvé en Red Team le 2026-08-30) :
       // seule la fonction serveur `_synchroniser_participants_dossier` (SDK
       // Admin, ignore ces règles) a besoin de le changer, quand la liste
@@ -267,21 +348,71 @@ service cloud.firestore {
       // `supprimer_compte_definitivement`), ou pire, se retrouvait ajoutée
       // aux rappels quotidiens d'un dossier auquel elle n'a jamais eu accès
       // (`_taches_actives_visibles` interroge aussi par `uid==`).
+      //
+      // Phase 2 (2026-08-31), suite au test réel de Tobie ("un simple
+      // contributeur peut modifier/marquer fait une tâche sans validation") :
+      // deux chemins désormais, mutuellement exclusifs.
+      // - Chemin A : auteur ou créateur/administrateur — accès libre à tous
+      //   les champs non figés, y compris propositionEnAttente (c'est ce qui
+      //   permet d'approuver — appliquer les vraies valeurs + le remettre à
+      //   null en une seule écriture — ou de rejeter — juste le remettre à
+      //   null).
+      // - Chemin B : n'importe quel autre participant, mais restreint à
+      //   SEULEMENT propositionEnAttente (diff().hasOnly) — pour poser sa
+      //   propre proposition, la réviser, ou la retirer (propositionValide
+      //   empêche de toucher à celle d'un autre). Exclusif du Chemin A
+      //   (!estAuteurTacheOuGestionnaire) : celui qui a le droit d'écrire
+      //   librement n'a pas besoin de passer par une proposition.
+      //
+      // Chemin C (trouvé en implémentant ce qui précède, pas anticipé dans
+      // le plan) : `FirestoreService.modifierDossier` recopie en cascade
+      // nomCodeDossier/dateDeclenchante/datePremierRappel (dénormalisés
+      // depuis le dossier parent) sur CHAQUE tâche, en écriture CLIENTE
+      // (pas serveur — contrairement à `_synchroniser_participants_dossier`,
+      // qui elle passe par l'Admin SDK et ignore ces règles). Sans ce
+      // chemin dédié, un administrateur SANS 'modererContenu' qui renomme
+      // simplement le dossier (droit qu'il a bien, voir règle update de
+      // /dossiers ci-dessus, pas gaté par 'modererContenu') se retrouverait
+      // bloqué dès que la cascade tente de mettre à jour une tâche dont il
+      // n'est ni l'auteur ni gestionnaire. Même gate que la règle update de
+      // /dossiers (créateur/administrateur, sans exiger 'modererContenu' :
+      // ce n'est pas le contenu qu'un participant a écrit, juste une copie
+      // synchronisée du dossier) — pas besoin de passer par une proposition.
       allow update: if estParticipant(resource.data)
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.dossierId == resource.data.dossierId
-        && request.resource.data.get('participantsUids', []) == resource.data.get('participantsUids', []);
+        && request.resource.data.get('participantsUids', []) == resource.data.get('participantsUids', [])
+        && (
+          estAuteurTacheOuGestionnaire(resource.data)
+          || (
+            !estAuteurTacheOuGestionnaire(resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['propositionEnAttente'])
+            && propositionValide(
+              resource.data.get('propositionEnAttente', null),
+              request.resource.data.get('propositionEnAttente', null),
+              request.auth.uid
+            )
+          )
+          || (
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['nomCodeDossier', 'dateDeclenchante', 'datePremierRappel'])
+            && exists(/databases/$(database)/documents/dossiers/$(resource.data.dossierId))
+            && role(get(/databases/$(database)/documents/dossiers/$(resource.data.dossierId)).data) in ['createur', 'administrateur']
+          )
+        );
     }
 
     // Journal de bord d'un dossier : des entrées datées qu'on ajoute au fil
-    // du temps pour documenter l'avancement, jamais réécrites (pas de
-    // "update" — seulement create/delete, un journal ne se corrige pas
-    // rétroactivement, on ajoute ou on supprime une entrée erronée).
+    // du temps pour documenter l'avancement — modification limitée au texte/
+    // type (voir règle update plus bas, depuis le 2026-08-21), jamais la
+    // date de création réelle, pour ne pas pouvoir maquiller l'historique.
     match /journalDossier/{entreeId} {
       allow read: if estParticipant(resource.data);
-      // Réservé à l'auteur ou à créateur/administrateur (décision de Tobie
-      // le 2026-08-30, voir estAuteurOuGestionnaire ci-dessus) — un simple
-      // contributeur ne peut plus supprimer l'entrée de quelqu'un d'autre.
+      // Réservé à l'auteur ou au créateur/administrateur — mais un
+      // administrateur n'y compte QUE s'il a reçu 'modererContenu' (voir
+      // estGestionnaireContenu ci-dessus, Phase 2, 2026-08-31). Sans cette
+      // permission, un administrateur pose une proposition pour supprimer
+      // l'entrée de quelqu'un d'autre, comme un contributeur.
       allow delete: if estAuteurOuGestionnaire(resource.data);
       // Sur une entrée de journal, `uid` désigne l'AUTEUR réel — toujours le
       // demandeur lui-même (jamais quelqu'un d'autre, contrairement à
@@ -290,9 +421,12 @@ service cloud.firestore {
       // 2026-08-30, via /code-review) : sans ce contrôle, n'importe qui
       // pouvait créer une entrée avec `uid` = victime réelle et
       // dossierId = son VRAI dossier, la rendant visible dans son journal.
+      // propositionEnAttente doit être absent à la création (Phase 2,
+      // 2026-08-31) : même raison que sur /taches ci-dessus.
       allow create: if estParticipant(request.resource.data)
         && request.resource.data.uid == request.auth.uid
-        && participantsCoherents(request.resource.data);
+        && participantsCoherents(request.resource.data)
+        && request.resource.data.get('propositionEnAttente', null) == null;
       // Modification autorisée (choix explicite de Tobie le 2026-08-21) : seuls le
       // texte/type/modifieLe peuvent changer, jamais le dossier ou la date de
       // création réelle — pour ne pas pouvoir maquiller l'historique.
@@ -300,8 +434,9 @@ service cloud.firestore {
       // ci-dessus, Red Team du 2026-08-30, via /code-review) : seule la
       // fonction serveur change participantsUids, et `uid` ne doit JAMAIS
       // être réécrit vers une victime arbitraire.
-      // Même restriction que delete (décision de Tobie le 2026-08-30) :
-      // auteur ou créateur/administrateur seulement.
+      // Même restriction que delete ci-dessus pour le Chemin A (auteur ou
+      // créateur/administrateur-avec-modererContenu) — voir Phase 2 plus bas
+      // pour le Chemin B, ouvert à tout participant sur propositionEnAttente.
       // `auteurUid` figé aussi (trouvé en re-vérifiant ce correctif, via
       // /code-review) : sans ça, créateur/administrateur pouvait réécrire à
       // qui une entrée est attribuée — l'écran affiche modifier/supprimer
@@ -311,12 +446,30 @@ service cloud.firestore {
       // `auteurUid`, mais l'attribution affichée resterait fausse et
       // indétectable pour les autres participants). Aucun chemin légitime
       // ne modifie jamais ce champ (voir `modifierEntreeJournal`).
-      allow update: if estAuteurOuGestionnaire(resource.data)
+      //
+      // Phase 2 (2026-08-31), même workflow d'approbation que /taches
+      // ci-dessus (voir ces commentaires pour le détail des deux chemins) :
+      // auteur/créateur/administrateur écrit librement (Chemin A) ; tout
+      // autre participant ne peut que poser/réviser/retirer SA PROPRE
+      // proposition (Chemin B, restreint à propositionEnAttente seul).
+      allow update: if estParticipant(resource.data)
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.get('auteurUid', null) == resource.data.get('auteurUid', null)
         && request.resource.data.dossierId == resource.data.dossierId
         && request.resource.data.creeLe == resource.data.creeLe
-        && request.resource.data.get('participantsUids', []) == resource.data.get('participantsUids', []);
+        && request.resource.data.get('participantsUids', []) == resource.data.get('participantsUids', [])
+        && (
+          estAuteurOuGestionnaire(resource.data)
+          || (
+            !estAuteurOuGestionnaire(resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['propositionEnAttente'])
+            && propositionValide(
+              resource.data.get('propositionEnAttente', null),
+              request.resource.data.get('propositionEnAttente', null),
+              request.auth.uid
+            )
+          )
+        );
     }
 
     // Réglages personnels : strictement le propriétaire du compte — le

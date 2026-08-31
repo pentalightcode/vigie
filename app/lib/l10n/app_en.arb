@@ -20,7 +20,9 @@
   "joursAvant": "{jours} days before",
   "@joursAvant": {
     "placeholders": {
-      "jours": {"type": "int"}
+      "jours": {
+        "type": "int"
+      }
     }
   },
   "profilPreciseProfessionLabel": "Specify your profession",
@@ -44,7 +46,9 @@
   "profilConnecteEnTantQue": "Signed in as {email}",
   "@profilConnecteEnTantQue": {
     "placeholders": {
-      "email": {"type": "String"}
+      "email": {
+        "type": "String"
+      }
     }
   },
   "profilEmailInconnu": "unknown",
@@ -54,7 +58,9 @@
   "profilDelaiRappelSousTitre": "{jours} days before the deadline",
   "@profilDelaiRappelSousTitre": {
     "placeholders": {
-      "jours": {"type": "int"}
+      "jours": {
+        "type": "int"
+      }
     }
   },
   "profilTypesDossierTitre": "My case types",
@@ -120,7 +126,9 @@
   "banniereNouvelleVersionAvecNumero": "New version available ({version}).",
   "@banniereNouvelleVersionAvecNumero": {
     "placeholders": {
-      "version": {"type": "String"}
+      "version": {
+        "type": "String"
+      }
     }
   },
   "banniereNouvelleVersionSansNumero": "A new version of the app is available.",
@@ -132,13 +140,17 @@
   "aTraiterPropositionsTooltip": "{nombre} case proposal(s) to review",
   "@aTraiterPropositionsTooltip": {
     "placeholders": {
-      "nombre": {"type": "int"}
+      "nombre": {
+        "type": "int"
+      }
     }
   },
   "aTraiterErreur": "Error: {erreur}",
   "@aTraiterErreur": {
     "placeholders": {
-      "erreur": {"type": "String"}
+      "erreur": {
+        "type": "String"
+      }
     }
   },
   "aTraiterRienAFaire": "Nothing to do for now.",
@@ -148,16 +160,26 @@
   "aTraiterProgressionDossier": "{faites}/{total} tasks done ({pourcentage}%)",
   "@aTraiterProgressionDossier": {
     "placeholders": {
-      "faites": {"type": "int"},
-      "total": {"type": "int"},
-      "pourcentage": {"type": "int"}
+      "faites": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "pourcentage": {
+        "type": "int"
+      }
     }
   },
   "aTraiterEnAttenteEcheance": "Due on {date} — will appear in \"To Do\" in {jours} days",
   "@aTraiterEnAttenteEcheance": {
     "placeholders": {
-      "date": {"type": "String"},
-      "jours": {"type": "int"}
+      "date": {
+        "type": "String"
+      },
+      "jours": {
+        "type": "int"
+      }
     }
   },
   "aTraiterEnRetard": "Overdue",
@@ -166,7 +188,9 @@
   "aTraiterDansJours": "In {jours} d",
   "@aTraiterDansJours": {
     "placeholders": {
-      "jours": {"type": "int"}
+      "jours": {
+        "type": "int"
+      }
     }
   },
   "aTraiterCestFait": "Done",
@@ -174,13 +198,17 @@
   "aTraiterMarquerFaitMessage": "\"{description}\" will be marked as done.",
   "@aTraiterMarquerFaitMessage": {
     "placeholders": {
-      "description": {"type": "String"}
+      "description": {
+        "type": "String"
+      }
     }
   },
   "agendaErreurLecture": "Couldn't read the calendar: {erreur}",
   "@agendaErreurLecture": {
     "placeholders": {
-      "erreur": {"type": "String"}
+      "erreur": {
+        "type": "String"
+      }
     }
   },
   "agendaAucunCompteConnecte": "First connect a Google account in Automation to see your agenda here.",
@@ -188,7 +216,9 @@
   "agendaRienCeJour": "Nothing on {date}.",
   "@agendaRienCeJour": {
     "placeholders": {
-      "date": {"type": "String"}
+      "date": {
+        "type": "String"
+      }
     }
   },
   "agendaJourneeEntiere": "All day",
@@ -200,15 +230,23 @@
   "bilanLibellePeriodeTrimestre": "Q{numero} {annee}",
   "@bilanLibellePeriodeTrimestre": {
     "placeholders": {
-      "numero": {"type": "int"},
-      "annee": {"type": "int"}
+      "numero": {
+        "type": "int"
+      },
+      "annee": {
+        "type": "int"
+      }
     }
   },
   "bilanLibellePeriodeSemestre": "H{numero} {annee}",
   "@bilanLibellePeriodeSemestre": {
     "placeholders": {
-      "numero": {"type": "int"},
-      "annee": {"type": "int"}
+      "numero": {
+        "type": "int"
+      },
+      "annee": {
+        "type": "int"
+      }
     }
   },
   "bilanPartagerTooltip": "Share this summary",
@@ -229,45 +267,73 @@
   "bilanResumeIaErreurGeneration": "Couldn't generate the summary: {erreur}",
   "@bilanResumeIaErreurGeneration": {
     "placeholders": {
-      "erreur": {"type": "String"}
+      "erreur": {
+        "type": "String"
+      }
     }
   },
   "bilanTexteEnTete": "Vigie Summary — {periode}",
   "@bilanTexteEnTete": {
     "placeholders": {
-      "periode": {"type": "String"}
+      "periode": {
+        "type": "String"
+      }
     }
   },
   "bilanTexteTotalAvecRetard": "Total: {fait} done, {enRetard} overdue, {aVenir} upcoming",
   "@bilanTexteTotalAvecRetard": {
     "placeholders": {
-      "fait": {"type": "int"},
-      "enRetard": {"type": "int"},
-      "aVenir": {"type": "int"}
+      "fait": {
+        "type": "int"
+      },
+      "enRetard": {
+        "type": "int"
+      },
+      "aVenir": {
+        "type": "int"
+      }
     }
   },
   "bilanTexteTotalSansRetard": "Total: {fait} done, {aVenir} upcoming",
   "@bilanTexteTotalSansRetard": {
     "placeholders": {
-      "fait": {"type": "int"},
-      "aVenir": {"type": "int"}
+      "fait": {
+        "type": "int"
+      },
+      "aVenir": {
+        "type": "int"
+      }
     }
   },
   "bilanTexteDossierAvecRetard": "{nom}: {fait} done, {enRetard} overdue, {aVenir} upcoming",
   "@bilanTexteDossierAvecRetard": {
     "placeholders": {
-      "nom": {"type": "String"},
-      "fait": {"type": "int"},
-      "enRetard": {"type": "int"},
-      "aVenir": {"type": "int"}
+      "nom": {
+        "type": "String"
+      },
+      "fait": {
+        "type": "int"
+      },
+      "enRetard": {
+        "type": "int"
+      },
+      "aVenir": {
+        "type": "int"
+      }
     }
   },
   "bilanTexteDossierSansRetard": "{nom}: {fait} done, {aVenir} upcoming",
   "@bilanTexteDossierSansRetard": {
     "placeholders": {
-      "nom": {"type": "String"},
-      "fait": {"type": "int"},
-      "aVenir": {"type": "int"}
+      "nom": {
+        "type": "String"
+      },
+      "fait": {
+        "type": "int"
+      },
+      "aVenir": {
+        "type": "int"
+      }
     }
   },
   "bilanTextePartageSignature": "Generated by Vigie — code names chosen by the user, no sensitive information.",
@@ -275,14 +341,18 @@
   "statistiquesJoursSansRetard": "{jours} day(s) without a late-completed task.",
   "@statistiquesJoursSansRetard": {
     "placeholders": {
-      "jours": {"type": "int"}
+      "jours": {
+        "type": "int"
+      }
     }
   },
   "statistiquesRienSurPeriode": "Nothing for this period.",
   "statistiquesTauxAchevement": "{pourcentage}% completion rate",
   "@statistiquesTauxAchevement": {
     "placeholders": {
-      "pourcentage": {"type": "int"}
+      "pourcentage": {
+        "type": "int"
+      }
     }
   },
   "statistiquesRepartitionParType": "Breakdown by type",
@@ -291,9 +361,15 @@
   "statistiquesTooltipJour": "{jour}/{mois}: {compte} task(s)",
   "@statistiquesTooltipJour": {
     "placeholders": {
-      "jour": {"type": "int"},
-      "mois": {"type": "int"},
-      "compte": {"type": "int"}
+      "jour": {
+        "type": "int"
+      },
+      "mois": {
+        "type": "int"
+      },
+      "compte": {
+        "type": "int"
+      }
     }
   },
   "automatisationComptesGoogleTitre": "Google accounts",
@@ -303,27 +379,35 @@
   "automatisationPropositionsAValiderAvecNombre": "Proposals to review ({nombre})",
   "@automatisationPropositionsAValiderAvecNombre": {
     "placeholders": {
-      "nombre": {"type": "int"}
+      "nombre": {
+        "type": "int"
+      }
     }
   },
   "automatisationPropositionsAValider": "Proposals to review",
   "automatisationCompteConnecte": "Account connected: {email}",
   "@automatisationCompteConnecte": {
     "placeholders": {
-      "email": {"type": "String"}
+      "email": {
+        "type": "String"
+      }
     }
   },
   "automatisationConnexionImpossible": "Couldn't connect: {erreur}",
   "@automatisationConnexionImpossible": {
     "placeholders": {
-      "erreur": {"type": "String"}
+      "erreur": {
+        "type": "String"
+      }
     }
   },
   "automatisationDeconnecterTitre": "Disconnect this Google account?",
   "automatisationDeconnecterMessage": "\"{compte}\" will no longer be scanned automatically (emails, tasks, calendar).",
   "@automatisationDeconnecterMessage": {
     "placeholders": {
-      "compte": {"type": "String"}
+      "compte": {
+        "type": "String"
+      }
     }
   },
   "automatisationRenommerTitre": "Rename this account",
@@ -348,7 +432,9 @@
   "automatisationRetirerMessage": "Emails from \"{email}\" will no longer be read automatically.",
   "@automatisationRetirerMessage": {
     "placeholders": {
-      "email": {"type": "String"}
+      "email": {
+        "type": "String"
+      }
     }
   },
   "automatisationRetirerBouton": "Remove",
@@ -357,8 +443,12 @@
   "automatisationDomaineIntrouvableMessage": "No mail server found for \"{domaine}\" — check for a typo.\n\nAdd anyway: {email}?",
   "@automatisationDomaineIntrouvableMessage": {
     "placeholders": {
-      "domaine": {"type": "String"},
-      "email": {"type": "String"}
+      "domaine": {
+        "type": "String"
+      },
+      "email": {
+        "type": "String"
+      }
     }
   },
   "automatisationAjouterQuandMeme": "Add anyway",
@@ -366,14 +456,18 @@
   "automatisationAjouterExpediteurMessage": "Double-check for a typo:\n\n{email}",
   "@automatisationAjouterExpediteurMessage": {
     "placeholders": {
-      "email": {"type": "String"}
+      "email": {
+        "type": "String"
+      }
     }
   },
   "automatisationAjouterBouton": "Add",
   "automatisationErreurLectureBoite": "Couldn't read the mailbox: {erreur}",
   "@automatisationErreurLectureBoite": {
     "placeholders": {
-      "erreur": {"type": "String"}
+      "erreur": {
+        "type": "String"
+      }
     }
   },
   "automatisationAucunNouvelExpediteur": "No new sender found in recent emails.",
@@ -382,35 +476,51 @@
   "automatisationEmailsRecents": "{nombre} recent email(s)",
   "@automatisationEmailsRecents": {
     "placeholders": {
-      "nombre": {"type": "int"}
+      "nombre": {
+        "type": "int"
+      }
     }
   },
   "automatisationAjouterAvecNombre": "Add ({nombre})",
   "@automatisationAjouterAvecNombre": {
     "placeholders": {
-      "nombre": {"type": "int"}
+      "nombre": {
+        "type": "int"
+      }
     }
   },
   "automatisationVerificationAutoTitre": "Automatic check",
   "automatisationEtatPasEncoreVerifie": "{service}: not checked yet",
   "@automatisationEtatPasEncoreVerifie": {
     "placeholders": {
-      "service": {"type": "String"}
+      "service": {
+        "type": "String"
+      }
     }
   },
   "automatisationEtatAvecDate": "{service}: {statut} — {date}",
   "@automatisationEtatAvecDate": {
     "placeholders": {
-      "service": {"type": "String"},
-      "statut": {"type": "String"},
-      "date": {"type": "String"}
+      "service": {
+        "type": "String"
+      },
+      "statut": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
     }
   },
   "automatisationEtatSansDate": "{service}: {statut}",
   "@automatisationEtatSansDate": {
     "placeholders": {
-      "service": {"type": "String"},
-      "statut": {"type": "String"}
+      "service": {
+        "type": "String"
+      },
+      "statut": {
+        "type": "String"
+      }
     }
   },
   "automatisationEtatOk": "OK",
@@ -422,7 +532,9 @@
   "propositionsDeExpediteur": "From: {expediteur}",
   "@propositionsDeExpediteur": {
     "placeholders": {
-      "expediteur": {"type": "String"}
+      "expediteur": {
+        "type": "String"
+      }
     }
   },
   "propositionsIgnorerBouton": "Ignore",
@@ -431,7 +543,9 @@
   "propositionsIgnorerMessage": "No case will be created for \"{sujet}\".",
   "@propositionsIgnorerMessage": {
     "placeholders": {
-      "sujet": {"type": "String"}
+      "sujet": {
+        "type": "String"
+      }
     }
   },
   "ajouterErreurNomCode": "Give the case a code name.",
@@ -451,7 +565,9 @@
   "ajouterEcheanceAvecDate": "Due date: {date}",
   "@ajouterEcheanceAvecDate": {
     "placeholders": {
-      "date": {"type": "String"}
+      "date": {
+        "type": "String"
+      }
     }
   },
   "ajouterNoteTitre": "Add a note",
@@ -461,7 +577,9 @@
   "ajoutGroupeNomCodeHint": "Case {numero}",
   "@ajoutGroupeNomCodeHint": {
     "placeholders": {
-      "numero": {"type": "int"}
+      "numero": {
+        "type": "int"
+      }
     }
   },
   "ajoutGroupeDateBouton": "Date",
@@ -469,7 +587,9 @@
   "ajoutGroupeEnregistrerBouton": "{nombre, plural, =0{Save} =1{Save (1 case)} other{Save ({nombre} cases)}}",
   "@ajoutGroupeEnregistrerBouton": {
     "placeholders": {
-      "nombre": {"type": "int"}
+      "nombre": {
+        "type": "int"
+      }
     }
   },
   "confirmerEmailErreurVide": "Enter the email address used to request the link.",
@@ -494,7 +614,9 @@
   "connexionTelechargerAvecVersion": "Download the Android app (v{version})",
   "@connexionTelechargerAvecVersion": {
     "placeholders": {
-      "version": {"type": "String"}
+      "version": {
+        "type": "String"
+      }
     }
   },
   "connexionTelechargerSansVersion": "Download the Android app (recommended)",
@@ -504,7 +626,9 @@
   "connexionLienEnvoye": "A link was sent to {email}.\nOpen your mailbox and click the link to sign in.",
   "@connexionLienEnvoye": {
     "placeholders": {
-      "email": {"type": "String"}
+      "email": {
+        "type": "String"
+      }
     }
   },
   "connexionMauvaiseAdresse": "Wrong address? Start over",
@@ -515,8 +639,12 @@
   "notificationsChipTypeCompte": "{type}: {valeur}",
   "@notificationsChipTypeCompte": {
     "placeholders": {
-      "type": {"type": "String"},
-      "valeur": {"type": "int"}
+      "type": {
+        "type": "String"
+      },
+      "valeur": {
+        "type": "int"
+      }
     }
   },
   "pourquoiVigieAppBarTitre": "Why Vigie",
@@ -538,7 +666,9 @@
   "dossierDetailDateAvecValeur": "Date: {date}",
   "@dossierDetailDateAvecValeur": {
     "placeholders": {
-      "date": {"type": "String"}
+      "date": {
+        "type": "String"
+      }
     }
   },
   "dossierDetailPasDeDate": "No date given",
@@ -549,14 +679,20 @@
   "dossierDetailSupprimerDossierMessage": "The case \"{nom}\" and all its tasks will be permanently deleted.",
   "@dossierDetailSupprimerDossierMessage": {
     "placeholders": {
-      "nom": {"type": "String"}
+      "nom": {
+        "type": "String"
+      }
     }
   },
   "dossierDetailNatureEtDate": "{nature} — {date}",
   "@dossierDetailNatureEtDate": {
     "placeholders": {
-      "nature": {"type": "String"},
-      "date": {"type": "String"}
+      "nature": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
     }
   },
   "dossierDetailConfirmerTitre": "Confirm?",
@@ -565,15 +701,21 @@
   "dossierDetailBasculerMessage": "You want to {action}: \"{description}\".",
   "@dossierDetailBasculerMessage": {
     "placeholders": {
-      "action": {"type": "String"},
-      "description": {"type": "String"}
+      "action": {
+        "type": "String"
+      },
+      "description": {
+        "type": "String"
+      }
     }
   },
   "dossierDetailSupprimerTacheTitre": "Delete this task?",
   "dossierDetailSupprimerTacheMessage": "\"{description}\" will be permanently deleted.",
   "@dossierDetailSupprimerTacheMessage": {
     "placeholders": {
-      "description": {"type": "String"}
+      "description": {
+        "type": "String"
+      }
     }
   },
   "dossierDetailAjouterTacheTitre": "Add a task",
@@ -603,20 +745,26 @@
   "dossierDetailErreurAjoutJournal": "Couldn't add this entry: {erreur}",
   "@dossierDetailErreurAjoutJournal": {
     "placeholders": {
-      "erreur": {"type": "String"}
+      "erreur": {
+        "type": "String"
+      }
     }
   },
   "dossierDetailErreurModifJournal": "Couldn't edit this entry: {erreur}",
   "@dossierDetailErreurModifJournal": {
     "placeholders": {
-      "erreur": {"type": "String"}
+      "erreur": {
+        "type": "String"
+      }
     }
   },
   "dossierDetailSupprimerEntreeTitre": "Delete this log entry?",
   "dossierDetailSupprimerEntreeMessage": "This note from {date} will be permanently deleted.",
   "@dossierDetailSupprimerEntreeMessage": {
     "placeholders": {
-      "date": {"type": "String"}
+      "date": {
+        "type": "String"
+      }
     }
   },
   "dossierDetailModifierEntreeTitre": "Edit this entry",
@@ -626,7 +774,9 @@
   "dossierDetailErreurLectureJournal": "Couldn't read the log: {erreur}",
   "@dossierDetailErreurLectureJournal": {
     "placeholders": {
-      "erreur": {"type": "String"}
+      "erreur": {
+        "type": "String"
+      }
     }
   },
   "dossierDetailHier": "Yesterday",
@@ -636,7 +786,9 @@
   "commonDerniereConfirmation": "Final confirmation: {message}",
   "@commonDerniereConfirmation": {
     "placeholders": {
-      "message": {"type": "String"}
+      "message": {
+        "type": "String"
+      }
     }
   },
   "connexionGoogleAdresseInconnue": "Connected account (reconnect to see the address)",
@@ -651,7 +803,9 @@
   "participantsSousTitreMoi": "{role} · you",
   "@participantsSousTitreMoi": {
     "placeholders": {
-      "role": {"type": "String"}
+      "role": {
+        "type": "String"
+      }
     }
   },
   "dossierAccesRevoqueMessage": "You no longer have access to this case. An administrator may have removed you while you were viewing it.",
@@ -662,7 +816,9 @@
   "participantsRetirerMessage": "{affichage} will no longer have access to this case.",
   "@participantsRetirerMessage": {
     "placeholders": {
-      "affichage": {"type": "String"}
+      "affichage": {
+        "type": "String"
+      }
     }
   },
   "participantsQuitterBouton": "Leave",
@@ -671,7 +827,9 @@
   "participantsErreur": "Couldn't complete this action: {erreur}",
   "@participantsErreur": {
     "placeholders": {
-      "erreur": {"type": "String"}
+      "erreur": {
+        "type": "String"
+      }
     }
   },
   "participantsErreurAucunCompte": "No Vigie account exists with this email.",
@@ -684,5 +842,53 @@
   "participantsErreurGenerique": "Something went wrong. Try again.",
   "participantsDialogueAjouterTitre": "Add a participant",
   "participantsDialogueAjouterChampEmail": "Vigie account email",
-  "participantsDialogueAjouterChampRole": "Role"
+  "participantsDialogueAjouterChampRole": "Role",
+  "propositionTypeModifier": "Modification",
+  "propositionTypeMarquerFait": "Marked as done",
+  "propositionTypeMarquerNonFait": "Marked as to-do again",
+  "propositionTypeSupprimer": "Deletion",
+  "propositionBadgeTexte": "{type} proposed by {personne}, awaiting approval.",
+  "@propositionBadgeTexte": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      },
+      "personne": {
+        "type": "String"
+      }
+    }
+  },
+  "propositionBoutonApprouver": "Approve",
+  "propositionBoutonRejeter": "Reject",
+  "propositionBoutonRetirer": "Withdraw my proposal",
+  "dossierDetailAttributionTache": "Added by {personne}",
+  "@dossierDetailAttributionTache": {
+    "placeholders": {
+      "personne": {
+        "type": "String"
+      }
+    }
+  },
+  "dossierDetailAttributionEntree": "Written by {personne}",
+  "@dossierDetailAttributionEntree": {
+    "placeholders": {
+      "personne": {
+        "type": "String"
+      }
+    }
+  },
+  "participantsPermissionsDialogueTitre": "Permissions for {personne}",
+  "@participantsPermissionsDialogueTitre": {
+    "placeholders": {
+      "personne": {
+        "type": "String"
+      }
+    }
+  },
+  "participantsPermissionGererParticipants": "Add/remove participants, change their role",
+  "participantsPermissionSupprimerDossier": "Delete the case",
+  "participantsPermissionModererContenu": "Edit/delete others' content without approval",
+  "participantsMenuPermissions": "Permissions…",
+  "aTraiterOngletMesDossiers": "My cases",
+  "aTraiterOngletPartages": "Shared cases"
 }

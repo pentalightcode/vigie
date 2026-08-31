@@ -1351,4 +1351,65 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get participantsDialogueAjouterChampRole => 'Role';
+
+  @override
+  String get propositionTypeModifier => 'Modification';
+
+  @override
+  String get propositionTypeMarquerFait => 'Marked as done';
+
+  @override
+  String get propositionTypeMarquerNonFait => 'Marked as to-do again';
+
+  @override
+  String get propositionTypeSupprimer => 'Deletion';
+
+  @override
+  String propositionBadgeTexte(String type, String personne) {
+    return '$type proposed by $personne, awaiting approval.';
+  }
+
+  @override
+  String get propositionBoutonApprouver => 'Approve';
+
+  @override
+  String get propositionBoutonRejeter => 'Reject';
+
+  @override
+  String get propositionBoutonRetirer => 'Withdraw my proposal';
+
+  @override
+  String dossierDetailAttributionTache(String personne) {
+    return 'Added by $personne';
+  }
+
+  @override
+  String dossierDetailAttributionEntree(String personne) {
+    return 'Written by $personne';
+  }
+
+  @override
+  String participantsPermissionsDialogueTitre(String personne) {
+    return 'Permissions for $personne';
+  }
+
+  @override
+  String get participantsPermissionGererParticipants =>
+      'Add/remove participants, change their role';
+
+  @override
+  String get participantsPermissionSupprimerDossier => 'Delete the case';
+
+  @override
+  String get participantsPermissionModererContenu =>
+      'Edit/delete others\' content without approval';
+
+  @override
+  String get participantsMenuPermissions => 'Permissions…';
+
+  @override
+  String get aTraiterOngletMesDossiers => 'My cases';
+
+  @override
+  String get aTraiterOngletPartages => 'Shared cases';
 }

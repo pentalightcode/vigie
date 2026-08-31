@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/proposition_dossier.dart';
@@ -61,9 +62,21 @@ class _ATraiterScreenState extends State<ATraiterScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return Scaffold(
+    // Repli défensif plutôt qu'un crash (même raison que
+    // dossier_detail_screen.dart) — un garde d'auth au sommet de l'app rend
+    // ce cas quasiment impossible en pratique.
+    final monUid = FirebaseAuth.instance.currentUser?.uid;
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
       appBar: AppBar(
         title: Text(l10n.navATraiter),
+        bottom: TabBar(
+          tabs: [
+            Tab(text: l10n.aTraiterOngletMesDossiers),
+            Tab(text: l10n.aTraiterOngletPartages),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: l10n.aTraiterNotificationsTooltip,
@@ -101,96 +114,18 @@ class _ATraiterScreenState extends State<ATraiterScreen> {
             return Center(child: Text(l10n.aTraiterErreur(snapshot.error.toString())));
           }
           final toutes = snapshot.data ?? [];
-          final actives = toutes.where((t) => t.estActive).toList()
-            ..sort((a, b) {
-              if (a.estEnRetard != b.estEnRetard) return a.estEnRetard ? -1 : 1;
-              return a.dateDeclenchante.compareTo(b.dateDeclenchante);
-            });
-          final enAttente = toutes.where((t) => !t.estActive).toList()
-            ..sort((a, b) => a.datePremierRappel.compareTo(b.datePremierRappel));
-
-          if (actives.isEmpty && enAttente.isEmpty) {
-            return Center(child: Text(l10n.aTraiterRienAFaire));
-          }
-
-          final parDossier = <String, List<Tache>>{};
-          for (final t in actives) {
-            parDossier.putIfAbsent(t.dossierId, () => []).add(t);
-          }
-
-          return ListView(
-            padding: const EdgeInsets.all(12),
+          // Deux onglets distincts (Phase 2, 2026-08-31, remarque de Tobie :
+          // "on retrouve difficilement le dossier auquel on a été invité
+          // comme si c'était un dossier qu'on avait soi-même créé") —
+          // partition purement côté client, `Tache.uid` est déjà le
+          // propriétaire du dossier (dénormalisé exactement pour ce genre de
+          // cas), aucune nouvelle lecture nécessaire.
+          final mesDossiers = monUid == null ? toutes : toutes.where((t) => t.uid == monUid).toList();
+          final dossiersPartages = monUid == null ? <Tache>[] : toutes.where((t) => t.uid != monUid).toList();
+          return TabBarView(
             children: [
-              if (actives.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text(l10n.aTraiterRienAFaire),
-                ),
-              ...parDossier.entries.map((entree) {
-                final nomDossier = entree.value.first.nomCodeDossier;
-                return Card(
-                  margin: const EdgeInsets.symmetric(vertical: 6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      InkWell(
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => DossierDetailScreen(dossierId: entree.key),
-                        )),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(nomDossier, style: Theme.of(context).textTheme.titleMedium),
-                                  ),
-                                  const Icon(Icons.chevron_right, size: 18),
-                                ],
-                              ),
-                              _ProgressionDossier(dossierId: entree.key),
-                            ],
-                          ),
-                        ),
-                      ),
-                      ...entree.value.map((t) => _LigneTache(tache: t)),
-                    ],
-                  ),
-                );
-              }),
-              if (enAttente.isNotEmpty) ...[
-                // Explication déplacée dans une info-bulle au tap plutôt qu'un
-                // paragraphe permanent — allège l'écran (design épuré demandé
-                // par Tobie) sans perdre la visibilité de la liste elle-même,
-                // qui doit rester toujours affichée (évite les doublons, point
-                // du 2026-08-08).
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
-                  child: Row(
-                    children: [
-                      Text(l10n.aTraiterEnAttenteTitre, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 2),
-                      SizedBox(
-                        width: 28,
-                        height: 28,
-                        child: IconButton(
-                          padding: EdgeInsets.zero,
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.info_outline, size: 16),
-                          onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(l10n.aTraiterEnAttenteExplication),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                ...enAttente.map((t) => _LigneEnAttente(tache: t)),
-              ],
+              _ContenuOnglet(taches: mesDossiers),
+              _ContenuOnglet(taches: dossiersPartages),
             ],
           );
         },
@@ -202,6 +137,113 @@ class _ATraiterScreenState extends State<ATraiterScreen> {
         ),
         child: const Icon(Icons.add),
       ),
+      ),
+    );
+  }
+}
+
+/// Contenu d'un onglet "À traiter" (Phase 2, 2026-08-31) — extrait tel quel
+/// de l'ancien corps unique de l'écran, paramétré par la liste déjà filtrée
+/// (mes dossiers, ou dossiers partagés) au lieu de toutes les tâches
+/// confondues. Logique de regroupement/tri/affichage inchangée.
+class _ContenuOnglet extends StatelessWidget {
+  const _ContenuOnglet({required this.taches});
+  final List<Tache> taches;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final actives = taches.where((t) => t.estActive).toList()
+      ..sort((a, b) {
+        if (a.estEnRetard != b.estEnRetard) return a.estEnRetard ? -1 : 1;
+        return a.dateDeclenchante.compareTo(b.dateDeclenchante);
+      });
+    final enAttente = taches.where((t) => !t.estActive).toList()
+      ..sort((a, b) => a.datePremierRappel.compareTo(b.datePremierRappel));
+
+    if (actives.isEmpty && enAttente.isEmpty) {
+      return Center(child: Text(l10n.aTraiterRienAFaire));
+    }
+
+    final parDossier = <String, List<Tache>>{};
+    for (final t in actives) {
+      parDossier.putIfAbsent(t.dossierId, () => []).add(t);
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        if (actives.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(l10n.aTraiterRienAFaire),
+          ),
+        ...parDossier.entries.map((entree) {
+          final nomDossier = entree.value.first.nomCodeDossier;
+          return Card(
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => DossierDetailScreen(dossierId: entree.key),
+                  )),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(nomDossier, style: Theme.of(context).textTheme.titleMedium),
+                            ),
+                            const Icon(Icons.chevron_right, size: 18),
+                          ],
+                        ),
+                        _ProgressionDossier(dossierId: entree.key),
+                      ],
+                    ),
+                  ),
+                ),
+                ...entree.value.map((t) => _LigneTache(tache: t)),
+              ],
+            ),
+          );
+        }),
+        if (enAttente.isNotEmpty) ...[
+          // Explication déplacée dans une info-bulle au tap plutôt qu'un
+          // paragraphe permanent — allège l'écran (design épuré demandé
+          // par Tobie) sans perdre la visibilité de la liste elle-même,
+          // qui doit rester toujours affichée (évite les doublons, point
+          // du 2026-08-08).
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
+            child: Row(
+              children: [
+                Text(l10n.aTraiterEnAttenteTitre, style: const TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(width: 2),
+                SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.info_outline, size: 16),
+                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(l10n.aTraiterEnAttenteExplication),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ...enAttente.map((t) => _LigneEnAttente(tache: t)),
+        ],
+      ],
     );
   }
 }

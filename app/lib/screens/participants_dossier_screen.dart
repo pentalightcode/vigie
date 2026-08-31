@@ -89,6 +89,17 @@ class _ParticipantsDossierScreenState extends State<ParticipantsDossierScreen> {
                     dossier.participantsEmails[entree.key] ?? entree.key,
                   ),
                   onQuitter: () => _quitter(dossier.id, entree.key),
+                  // Permissions à la carte (Phase 2, 2026-08-31) : strictement
+                  // créateur-only côté serveur (definirPermissionsAdministrateur),
+                  // masqué ici pour tout le monde d'autre — un administrateur ne
+                  // peut pas ajuster ses propres droits ni ceux d'un pair.
+                  onGererPermissions: jeSuisCreateur && entree.value == 'administrateur'
+                      ? () => _gererPermissions(
+                            dossier,
+                            entree.key,
+                            dossier.participantsEmails[entree.key] ?? entree.key,
+                          )
+                      : null,
                 ),
               ),
               if (jePeuxGerer) ...[
@@ -196,6 +207,30 @@ class _ParticipantsDossierScreenState extends State<ParticipantsDossierScreen> {
     await _executer(() => DossierParticipantsService.instance.changerRole(dossierId: dossierId, uid: uid, role: role));
   }
 
+  /// Ouvre le dialogue de permissions à la carte pour un administrateur
+  /// (Phase 2, 2026-08-31). Cases pré-cochées : si `permissionsAdministrateur`
+  /// n'a jamais été défini sur ce dossier, cet administrateur a en réalité
+  /// TOUS les droits historiques (rétrocompatibilité, voir
+  /// Dossier.estGestionnaireContenu/peutSupprimer) — le dialogue reflète
+  /// cette réalité plutôt que de partir d'un état vide trompeur.
+  Future<void> _gererPermissions(Dossier dossier, String uid, String email) async {
+    final permissionsInitiales = !dossier.permissionsAdministrateurDefinies
+        ? DossierParticipantsService.permissionsValables
+        : (dossier.permissionsAdministrateur[uid] ?? const <String>[]);
+    final resultat = await showDialog<List<String>>(
+      context: context,
+      builder: (context) => _DialogueGererPermissions(email: email, permissionsInitiales: permissionsInitiales),
+    );
+    if (resultat == null || !mounted) return;
+    await _executer(
+      () => DossierParticipantsService.instance.definirPermissionsAdministrateur(
+        dossierId: dossier.id,
+        uid: uid,
+        permissions: resultat,
+      ),
+    );
+  }
+
   /// Quitter un dossier partagé — décidé par Tobie le 2026-08-30 ("tranchons
   /// alors") : jusqu'ici, seuls créateur/administrateur pouvaient appeler
   /// "retirer", donc même se retirer SOI-MÊME était bloqué pour tout le
@@ -228,6 +263,7 @@ class _LigneParticipant extends StatelessWidget {
     required this.onChangerRole,
     required this.onRetirer,
     required this.onQuitter,
+    this.onGererPermissions,
   });
 
   final String uid;
@@ -240,6 +276,9 @@ class _LigneParticipant extends StatelessWidget {
   final void Function(String nouveauRole) onChangerRole;
   final VoidCallback onRetirer;
   final VoidCallback onQuitter;
+  /// `null` = pas de gestion des permissions possible sur cette ligne (pas
+  /// un administrateur, ou viewer pas créateur) — voir Phase 2, 2026-08-31.
+  final VoidCallback? onGererPermissions;
 
   @override
   Widget build(BuildContext context) {
@@ -267,7 +306,16 @@ class _LigneParticipant extends StatelessWidget {
           : peutGerer
           ? PopupMenuButton<String>(
               enabled: !enCours,
-              onSelected: (choix) => choix == 'retirer' ? onRetirer() : onChangerRole(choix),
+              onSelected: (choix) {
+                switch (choix) {
+                  case 'retirer':
+                    onRetirer();
+                  case 'permissions':
+                    onGererPermissions?.call();
+                  default:
+                    onChangerRole(choix);
+                }
+              },
               itemBuilder: (context) => [
                 // Promouvoir administrateur : réservé au créateur (décision
                 // du 2026-08-30) — un administrateur ne peut créer un pair.
@@ -275,6 +323,8 @@ class _LigneParticipant extends StatelessWidget {
                   PopupMenuItem(value: 'administrateur', child: Text(l10n.participantsMenuPasserAdministrateur)),
                 if (role != 'contributeur')
                   PopupMenuItem(value: 'contributeur', child: Text(l10n.participantsMenuPasserContributeur)),
+                if (onGererPermissions != null)
+                  PopupMenuItem(value: 'permissions', child: Text(l10n.participantsMenuPermissions)),
                 PopupMenuItem(value: 'retirer', child: Text(l10n.commonRetirer)),
               ],
             )
@@ -339,6 +389,64 @@ class _DialogueAjouterParticipantState extends State<_DialogueAjouterParticipant
             Navigator.pop(context, (email: email, role: _role));
           },
           child: Text(l10n.participantsAjouterBouton),
+        ),
+      ],
+    );
+  }
+}
+
+String _libellePermission(AppLocalizations l10n, String permission) => switch (permission) {
+      'gererParticipants' => l10n.participantsPermissionGererParticipants,
+      'supprimerDossier' => l10n.participantsPermissionSupprimerDossier,
+      'modererContenu' => l10n.participantsPermissionModererContenu,
+      _ => permission,
+    };
+
+/// Permissions à la carte d'un administrateur (Phase 2, 2026-08-31) —
+/// strictement créateur-only côté serveur (voir
+/// DossierParticipantsService.definirPermissionsAdministrateur).
+class _DialogueGererPermissions extends StatefulWidget {
+  const _DialogueGererPermissions({required this.email, required this.permissionsInitiales});
+  final String email;
+  final List<String> permissionsInitiales;
+
+  @override
+  State<_DialogueGererPermissions> createState() => _DialogueGererPermissionsState();
+}
+
+class _DialogueGererPermissionsState extends State<_DialogueGererPermissions> {
+  late final Set<String> _selectionnees = widget.permissionsInitiales.toSet();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return AlertDialog(
+      title: Text(l10n.participantsPermissionsDialogueTitre(widget.email)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: DossierParticipantsService.permissionsValables
+            .map(
+              (permission) => CheckboxListTile(
+                value: _selectionnees.contains(permission),
+                title: Text(_libellePermission(l10n, permission), style: const TextStyle(fontSize: 14)),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                onChanged: (coche) => setState(() {
+                  if (coche ?? false) {
+                    _selectionnees.add(permission);
+                  } else {
+                    _selectionnees.remove(permission);
+                  }
+                }),
+              ),
+            )
+            .toList(),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.commonAnnuler)),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _selectionnees.toList()),
+          child: Text(l10n.commonEnregistrer),
         ),
       ],
     );

@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'proposition_en_attente.dart';
+
 /// Le type d'une entrée de journal — guide l'utilisateur au moment d'écrire
 /// (demandé par Tobie le 2026-08-20 : "on doit guider l'utilisateur afin
 /// qu'il remplisse bien le journal", pas un champ de texte libre générique).
@@ -24,6 +26,7 @@ class EntreeJournal {
     this.chiffre = false,
     this.participantsUids = const [],
     this.auteurUid,
+    this.propositionEnAttente,
   });
 
   final String id;
@@ -44,6 +47,9 @@ class EntreeJournal {
   /// Qui a réellement écrit cette entrée — distinct de `uid` (à qui
   /// appartient le dossier), voir `Notes/2026-08-29-redteam-collaboration-multi-angles.md`.
   final String? auteurUid;
+  /// Proposition de modification/suppression en attente d'approbation
+  /// (Phase 2, 2026-08-31 — voir PropositionEnAttente, firestore.rules).
+  final PropositionEnAttente? propositionEnAttente;
 
   factory EntreeJournal.depuisDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -57,18 +63,22 @@ class EntreeJournal {
       chiffre: data['chiffre'] as bool? ?? false,
       participantsUids: (data['participantsUids'] as List<dynamic>?)?.cast<String>() ?? const [],
       auteurUid: data['auteurUid'] as String? ?? data['uid'] as String?,
+      propositionEnAttente: (data['propositionEnAttente'] as Map<String, dynamic>?) != null
+          ? PropositionEnAttente.depuisMap(data['propositionEnAttente'] as Map<String, dynamic>)
+          : null,
     );
   }
 
-  EntreeJournal copierAvec({String? texte}) => EntreeJournal(
+  EntreeJournal copierAvec({String? texte, TypeEntreeJournal? type}) => EntreeJournal(
         id: id,
         dossierId: dossierId,
         texte: texte ?? this.texte,
         creeLe: creeLe,
-        type: type,
+        type: type ?? this.type,
         modifieLe: modifieLe,
         chiffre: chiffre,
         participantsUids: participantsUids,
         auteurUid: auteurUid,
+        propositionEnAttente: propositionEnAttente,
       );
 }

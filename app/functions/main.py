@@ -26,7 +26,7 @@ import dns.resolver
 import requests
 from cryptography.fernet import Fernet
 from firebase_admin import auth as firebase_auth, firestore, initialize_app, messaging
-from firebase_functions import https_fn, scheduler_fn
+from firebase_functions import firestore_fn, https_fn, scheduler_fn
 from firebase_functions.params import SecretParam
 
 initialize_app()
@@ -928,6 +928,207 @@ def _enregistrer_historique(db, uid: str, digest: dict) -> None:
     })
 
 
+# --- Notifications instantanées de collaboration (Phase 2, 2026-08-31) -----
+# Distinctes du digest quotidien ci-dessus : un événement précis (participant
+# ajouté/retiré, rôle changé, proposition créée/résolue), pas un résumé de
+# tâches en retard — `type` permet à l'écran Notifications de choisir une
+# icône/un filtre adaptés (absent = 'digest' implicite, même convention de
+# repli que le reste de ce fichier, pour que les entrées déjà existantes
+# restent lisibles par un client mis à jour).
+
+def _notifier_evenement(db, uid: str, *, type_evenement: str, corps: str, dossier_id: str | None) -> None:
+    """Envoie une notification push (texte générique par défaut sur l'écran
+    verrouillé, voir _envoyer/_CORPS_PUBLIC_PAR_DEFAUT — même principe que
+    l'audit de sécurité du 2026-08-29 : jamais le nom d'un dossier ni qui a
+    fait quoi hors de l'app) ET l'enregistre dans l'historique in-app
+    (protégé par auth+PIN, où `corps` peut être détaillé sans risque).
+    Best-effort sur le token manquant (utilisateur jamais connecté sur ce
+    téléphone, ou token expiré) : l'historique reste écrit dans tous les cas,
+    seul l'envoi push est sauté."""
+    doc_utilisateur = db.collection("utilisateurs").document(uid).get()
+    token = (doc_utilisateur.to_dict() or {}).get("fcmToken")
+    if token:
+        _envoyer(uid, token, {"dossierId": dossier_id})
+    db.collection("utilisateurs").document(uid).collection("notifications").add({
+        "corps": corps,
+        "dossierId": dossier_id,
+        "type": type_evenement,
+        # total/enRetard/parType n'ont pas de sens pour un événement de
+        # collaboration (contrairement au digest) — gardés à zéro/vide plutôt
+        # qu'absents pour qu'un client pas encore mis à jour (qui lirait ces
+        # champs sans repli) ne plante pas dessus.
+        "total": 0,
+        "enRetard": 0,
+        "parType": {},
+        "envoyeLe": firestore.SERVER_TIMESTAMP,
+    })
+
+
+def _notifier_evenements_gestion_participant(db, action: str, demandeur_uid: str, dossier_id: str, resultat: dict) -> None:
+    """Événements (a)-(d) du plan Phase 2 — appelé après que la transaction
+    de gerer_participant_dossier a réussi. Deux publics distincts, jamais
+    confondus (retrouvé en corrigeant une première version de ce plan qui
+    notifiait uniquement le créateur pour les 4 événements — ne correspondait
+    à AUCUNE des remarques réelles de Tobie) :
+    - la personne directement touchée (ajoutée/retirée/changée de rôle) —
+      remarques "aucune notification à celui qui a été ajouté" et "un
+      contributeur retiré n'est pas notifié" ;
+    - le créateur EN PLUS, quand ce n'est PAS lui qui a agi (un administrateur
+      a géré un participant en son nom) — remarque "quand un admin ajoute un
+      contributeur, le créateur doit être notifié", étendue par cohérence à
+      retirer/changerRole (même logique de transparence sur ce qu'un
+      administrateur fait en son nom, pas seulement le cas "ajouter").
+    Jamais de auto-notification (on ne s'notifie pas soi-même de sa propre
+    action, ex: auto-retrait)."""
+    nom = resultat["_nomCodeDossier"]
+    cible_uid = resultat["_cibleUid"]
+    cible_email = resultat["_cibleEmail"] or "quelqu'un"
+    demandeur_email = resultat["_demandeurEmail"] or "Un administrateur"
+    nouveau_role = resultat["_nouveauRole"]
+    demandeur_est_createur = resultat["_roleDemandeur"] == "createur"
+
+    if action == "ajouter" and cible_uid and cible_uid != demandeur_uid:
+        _notifier_evenement(
+            db, cible_uid,
+            type_evenement="participantAjoute",
+            corps=f"Tu as été ajouté(e) au dossier {nom} en tant que {nouveau_role}.",
+            dossier_id=dossier_id,
+        )
+    elif action == "retirer" and cible_uid and cible_uid != demandeur_uid:
+        _notifier_evenement(
+            db, cible_uid,
+            type_evenement="participantRetire",
+            corps=f"Tu as été retiré(e) du dossier {nom}.",
+            dossier_id=dossier_id,
+        )
+    elif action == "changerRole" and cible_uid and cible_uid != demandeur_uid:
+        _notifier_evenement(
+            db, cible_uid,
+            type_evenement="roleModifie",
+            corps=f"Ton rôle sur le dossier {nom} est maintenant {nouveau_role}.",
+            dossier_id=dossier_id,
+        )
+
+    if action in ("ajouter", "retirer", "changerRole") and not demandeur_est_createur and cible_uid:
+        # Le créateur n'est jamais la cible de ces trois actions (protégé
+        # plus haut dans gerer_participant_dossier), donc pas de risque de le
+        # notifier deux fois de la même action ; `demandeur_est_createur`
+        # ci-dessus exclut déjà le cas où c'est lui-même qui agit.
+        proprietaire_uid = resultat["_proprietaireUid"]
+        if not proprietaire_uid:
+            return
+        verbe = {"ajouter": "a ajouté", "retirer": "a retiré", "changerRole": "a changé le rôle de"}[action]
+        complement = f" ({nouveau_role})" if action == "changerRole" else ""
+        _notifier_evenement(
+            db, proprietaire_uid,
+            type_evenement="ajoutParAdministrateur",
+            corps=f"{demandeur_email} {verbe} {cible_email}{complement} dans le dossier {nom}.",
+            dossier_id=dossier_id,
+        )
+
+
+# --- Notifications de proposition (événements e/f du plan Phase 2) --------
+# Première fonction déclenchée par Firestore de ce projet (jusqu'ici,
+# seulement https_fn/scheduler_fn) : contrairement à gerer_participant_dossier
+# (qui sait exactement quand une proposition est créée/résolue puisque c'est
+# elle qui l'écrit), une proposition côté tâches/journal peut être posée,
+# révisée ou résolue par n'importe quel participant en écriture directe (voir
+# firestore.rules, Chemin B) — il n'y a pas de fonction serveur unique par
+# laquelle ça passe toujours, donc pas d'endroit unique où "brancher" l'envoi
+# à la main. Un déclencheur Firestore observe le résultat plutôt que
+# d'essayer d'intercepter chaque chemin d'écriture possible.
+
+
+def _proposition_approuvee(avant_doc: dict, apres_doc: dict | None) -> bool:
+    """Une proposition passe de "en attente" à "résolue" soit parce que le
+    créateur/gestionnaire a appliqué le changement proposé (approuvé), soit
+    parce qu'il a juste remis propositionEnAttente à null sans rien changer
+    d'autre (rejeté) — comparer le reste du document avant/après (tout sauf
+    propositionEnAttente lui-même) distingue les deux sans avoir besoin d'un
+    champ "statut" séparé. Document supprimé (apres_doc is None) : traité
+    comme approuvé dans tous les cas (voir plan Phase 2) — la proposition a
+    disparu avec son document, pas de sens à dire "rejeté"."""
+    if apres_doc is None:
+        return True
+    avant_sans_proposition = {k: v for k, v in avant_doc.items() if k != "propositionEnAttente"}
+    apres_sans_proposition = {k: v for k, v in apres_doc.items() if k != "propositionEnAttente"}
+    return avant_sans_proposition != apres_sans_proposition
+
+
+def _proprietaire_dossier(db, dossier_id: str | None) -> str | None:
+    if not dossier_id:
+        return None
+    doc = db.collection("dossiers").document(dossier_id).get()
+    return (doc.to_dict() or {}).get("uid") if doc.exists else None
+
+
+def _traiter_changement_proposition(event: firestore_fn.Event) -> None:
+    """Partagé entre taches/{tacheId} et journalDossier/{entreeId} — les deux
+    portent propositionEnAttente/dossierId/nomCodeDossier de la même façon
+    (voir plan Phase 2). Sortie rapide si propositionEnAttente n'a PAS changé
+    (trouvé en concevant ce déclencheur : il se déclenche à CHAQUE écriture
+    sur ces collections, y compris la création normale d'une tâche et les
+    cascades de _synchroniser_participants_dossier — sans cette garde, ce
+    serait un coût réel à chaque fois, pas juste une optimisation accessoire)."""
+    avant = event.data.before.to_dict() if event.data.before is not None else None
+    apres = event.data.after.to_dict() if event.data.after is not None else None
+
+    proposition_avant = (avant or {}).get("propositionEnAttente")
+    proposition_apres = (apres or {}).get("propositionEnAttente")
+    if proposition_avant == proposition_apres:
+        return
+
+    reference = apres or avant or {}
+    dossier_id = reference.get("dossierId")
+    nom = reference.get("nomCodeDossier") or "Dossier"
+    db = firestore.client()
+
+    if proposition_avant is None and proposition_apres is not None:
+        proprietaire_uid = _proprietaire_dossier(db, dossier_id)
+        if proprietaire_uid:
+            _notifier_evenement(
+                db, proprietaire_uid,
+                type_evenement="propositionCreee",
+                corps=f"Une proposition attend ta validation dans le dossier {nom}.",
+                dossier_id=dossier_id,
+            )
+    elif proposition_avant is not None and proposition_apres is None:
+        propose_par_uid = proposition_avant.get("proposePar")
+        if not propose_par_uid:
+            return
+        approuvee = _proposition_approuvee(avant or {}, apres)
+        corps = (
+            f"Ta proposition dans le dossier {nom} a été approuvée."
+            if approuvee else
+            f"Ta proposition dans le dossier {nom} a été rejetée."
+        )
+        _notifier_evenement(
+            db, propose_par_uid,
+            type_evenement="propositionResolue",
+            corps=corps,
+            dossier_id=dossier_id,
+        )
+    # Sinon (proposition révisée : non-null -> non-null, ex. le proposeur
+    # modifie sa propre proposition en attente) : rien à notifier, ni
+    # création ni résolution — un seul et même événement encore en attente.
+
+
+@firestore_fn.on_document_written(document="taches/{tacheId}")
+def notifier_proposition_tache(event: firestore_fn.Event) -> None:
+    try:
+        _traiter_changement_proposition(event)
+    except Exception as e:  # pylint: disable=broad-except
+        print(f"Échec de notification de proposition (taches/{event.params.get('tacheId')}) : {type(e).__name__}: {e}")
+
+
+@firestore_fn.on_document_written(document="journalDossier/{entreeId}")
+def notifier_proposition_journal(event: firestore_fn.Event) -> None:
+    try:
+        _traiter_changement_proposition(event)
+    except Exception as e:  # pylint: disable=broad-except
+        print(f"Échec de notification de proposition (journalDossier/{event.params.get('entreeId')}) : {type(e).__name__}: {e}")
+
+
 # --- Publication de version (bannière de mise à jour dans l'app) -------
 
 _URL_APK_OFFICIELLE = "https://vigie.pentalightcode.com/telecharger/"
@@ -1516,6 +1717,33 @@ def supprimer_compte_definitivement(req: https_fn.CallableRequest) -> dict:
 
 _ROLES_ATTRIBUABLES = {"administrateur", "contributeur"}
 
+# Phase 2 (2026-08-31), suite au test réel de Tobie ("tous les administrateurs
+# n'ont pas droit de faire tout ce qu'ils veulent comme le créateur, le
+# créateur sélectionne ce qui leur est permis lors de la nomination") : les
+# trois seuls droits qu'un administrateur peut recevoir. Défaut désactivé
+# pour tout nouvel administrateur — voir permissionsAdministrateur ci-dessous.
+# - gererParticipants / supprimerDossier : inchangés (ajouter/retirer des
+#   participants, supprimer le dossier).
+# - modererContenu (ajouté après une question posée à Tobie, suite au red
+#   team du plan initial qui laissait par erreur tout administrateur
+#   librement modifier/marquer fait/supprimer le contenu de N'IMPORTE QUI,
+#   exactement le problème signalé — "un administrateur peut... sans la
+#   confirmation du créateur") : sans cette permission, un administrateur
+#   est traité comme un simple contributeur face au contenu créé par
+#   quelqu'un d'AUTRE (créateur ou contributeur) — passe par la même
+#   proposition, ne peut agir librement que sur ce qu'IL a lui-même écrit
+#   (voir estGestionnaireContenu, firestore.rules). Avec elle, il retrouve
+#   l'accès libre historique (modifier/marquer fait/supprimer, sans
+#   proposition) sur tout le contenu du dossier — exactement comme le
+#   créateur. Absence totale du champ permissionsAdministrateur sur un
+#   dossier = jamais touché par cette fonctionnalité = tout administrateur
+#   déjà en place garde ce droit par défaut (rétrocompatibilité).
+_PERMISSIONS_ADMINISTRATEUR_VALABLES = {"gererParticipants", "supprimerDossier", "modererContenu"}
+
+
+def _permissions_valides(permissions) -> bool:
+    return isinstance(permissions, list) and all(p in _PERMISSIONS_ADMINISTRATEUR_VALABLES for p in permissions)
+
 
 @https_fn.on_call(timeout_sec=120)
 def gerer_participant_dossier(req: https_fn.CallableRequest) -> dict:
@@ -1529,15 +1757,21 @@ def gerer_participant_dossier(req: https_fn.CallableRequest) -> dict:
     étapes de ce fichier (supprimer_compte_definitivement).
 
     Ajoute, retire ou change le rôle d'un participant sur un dossier
-    partagé. Passe par le SDK Admin (qui ignore firestore.rules) car
-    l'opération modifie participantsUids/roles eux-mêmes — que les règles
-    réservent à créateur/administrateur (voir firestore.rules, règle
+    partagé — ou (Phase 2, 2026-08-31) ajuste les permissions à la carte
+    d'un administrateur déjà en place. Passe par le SDK Admin (qui ignore
+    firestore.rules) car l'opération modifie participantsUids/roles/
+    permissionsAdministrateur eux-mêmes — que les règles réservent à
+    créateur/administrateur ou créateur seul (voir firestore.rules, règle
     "update" de /dossiers) ; cette fonction reproduit donc elle-même ce
     contrôle d'accès avant d'agir. Champs attendus dans req.data :
-    - action : "ajouter" | "retirer" | "changerRole"
+    - action : "ajouter" | "retirer" | "changerRole" | "definirPermissionsAdministrateur"
     - dossierId : toujours requis
-    - email (ajouter) / uid (retirer, changerRole)
+    - email (ajouter) / uid (retirer, changerRole, definirPermissionsAdministrateur)
     - role (ajouter, changerRole) : "administrateur" | "contributeur"
+    - permissions (ajouter/changerRole quand la cible devient administrateur,
+      ou definirPermissionsAdministrateur) : sous-liste de
+      _PERMISSIONS_ADMINISTRATEUR_VALABLES, défaut [] (aucun droit
+      supplémentaire tant que le créateur ne les accorde pas explicitement).
 
     Lecture+écriture du dossier faites dans une TRANSACTION Firestore
     (trouvé en Red Team le 2026-08-30, voir
@@ -1552,7 +1786,7 @@ def gerer_participant_dossier(req: https_fn.CallableRequest) -> dict:
     donnees = req.data or {}
     action = donnees.get("action")
     dossier_id = donnees.get("dossierId")
-    if action not in ("ajouter", "retirer", "changerRole") or not dossier_id:
+    if action not in ("ajouter", "retirer", "changerRole", "definirPermissionsAdministrateur") or not dossier_id:
         raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "Paramètres invalides.")
 
     demandeur_uid = req.auth.uid
@@ -1563,11 +1797,15 @@ def gerer_participant_dossier(req: https_fn.CallableRequest) -> dict:
     nouvel_uid = None
     nouvel_email = None
     role_ajoute = None
+    permissions_ajoutees: list[str] = []
     if action == "ajouter":
         email = (donnees.get("email") or "").strip()
         role_ajoute = donnees.get("role")
+        permissions_ajoutees = donnees.get("permissions") or []
         if not email or role_ajoute not in _ROLES_ATTRIBUABLES:
             raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "email/role invalides.")
+        if not _permissions_valides(permissions_ajoutees):
+            raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "permissions invalides.")
         try:
             utilisateur = firebase_auth.get_user_by_email(email)
         except firebase_auth.UserNotFoundError:
@@ -1620,12 +1858,69 @@ def gerer_participant_dossier(req: https_fn.CallableRequest) -> dict:
                 "Seuls le créateur et les administrateurs peuvent gérer les participants.",
             )
 
+        # Permissions à la carte (Phase 2, 2026-08-31 — voir
+        # _PERMISSIONS_ADMINISTRATEUR_VALABLES). `permissions_deja_materialisees`
+        # distingue "dossier jamais touché par cette fonctionnalité" (champ
+        # absent, administrateur garde tous ses droits historiques) de "le
+        # créateur a déjà restreint au moins un administrateur ici" (champ
+        # présent, même vide) — indispensable pour ne pas régresser en
+        # silence les dossiers existants : voir _appliquer_permissions_ajout
+        # plus bas pour la correction de migration (semer les AUTRES
+        # administrateurs déjà en place à la première matérialisation).
+        permissions_administrateur = dict(dossier_data.get("permissionsAdministrateur") or {})
+        permissions_deja_materialisees = "permissionsAdministrateur" in dossier_data
+        permissions_modifiees = False
+
+        # Gate additive : un administrateur SANS 'gererParticipants' ne peut
+        # plus agir sur les participants — s'ajoute au verrou "jamais sur un
+        # autre administrateur" ci-dessous, ne le remplace pas. Ne s'applique
+        # que si le créateur a déjà activé cette fonctionnalité sur ce
+        # dossier (sinon comportement historique complet, rétrocompatible) ;
+        # ne s'applique jamais à definirPermissionsAdministrateur, qui reste
+        # strictement créateur-only quoi qu'il arrive (vérifié plus bas).
+        if (
+            not est_auto_retrait
+            and role_demandeur == "administrateur"
+            and permissions_deja_materialisees
+            and action != "definirPermissionsAdministrateur"
+            and "gererParticipants" not in (permissions_administrateur.get(demandeur_uid) or [])
+        ):
+            raise https_fn.HttpsError(
+                https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+                "Vous n'avez pas la permission de gérer les participants de ce dossier.",
+                details="permissionGererParticipantsRequise",
+            )
+
+        def _materialiser_si_besoin(uid_exclu: str) -> None:
+            """Première fois que permissionsAdministrateur est écrit sur ce
+            dossier : sème les droits complets pour tous les AUTRES
+            administrateurs déjà en place, avant d'appliquer la restriction
+            demandée — sinon ils perdraient des droits silencieusement au
+            moment même où quelqu'un d'autre en gagne (même classe de bug que
+            celui déjà trouvé et corrigé sur journalDossier, 2026-08-31)."""
+            nonlocal permissions_deja_materialisees
+            if permissions_deja_materialisees:
+                return
+            for uid_p, role_p in roles.items():
+                if role_p == "administrateur" and uid_p != uid_exclu:
+                    permissions_administrateur.setdefault(uid_p, sorted(_PERMISSIONS_ADMINISTRATEUR_VALABLES))
+            permissions_deja_materialisees = True
+
         # Seul le créateur gère les administrateurs — un administrateur ne
         # peut agir que sur des contributeurs (décision de Tobie le
         # 2026-08-30, en continuant le Red Team : la première version
         # laissait n'importe quel administrateur retirer/rétrograder
         # n'importe quel AUTRE administrateur, y compris entre pairs).
         _MSG_ADMIN_RESERVE_CREATEUR = "Seul le créateur peut gérer un autre administrateur."
+
+        # Pour les notifications instantanées envoyées APRÈS la transaction
+        # (voir _notifier_evenements_gestion_participant, appelé plus bas) —
+        # qui a été touché, avec quel email/rôle, capturés ICI parce que
+        # certains sont sur le point d'être effacés (participants_emails.pop
+        # dans "retirer") ou n'existent pas encore avant "ajouter".
+        cible_uid_pour_notif = None
+        cible_email_pour_notif = None
+        nouveau_role_pour_notif = None
 
         if action == "ajouter":
             if nouvel_uid in participants_uids:
@@ -1639,6 +1934,13 @@ def gerer_participant_dossier(req: https_fn.CallableRequest) -> dict:
             participants_uids.append(nouvel_uid)
             roles[nouvel_uid] = role_ajoute
             participants_emails[nouvel_uid] = nouvel_email
+            if role_ajoute == "administrateur":
+                _materialiser_si_besoin(nouvel_uid)
+                permissions_administrateur[nouvel_uid] = sorted(set(permissions_ajoutees))
+                permissions_modifiees = True
+            cible_uid_pour_notif = nouvel_uid
+            cible_email_pour_notif = nouvel_email
+            nouveau_role_pour_notif = role_ajoute
 
         elif action == "retirer":
             cible_uid = donnees.get("uid")
@@ -1662,11 +1964,16 @@ def gerer_participant_dossier(req: https_fn.CallableRequest) -> dict:
                 raise https_fn.HttpsError(
                     https_fn.FunctionsErrorCode.PERMISSION_DENIED, _MSG_ADMIN_RESERVE_CREATEUR
                 )
+            cible_uid_pour_notif = cible_uid
+            cible_email_pour_notif = participants_emails.get(cible_uid)
             participants_uids.remove(cible_uid)
             roles.pop(cible_uid, None)
             participants_emails.pop(cible_uid, None)
+            if permissions_deja_materialisees and cible_uid in permissions_administrateur:
+                permissions_administrateur.pop(cible_uid, None)
+                permissions_modifiees = True
 
-        else:  # changerRole
+        elif action == "changerRole":
             cible_uid = donnees.get("uid")
             role_cible = donnees.get("role")
             if not cible_uid or role_cible not in _ROLES_ATTRIBUABLES:
@@ -1684,22 +1991,93 @@ def gerer_participant_dossier(req: https_fn.CallableRequest) -> dict:
             # Promotion vers administrateur OU changement du rôle d'un
             # administrateur déjà en place : réservé au créateur dans les
             # deux cas (voir _MSG_ADMIN_RESERVE_CREATEUR ci-dessus).
-            if role_demandeur != "createur" and (roles.get(cible_uid) == "administrateur" or role_cible == "administrateur"):
+            ancien_role_cible = roles.get(cible_uid)
+            if role_demandeur != "createur" and (ancien_role_cible == "administrateur" or role_cible == "administrateur"):
                 raise https_fn.HttpsError(
                     https_fn.FunctionsErrorCode.PERMISSION_DENIED, _MSG_ADMIN_RESERVE_CREATEUR
                 )
             roles[cible_uid] = role_cible
 
-        transaction.update(dossier_ref, {
+            if role_cible == "administrateur" and ancien_role_cible != "administrateur":
+                # Promotion : part de zéro (aucune permission), comme
+                # l'ajout direct d'un administrateur — voir action "ajouter".
+                permissions = donnees.get("permissions") or []
+                if not _permissions_valides(permissions):
+                    raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "permissions invalides.")
+                _materialiser_si_besoin(cible_uid)
+                permissions_administrateur[cible_uid] = sorted(set(permissions))
+                permissions_modifiees = True
+            elif ancien_role_cible == "administrateur" and role_cible != "administrateur":
+                # Rétrogradation : plus besoin d'une entrée de permissions.
+                if permissions_deja_materialisees and cible_uid in permissions_administrateur:
+                    permissions_administrateur.pop(cible_uid, None)
+                    permissions_modifiees = True
+
+            cible_uid_pour_notif = cible_uid
+            cible_email_pour_notif = participants_emails.get(cible_uid)
+            nouveau_role_pour_notif = role_cible
+
+        else:  # definirPermissionsAdministrateur
+            # Strictement créateur-only (décision de Tobie le 2026-08-31,
+            # même invariant que "seul le créateur gère un autre
+            # administrateur") — pas d'exception même avec 'gererParticipants',
+            # c'est justement ce droit-là qui est en train d'être distribué.
+            if role_demandeur != "createur":
+                raise https_fn.HttpsError(
+                    https_fn.FunctionsErrorCode.PERMISSION_DENIED, _MSG_ADMIN_RESERVE_CREATEUR
+                )
+            cible_uid = donnees.get("uid")
+            permissions = donnees.get("permissions")
+            if not cible_uid or not _permissions_valides(permissions):
+                raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "uid/permissions invalides.")
+            if roles.get(cible_uid) != "administrateur":
+                raise https_fn.HttpsError(
+                    https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+                    "Ce participant n'est pas administrateur.",
+                    details="pasAdministrateur",
+                )
+            _materialiser_si_besoin(cible_uid)
+            permissions_administrateur[cible_uid] = sorted(set(permissions))
+            permissions_modifiees = True
+
+        donnees_maj = {
             "participantsUids": participants_uids,
             "roles": roles,
             "participantsEmails": participants_emails,
-        })
-        return {"participantsUids": participants_uids, "roles": roles, "participantsEmails": participants_emails}
+        }
+        if permissions_modifiees:
+            donnees_maj["permissionsAdministrateur"] = permissions_administrateur
+        transaction.update(dossier_ref, donnees_maj)
+        return {
+            "participantsUids": participants_uids,
+            "roles": roles,
+            "participantsEmails": participants_emails,
+            "permissionsAdministrateur": permissions_administrateur,
+            # Champs internes, jamais renvoyés tels quels au téléphone (voir
+            # plus bas, retirés avant le `return {"ok": True, **resultat}`) —
+            # juste ce qu'il faut pour décider quelles notifications
+            # instantanées envoyer une fois la transaction validée.
+            "_nomCodeDossier": dossier_data.get("nomCodeDossier") or "Dossier",
+            "_roleDemandeur": role_demandeur,
+            "_estAutoRetrait": est_auto_retrait,
+            "_demandeurEmail": participants_emails.get(demandeur_uid) or dossier_data.get(
+                "participantsEmails", {}
+            ).get(demandeur_uid) or "",
+            "_cibleUid": cible_uid_pour_notif,
+            "_cibleEmail": cible_email_pour_notif,
+            "_nouveauRole": nouveau_role_pour_notif,
+            "_proprietaireUid": proprietaire_uid,
+        }
 
     resultat = _appliquer(db.transaction())
 
-    if action != "changerRole":
+    # Seuls ajouter/retirer changent participantsUids — changerRole et
+    # definirPermissionsAdministrateur ne touchent jamais qui a accès, juste
+    # son rôle/ses permissions, inutile de resynchroniser tâches/journal.
+    if action in ("ajouter", "retirer"):
         _synchroniser_participants_dossier(db, dossier_id)
 
-    return {"ok": True, **resultat}
+    _notifier_evenements_gestion_participant(db, action, demandeur_uid, dossier_id, resultat)
+
+    resultat_public = {k: v for k, v in resultat.items() if not k.startswith("_")}
+    return {"ok": True, **resultat_public}

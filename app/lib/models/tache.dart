@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'proposition_en_attente.dart';
+
 enum StatutTache { aFaire, fait }
 
 StatutTache _statutDepuisTexte(String texte) =>
@@ -24,6 +26,7 @@ class Tache {
     this.notesDetaillees,
     List<String>? participantsUids,
     String? auteurUid,
+    this.propositionEnAttente,
   })  : participantsUids = participantsUids ?? [uid],
         auteurUid = auteurUid ?? uid;
 
@@ -53,6 +56,12 @@ class Tache {
   /// `descriptionCourte` — même rappel de prudence sur les noms de code.
   final String? notesDetaillees;
 
+  /// Proposition de modification/marquage/suppression en attente
+  /// d'approbation par l'auteur ou créateur/administrateur (Phase 2,
+  /// 2026-08-31 — voir PropositionEnAttente, firestore.rules). `null` = rien
+  /// en attente sur cette tâche.
+  final PropositionEnAttente? propositionEnAttente;
+
   /// Calculé, jamais stocké : l'échéance est dépassée et ce n'est toujours
   /// pas fait (correction du point O — distinguer "encore le temps" et "trop tard").
   bool get estEnRetard =>
@@ -79,6 +88,9 @@ class Tache {
       notesDetaillees: data['notesDetaillees'] as String?,
       participantsUids: (data['participantsUids'] as List<dynamic>?)?.cast<String>(),
       auteurUid: data['auteurUid'] as String?,
+      propositionEnAttente: (data['propositionEnAttente'] as Map<String, dynamic>?) != null
+          ? PropositionEnAttente.depuisMap(data['propositionEnAttente'] as Map<String, dynamic>)
+          : null,
     );
   }
 

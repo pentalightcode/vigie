@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import '../models/dossier.dart';
 import '../models/entree_journal.dart';
 import '../models/nature_dossier.dart';
+import '../models/proposition_en_attente.dart';
 import '../models/tache.dart';
 import '../services/chiffrement_notes_service.dart';
 import '../services/firestore_service.dart';
@@ -56,8 +57,13 @@ class DossierDetailScreen extends StatelessWidget {
           // confirmation (trouvé en Red Team le 2026-08-30, via /code-review) :
           // avant la Phase 1, TOUT participant était forcément le seul
           // propriétaire, donc ce bouton n'avait jamais besoin d'être masqué.
-          final monRole = dossier.roleDe(monUid);
-          final jePeuxSupprimer = monRole == 'createur' || monRole == 'administrateur';
+          final jePeuxSupprimer = dossier.peutSupprimer(monUid);
+          // Modifier nom/date : réservé créateur/administrateur (Phase 2,
+          // 2026-08-31, décision confirmée par Tobie — remplace "tout
+          // participant" du 29/08, voir firestore.rules) — masqué ici pour un
+          // simple contributeur, comme pour supprimer.
+          final role = dossier.roleDe(monUid);
+          final jePeuxModifierDossier = role == 'createur' || role == 'administrateur';
           return CustomScrollView(
             slivers: [
               SliverAppBar(
@@ -70,11 +76,12 @@ class DossierDetailScreen extends StatelessWidget {
                       MaterialPageRoute(builder: (_) => ParticipantsDossierScreen(dossierId: dossier.id)),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.edit),
-                    tooltip: l10n.dossierDetailModifierTooltip,
-                    onPressed: () => _modifierDossier(context, dossier),
-                  ),
+                  if (jePeuxModifierDossier)
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      tooltip: l10n.dossierDetailModifierTooltip,
+                      onPressed: () => _modifierDossier(context, dossier),
+                    ),
                   if (jePeuxSupprimer)
                     IconButton(
                       icon: const Icon(Icons.delete_outline),
@@ -136,19 +143,14 @@ class DossierDetailScreen extends StatelessWidget {
                       SliverToBoxAdapter(child: _BarreProgression(taches: taches)),
                       SliverList.builder(
                         itemCount: taches.length,
-                        itemBuilder: (context, i) => _LigneTacheDetail(tache: taches[i], monUid: monUid, monRole: monRole),
+                        itemBuilder: (context, i) => _LigneTacheDetail(tache: taches[i], dossier: dossier, monUid: monUid),
                       ),
                     ],
                   );
                 },
               ),
               SliverToBoxAdapter(
-                child: _SectionJournal(
-                  dossierId: dossierId,
-                  participantsUids: dossier.participantsUids,
-                  monUid: monUid,
-                  monRole: monRole,
-                ),
+                child: _SectionJournal(dossier: dossier, monUid: monUid),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 80)),
             ],
@@ -169,11 +171,22 @@ class DossierDetailScreen extends StatelessWidget {
       builder: (context) => _DialogueModifierDossier(dossier: dossier),
     );
     if (resultat != null) {
-      await FirestoreService.instance.modifierDossier(
-        dossier.id,
-        nomCode: resultat.nomCode,
-        dateEvenement: resultat.date,
-      );
+      try {
+        await FirestoreService.instance.modifierDossier(
+          dossier.id,
+          nomCode: resultat.nomCode,
+          dateEvenement: resultat.date,
+        );
+      } catch (e) {
+        // Défense en profondeur (le bouton est déjà masqué pour qui n'a pas
+        // le droit, voir jePeuxModifierDossier) : couvre la fenêtre de
+        // course où le rôle changerait pendant que la boîte est ouverte.
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(AppLocalizations.of(context)!.participantsErreurGenerique)),
+          );
+        }
+      }
     }
   }
 
@@ -254,24 +267,140 @@ class _BarreProgression extends StatelessWidget {
   }
 }
 
-class _LigneTacheDetail extends StatelessWidget {
-  const _LigneTacheDetail({required this.tache, required this.monUid, required this.monRole});
+/// Libellé du type d'une proposition en attente — partagé entre tâches
+/// (modifier/marquerFait/marquerNonFait/supprimer) et journal (modifier/
+/// supprimer, sous-ensemble des mêmes libellés). Phase 2, 2026-08-31.
+String _libelleTypeProposition(AppLocalizations l10n, String type) => switch (type) {
+      'modifier' => l10n.propositionTypeModifier,
+      'marquerFait' => l10n.propositionTypeMarquerFait,
+      'marquerNonFait' => l10n.propositionTypeMarquerNonFait,
+      'supprimer' => l10n.propositionTypeSupprimer,
+      _ => type,
+    };
 
-  final Tache tache;
-  final String monUid;
-  final String monRole;
+/// Badge "en attente d'approbation" — partagé entre tâches et entrées de
+/// journal (Phase 2, 2026-08-31, voir firestore.rules Chemin B). Trois
+/// audiences possibles pour la même proposition : celui qui peut la
+/// résoudre (auteur/gestionnaire, boutons Approuver/Rejeter), celui qui l'a
+/// posée (bouton Retirer), ou un tiers (lecture seule, aucun bouton).
+class _BadgeProposition extends StatelessWidget {
+  const _BadgeProposition({
+    required this.proposition,
+    required this.dossier,
+    required this.jePeuxResoudre,
+    required this.jeSuisProposeur,
+    required this.onApprouver,
+    required this.onRejeter,
+    required this.onRetirer,
+  });
+
+  final PropositionEnAttente proposition;
+  final Dossier dossier;
+  final bool jePeuxResoudre;
+  final bool jeSuisProposeur;
+  final VoidCallback onApprouver;
+  final VoidCallback onRejeter;
+  final VoidCallback onRetirer;
 
   @override
   Widget build(BuildContext context) {
-    // Supprimer réservé à l'auteur ou créateur/administrateur (décision de
-    // Tobie le 2026-08-31, "même règle que le journal") — modifier reste
-    // ouvert à tout participant (accès complet, inchangé pour le contenu).
-    final peutSupprimer =
-        tache.auteurUid == monUid || monRole == 'createur' || monRole == 'administrateur';
+    final l10n = AppLocalizations.of(context)!;
+    final proposeurAffichage = dossier.participantsEmails[proposition.proposePar] ?? proposition.proposePar;
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.amber),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 1),
+                child: Icon(Icons.hourglass_top, size: 14, color: Colors.amber),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  l10n.propositionBadgeTexte(_libelleTypeProposition(l10n, proposition.type), proposeurAffichage),
+                  style: const TextStyle(fontSize: 11.5),
+                ),
+              ),
+            ],
+          ),
+          if (jePeuxResoudre)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  TextButton(
+                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: EdgeInsets.zero),
+                    onPressed: onApprouver,
+                    child: Text(l10n.propositionBoutonApprouver),
+                  ),
+                  TextButton(
+                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: EdgeInsets.zero),
+                    onPressed: onRejeter,
+                    child: Text(l10n.propositionBoutonRejeter),
+                  ),
+                ],
+              ),
+            )
+          else if (jeSuisProposeur)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: TextButton(
+                style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: EdgeInsets.zero),
+                onPressed: onRetirer,
+                child: Text(l10n.propositionBoutonRetirer),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LigneTacheDetail extends StatelessWidget {
+  const _LigneTacheDetail({required this.tache, required this.dossier, required this.monUid});
+
+  final Tache tache;
+  final Dossier dossier;
+  final String monUid;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    // Accès libre (Phase 2, 2026-08-31, miroir de estAuteurTacheOuGestionnaire
+    // côté firestore.rules) : l'auteur, ou créateur/administrateur avec
+    // 'modererContenu' — trouvé en red-teamant le plan initial (voir
+    // Dossier.estGestionnaireContenu) : sans cette permission, un
+    // administrateur est traité comme un simple contributeur ci-dessous.
+    final jeSuisAuteurOuGestionnaire =
+        tache.auteurUid == monUid || dossier.estGestionnaireContenu(monUid);
+    final proposition = tache.propositionEnAttente;
+    final jeSuisProposeur = proposition != null && proposition.proposePar == monUid;
+    final auteurAffichage = dossier.participantsEmails[tache.auteurUid] ?? tache.auteurUid;
+    final afficherAttribution = dossier.participantsUids.length > 1;
+
     return ListTile(
+      // Tant qu'une proposition est en attente, la case à cocher/crayon/
+      // corbeille s'effacent au profit du badge ci-dessous (Approuver/
+      // Rejeter/Retirer) — un seul chemin de résolution à la fois, plutôt
+      // que de laisser un gestionnaire contourner silencieusement une
+      // proposition en cours en éditant directement à côté.
       leading: Checkbox(
         value: tache.statut == StatutTache.fait,
-        onChanged: (coche) => _basculerStatut(context, coche ?? false),
+        onChanged: proposition != null
+            ? null
+            : (coche) => _basculerStatut(context, coche ?? false, jeSuisAuteurOuGestionnaire),
       ),
       title: Text(
         tache.descriptionCourte,
@@ -279,33 +408,66 @@ class _LigneTacheDetail extends StatelessWidget {
             ? const TextStyle(decoration: TextDecoration.lineThrough)
             : null,
       ),
-      subtitle: Text(
-        tache.notesDetaillees?.isNotEmpty == true
-            ? '${AppLocalizations.of(context)!.dossierDetailNatureEtDate(tache.nature, formaterDateFr(tache.dateDeclenchante))}\n${tache.notesDetaillees}'
-            : AppLocalizations.of(context)!.dossierDetailNatureEtDate(tache.nature, formaterDateFr(tache.dateDeclenchante)),
-      ),
-      isThreeLine: tache.notesDetaillees?.isNotEmpty == true,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () => showDialog(
-              context: context,
-              builder: (context) => _DialogueTache(tache: tache),
-            ),
+          Text(
+            tache.notesDetaillees?.isNotEmpty == true
+                ? '${l10n.dossierDetailNatureEtDate(tache.nature, formaterDateFr(tache.dateDeclenchante))}\n${tache.notesDetaillees}'
+                : l10n.dossierDetailNatureEtDate(tache.nature, formaterDateFr(tache.dateDeclenchante)),
           ),
-          if (peutSupprimer)
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () => _supprimer(context),
+          // Attribution (Phase 2, 2026-08-31, remarque de Tobie : "on ne
+          // sait pas qui a ajouté telle tâche") — seulement affichée sur un
+          // dossier partagé, inutile sur un dossier solo (toujours soi-même).
+          if (afficherAttribution)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                l10n.dossierDetailAttributionTache(auteurAffichage),
+                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.outline),
+              ),
+            ),
+          if (proposition != null)
+            _BadgeProposition(
+              proposition: proposition,
+              dossier: dossier,
+              jePeuxResoudre: jeSuisAuteurOuGestionnaire,
+              jeSuisProposeur: jeSuisProposeur,
+              onApprouver: () => _approuver(context),
+              onRejeter: () => _rejeter(context),
+              onRetirer: () => _rejeter(context),
             ),
         ],
       ),
+      isThreeLine: (tache.notesDetaillees?.isNotEmpty == true ? 1 : 0) +
+              (afficherAttribution ? 1 : 0) +
+              (proposition != null ? 1 : 0) >
+          1,
+      trailing: proposition != null
+          ? null
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () => showDialog(
+                    context: context,
+                    builder: (context) => _DialogueTache(
+                      tache: tache,
+                      proposerSeulement: !jeSuisAuteurOuGestionnaire,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => _supprimer(context, jeSuisAuteurOuGestionnaire),
+                ),
+              ],
+            ),
     );
   }
 
-  Future<void> _basculerStatut(BuildContext context, bool coche) async {
+  Future<void> _basculerStatut(BuildContext context, bool coche, bool direct) async {
     final l10n = AppLocalizations.of(context)!;
     final action = coche ? l10n.dossierDetailBasculerMarquerFait : l10n.dossierDetailBasculerRemettreAFaire;
     final confirme = await demanderDoubleConfirmation(
@@ -314,14 +476,30 @@ class _LigneTacheDetail extends StatelessWidget {
       message: l10n.dossierDetailBasculerMessage(action, tache.descriptionCourte),
     );
     if (!confirme) return;
-    if (coche) {
-      await FirestoreService.instance.marquerFait(tache.id);
-    } else {
-      await FirestoreService.instance.marquerNonFait(tache.id);
+    try {
+      if (direct) {
+        if (coche) {
+          await FirestoreService.instance.marquerFait(tache.id);
+        } else {
+          await FirestoreService.instance.marquerNonFait(tache.id);
+        }
+      } else {
+        if (coche) {
+          await FirestoreService.instance.proposerMarquerFaitTache(tache.id);
+        } else {
+          await FirestoreService.instance.proposerMarquerNonFaitTache(tache.id);
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.participantsErreurGenerique)),
+        );
+      }
     }
   }
 
-  Future<void> _supprimer(BuildContext context) async {
+  Future<void> _supprimer(BuildContext context, bool direct) async {
     final l10n = AppLocalizations.of(context)!;
     final confirme = await demanderDoubleConfirmation(
       context,
@@ -332,17 +510,46 @@ class _LigneTacheDetail extends StatelessWidget {
     );
     if (confirme) {
       try {
-        await FirestoreService.instance.supprimerTache(tache.id);
+        if (direct) {
+          await FirestoreService.instance.supprimerTache(tache.id);
+        } else {
+          await FirestoreService.instance.proposerSuppressionTache(tache.id);
+        }
       } catch (e) {
         // Défense en profondeur, trouvé en corrigeant ce même correctif, le
         // 2026-08-31 : le bouton est déjà masqué pour qui n'a pas le droit
-        // (voir peutSupprimer), mais couvre la fenêtre de course où le rôle
-        // changerait pendant la double confirmation.
+        // (voir jeSuisAuteurOuGestionnaire), mais couvre la fenêtre de
+        // course où le rôle/les permissions changeraient pendant la double
+        // confirmation.
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(l10n.participantsErreurGenerique)),
           );
         }
+      }
+    }
+  }
+
+  Future<void> _approuver(BuildContext context) async {
+    try {
+      await FirestoreService.instance.approuverPropositionTache(tache);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.participantsErreurGenerique)),
+        );
+      }
+    }
+  }
+
+  Future<void> _rejeter(BuildContext context) async {
+    try {
+      await FirestoreService.instance.retirerPropositionTache(tache.id);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.participantsErreurGenerique)),
+        );
       }
     }
   }
@@ -404,9 +611,15 @@ class _DialogueModifierDossierState extends State<_DialogueModifierDossier> {
 
 /// Ajoute une nouvelle tâche, ou modifie une tâche existante si [tache] est fourni.
 class _DialogueTache extends StatefulWidget {
-  const _DialogueTache({this.dossier, this.tache}) : assert(dossier != null || tache != null);
+  const _DialogueTache({this.dossier, this.tache, this.proposerSeulement = false})
+      : assert(dossier != null || tache != null);
   final Dossier? dossier;
   final Tache? tache;
+
+  /// Phase 2, 2026-08-31 : quand vrai, la modification écrit une proposition
+  /// (voir FirestoreService.proposerModificationTache) au lieu du champ réel
+  /// — pour un participant qui n'a pas d'accès libre sur cette tâche.
+  final bool proposerSeulement;
 
   @override
   State<_DialogueTache> createState() => _DialogueTacheState();
@@ -547,20 +760,23 @@ class _DialogueTacheState extends State<_DialogueTache> {
                   participantsUids: dossierActuel.participantsUids,
                 );
               } else {
-                await FirestoreService.instance.modifierTache(
-                  Tache(
-                    id: widget.tache!.id,
-                    uid: widget.tache!.uid,
-                    dossierId: widget.tache!.dossierId,
-                    nomCodeDossier: widget.tache!.nomCodeDossier,
-                    descriptionCourte: description,
-                    nature: _nature!.nom,
-                    dateDeclenchante: _date,
-                    datePremierRappel: widget.tache!.datePremierRappel,
-                    statut: widget.tache!.statut,
-                    notesDetaillees: notesTexte,
-                  ),
+                final tacheMiseAJour = Tache(
+                  id: widget.tache!.id,
+                  uid: widget.tache!.uid,
+                  dossierId: widget.tache!.dossierId,
+                  nomCodeDossier: widget.tache!.nomCodeDossier,
+                  descriptionCourte: description,
+                  nature: _nature!.nom,
+                  dateDeclenchante: _date,
+                  datePremierRappel: widget.tache!.datePremierRappel,
+                  statut: widget.tache!.statut,
+                  notesDetaillees: notesTexte,
                 );
+                if (widget.proposerSeulement) {
+                  await FirestoreService.instance.proposerModificationTache(tacheMiseAJour);
+                } else {
+                  await FirestoreService.instance.modifierTache(tacheMiseAJour);
+                }
               }
               if (context.mounted) Navigator.pop(context);
             } catch (e) {
@@ -630,16 +846,9 @@ class _EntreeAffichable {
 /// la saisie, et affichée en frise chronologique plutôt qu'en simples cartes
 /// identiques ("il ne s'agit pas juste d'ajouter une note tout court").
 class _SectionJournal extends StatefulWidget {
-  const _SectionJournal({
-    required this.dossierId,
-    required this.participantsUids,
-    required this.monUid,
-    required this.monRole,
-  });
-  final String dossierId;
-  final List<String> participantsUids;
+  const _SectionJournal({required this.dossier, required this.monUid});
+  final Dossier dossier;
   final String monUid;
-  final String monRole;
 
   @override
   State<_SectionJournal> createState() => _SectionJournalState();
@@ -673,7 +882,7 @@ class _SectionJournalState extends State<_SectionJournal> {
     // alors l'entrée comme verrouillée pour toujours, même après avoir
     // déverrouillé SA PROPRE phrase secrète). Reste actif pour un dossier
     // strictement solo, où ce problème ne se pose pas.
-    if (widget.participantsUids.length <= 1) {
+    if (widget.dossier.participantsUids.length <= 1) {
       final deverrouille = await demanderPhraseSecrete(context);
       if (!deverrouille || !mounted) return;
     }
@@ -690,11 +899,11 @@ class _SectionJournalState extends State<_SectionJournal> {
       // raison que pour l'ajout de tâche (voir dossierDepuisServeur) — un
       // prop mis en cache par le dernier instantané reçu peut être périmé
       // de deux façons ici, l'écriture ET la décision de chiffrement.
-      final dossierActuel = await FirestoreService.instance.dossierDepuisServeur(widget.dossierId);
+      final dossierActuel = await FirestoreService.instance.dossierDepuisServeur(widget.dossier.id);
       final estPartage = dossierActuel.participantsUids.length > 1;
       final texteAEcrire = estPartage ? texte : await ChiffrementNotesService.instance.chiffrer(texte);
       await FirestoreService.instance.ajouterEntreeJournal(
-        widget.dossierId,
+        widget.dossier.id,
         texteAEcrire,
         _typeSelectionne,
         chiffre: !estPartage,
@@ -712,7 +921,7 @@ class _SectionJournalState extends State<_SectionJournal> {
     }
   }
 
-  Future<void> _supprimer(BuildContext context, EntreeJournal entree) async {
+  Future<void> _supprimer(BuildContext context, EntreeJournal entree, bool direct) async {
     final l10n = AppLocalizations.of(context)!;
     final confirme = await demanderDoubleConfirmation(
       context,
@@ -723,12 +932,16 @@ class _SectionJournalState extends State<_SectionJournal> {
     );
     if (confirme) {
       try {
-        await FirestoreService.instance.supprimerEntreeJournal(entree.id);
+        if (direct) {
+          await FirestoreService.instance.supprimerEntreeJournal(entree.id);
+        } else {
+          await FirestoreService.instance.proposerSuppressionEntreeJournal(entree.id);
+        }
       } catch (e) {
         // Défense en profondeur, trouvé en Red Team le 2026-08-31 : le
         // bouton est déjà masqué pour qui n'a pas le droit (voir
-        // peutGererCetteEntree), mais couvre la fenêtre de course où le
-        // rôle changerait pendant la double confirmation.
+        // jeSuisAuteurOuGestionnaire), mais couvre la fenêtre de course où
+        // le rôle/les permissions changeraient pendant la double confirmation.
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(l10n.participantsErreurGenerique)),
@@ -738,10 +951,34 @@ class _SectionJournalState extends State<_SectionJournal> {
     }
   }
 
+  Future<void> _approuverEntree(BuildContext context, EntreeJournal entree) async {
+    try {
+      await FirestoreService.instance.approuverPropositionEntreeJournal(entree);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.participantsErreurGenerique)),
+        );
+      }
+    }
+  }
+
+  Future<void> _rejeterEntree(BuildContext context, String entreeId) async {
+    try {
+      await FirestoreService.instance.retirerPropositionEntreeJournal(entreeId);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.participantsErreurGenerique)),
+        );
+      }
+    }
+  }
+
   /// Modification libre d'une entrée déjà écrite (demandé par Tobie le
   /// 2026-08-21, alors qu'au départ le journal était pensé "jamais écrasé" —
   /// choix assumé de Tobie malgré le compromis expliqué).
-  Future<void> _editer(BuildContext context, EntreeJournal entree) async {
+  Future<void> _editer(BuildContext context, EntreeJournal entree, bool direct) async {
     if (entree.chiffre) {
       final deverrouille = await demanderPhraseSecrete(context);
       if (!deverrouille || !context.mounted) return;
@@ -796,7 +1033,13 @@ class _SectionJournalState extends State<_SectionJournal> {
     if (texte.isEmpty) return;
     try {
       final texteAEcrire = entree.chiffre ? await ChiffrementNotesService.instance.chiffrer(texte) : texte;
-      await FirestoreService.instance.modifierEntreeJournal(entree.id, texteAEcrire, type);
+      if (direct) {
+        await FirestoreService.instance.modifierEntreeJournal(entree.id, texteAEcrire, type);
+      } else {
+        await FirestoreService.instance.proposerModificationEntreeJournal(
+          entree.copierAvec(texte: texteAEcrire, type: type),
+        );
+      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -908,7 +1151,7 @@ class _SectionJournalState extends State<_SectionJournal> {
                 ),
               ),
               StreamBuilder<List<EntreeJournal>>(
-                stream: FirestoreService.instance.journalDossier(widget.dossierId),
+                stream: FirestoreService.instance.journalDossier(widget.dossier.id),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return Padding(
@@ -1058,12 +1301,17 @@ class _SectionJournalState extends State<_SectionJournal> {
   Widget _ligneEntree(BuildContext context, _EntreeAffichable affichable, bool dernierDuJour) {
     final entree = affichable.entree;
     final l10n = AppLocalizations.of(context)!;
-    // Modifier/supprimer réservé à l'auteur ou créateur/administrateur
-    // (décision de Tobie le 2026-08-30, voir estAuteurOuGestionnaire côté
-    // firestore.rules — même règle reproduite ici pour ne pas afficher des
-    // boutons qui échoueraient côté serveur).
-    final peutGererCetteEntree =
-        entree.auteurUid == widget.monUid || widget.monRole == 'createur' || widget.monRole == 'administrateur';
+    // Accès libre (Phase 2, 2026-08-31, miroir de estAuteurOuGestionnaire
+    // côté firestore.rules) : l'auteur, ou créateur/administrateur avec
+    // 'modererContenu' — voir Dossier.estGestionnaireContenu. Sans cette
+    // permission, un administrateur est traité comme un simple contributeur
+    // ci-dessous (passe par une proposition, comme pour les tâches).
+    final jeSuisAuteurOuGestionnaire =
+        entree.auteurUid == widget.monUid || widget.dossier.estGestionnaireContenu(widget.monUid);
+    final proposition = entree.propositionEnAttente;
+    final jeSuisProposeur = proposition != null && proposition.proposePar == widget.monUid;
+    final auteurAffichage = widget.dossier.participantsEmails[entree.auteurUid] ?? entree.auteurUid ?? '';
+    final afficherAttribution = widget.dossier.participantsUids.length > 1 && entree.auteurUid != null;
     final estFrancais = Localizations.localeOf(context).languageCode != 'en';
     final heure = estFrancais
         ? '${entree.creeLe.hour.toString().padLeft(2, '0')}h${entree.creeLe.minute.toString().padLeft(2, '0')}'
@@ -1115,14 +1363,20 @@ class _SectionJournalState extends State<_SectionJournal> {
                           padding: const EdgeInsets.only(left: 4),
                           child: Text(l10n.dossierDetailModifieSuffixe, style: const TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic)),
                         ),
-                      if (peutGererCetteEntree) ...[
+                      // Tant qu'une proposition est en attente, les mêmes
+                      // boutons crayon/corbeille s'effacent au profit du
+                      // badge (Approuver/Rejeter/Retirer) — voir la même
+                      // logique côté tâches (_LigneTacheDetail).
+                      if (proposition == null) ...[
                         SizedBox(
                           width: 28,
                           height: 28,
                           child: IconButton(
                             padding: EdgeInsets.zero,
                             icon: const Icon(Icons.edit_outlined, size: 16),
-                            onPressed: affichable.verrouillee ? null : () => _editer(context, entree),
+                            onPressed: affichable.verrouillee
+                                ? null
+                                : () => _editer(context, entree, jeSuisAuteurOuGestionnaire),
                           ),
                         ),
                         SizedBox(
@@ -1131,12 +1385,20 @@ class _SectionJournalState extends State<_SectionJournal> {
                           child: IconButton(
                             padding: EdgeInsets.zero,
                             icon: const Icon(Icons.delete_outline, size: 16),
-                            onPressed: () => _supprimer(context, entree),
+                            onPressed: () => _supprimer(context, entree, jeSuisAuteurOuGestionnaire),
                           ),
                         ),
                       ],
                     ],
                   ),
+                  if (afficherAttribution)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Text(
+                        l10n.dossierDetailAttributionEntree(auteurAffichage),
+                        style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.outline),
+                      ),
+                    ),
                   if (affichable.verrouillee)
                     Text(
                       l10n.dossierDetailEntreeVerrouillee,
@@ -1144,6 +1406,16 @@ class _SectionJournalState extends State<_SectionJournal> {
                     )
                   else
                     Text(entree.texte),
+                  if (proposition != null)
+                    _BadgeProposition(
+                      proposition: proposition,
+                      dossier: widget.dossier,
+                      jePeuxResoudre: jeSuisAuteurOuGestionnaire,
+                      jeSuisProposeur: jeSuisProposeur,
+                      onApprouver: () => _approuverEntree(context, entree),
+                      onRejeter: () => _rejeterEntree(context, entree.id),
+                      onRetirer: () => _rejeterEntree(context, entree.id),
+                    ),
                 ],
               ),
             ),

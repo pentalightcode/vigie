@@ -12,6 +12,8 @@ class Dossier {
     List<String>? participantsUids,
     Map<String, String>? roles,
     this.participantsEmails = const {},
+    this.permissionsAdministrateur = const {},
+    this.permissionsAdministrateurDefinies = false,
   })  : participantsUids = participantsUids ?? [uid],
         roles = roles ?? {uid: 'createur'};
 
@@ -42,6 +44,53 @@ class Dossier {
   /// dossier jamais géré via cette fonction (dossier solo, jamais partagé).
   final Map<String, String> participantsEmails;
 
+  /// Permissions à la carte de chaque administrateur (Phase 2, 2026-08-31 —
+  /// voir estGestionnaireContenu ci-dessous et firestore.rules). Écrit
+  /// UNIQUEMENT par `gerer_participant_dossier` (action
+  /// definirPermissionsAdministrateur), jamais depuis le téléphone.
+  final Map<String, List<String>> permissionsAdministrateur;
+
+  /// Distingue "dossier jamais touché par cette fonctionnalité" (champ
+  /// totalement absent côté Firestore : `permissionsAdministrateur` reste
+  /// `{}` ci-dessus, mais ça ne veut PAS dire "tout le monde restreint" —
+  /// voir estGestionnaireContenu) de "le créateur a déjà défini au moins une
+  /// restriction sur ce dossier" (champ présent, même vide pour un uid
+  /// donné). Sans cette distinction, impossible de savoir côté client si un
+  /// administrateur sans entrée explicite garde ses droits historiques ou
+  /// est réellement restreint.
+  final bool permissionsAdministrateurDefinies;
+
+  /// Miroir client de `estGestionnaireContenu()` (firestore.rules) et de
+  /// `_PERMISSIONS_ADMINISTRATEUR_VALABLES` (functions/main.py), Phase 2,
+  /// 2026-08-31 — duplication volontaire (défense en profondeur, comme le
+  /// reste du modèle de permission de ce projet, voir Notes) : décide si
+  /// `participantUid` a un accès libre au contenu créé par quelqu'un
+  /// D'AUTRE (le créateur, ou lui-même, restent toujours libres sur leur
+  /// propre contenu, voir `estAuteurTacheOuGestionnaire`/
+  /// `estAuteurOuGestionnaire` côté écran) — sinon il doit passer par une
+  /// proposition. Le serveur reste seul juge final, ceci ne sert qu'à
+  /// afficher les bons boutons/badges sans attendre un aller-retour.
+  bool estGestionnaireContenu(String participantUid) {
+    final role = roleDe(participantUid);
+    if (role == 'createur') return true;
+    if (role != 'administrateur') return false;
+    if (!permissionsAdministrateurDefinies) return true; // rétrocompatibilité
+    return (permissionsAdministrateur[participantUid] ?? const []).contains('modererContenu');
+  }
+
+  /// Miroir client de `peutSupprimerDossier()` (firestore.rules), Phase 2,
+  /// 2026-08-31 — même logique de permission à la carte que ci-dessus, mais
+  /// pour SUPPRIMER LE DOSSIER lui-même (`supprimerDossier`, pas
+  /// `modererContenu`) : un droit distinct, un administrateur peut avoir
+  /// l'un sans l'autre.
+  bool peutSupprimer(String participantUid) {
+    final role = roleDe(participantUid);
+    if (role == 'createur') return true;
+    if (role != 'administrateur') return false;
+    if (!permissionsAdministrateurDefinies) return true; // rétrocompatibilité
+    return (permissionsAdministrateur[participantUid] ?? const []).contains('supprimerDossier');
+  }
+
   factory Dossier.depuisDocument(DocumentSnapshot doc) {
     // Vérifié AVANT le cast (trouvé en re-vérifiant ce correctif, via
     // /code-review, le 2026-08-31) : si le dossier a été SUPPRIMÉ (pas
@@ -68,6 +117,11 @@ class Dossier {
       participantsUids: (data['participantsUids'] as List<dynamic>?)?.cast<String>() ?? [uid],
       roles: (data['roles'] as Map<String, dynamic>?)?.cast<String, String>() ?? {uid: 'createur'},
       participantsEmails: (data['participantsEmails'] as Map<String, dynamic>?)?.cast<String, String>() ?? const {},
+      permissionsAdministrateur: (data['permissionsAdministrateur'] as Map<String, dynamic>?)?.map(
+            (cle, valeur) => MapEntry(cle, (valeur as List<dynamic>).cast<String>()),
+          ) ??
+          const {},
+      permissionsAdministrateurDefinies: data.containsKey('permissionsAdministrateur'),
     );
   }
 
@@ -113,6 +167,8 @@ class Dossier {
       participantsUids: participantsUids,
       roles: roles,
       participantsEmails: participantsEmails,
+      permissionsAdministrateur: permissionsAdministrateur,
+      permissionsAdministrateurDefinies: permissionsAdministrateurDefinies,
     );
   }
 }

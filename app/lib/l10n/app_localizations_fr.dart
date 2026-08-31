@@ -1364,4 +1364,65 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get participantsDialogueAjouterChampRole => 'Rôle';
+
+  @override
+  String get propositionTypeModifier => 'Modification';
+
+  @override
+  String get propositionTypeMarquerFait => 'Marquage comme fait';
+
+  @override
+  String get propositionTypeMarquerNonFait => 'Remise à faire';
+
+  @override
+  String get propositionTypeSupprimer => 'Suppression';
+
+  @override
+  String propositionBadgeTexte(String type, String personne) {
+    return '$type proposée par $personne, en attente d\'approbation.';
+  }
+
+  @override
+  String get propositionBoutonApprouver => 'Approuver';
+
+  @override
+  String get propositionBoutonRejeter => 'Rejeter';
+
+  @override
+  String get propositionBoutonRetirer => 'Retirer ma proposition';
+
+  @override
+  String dossierDetailAttributionTache(String personne) {
+    return 'Ajoutée par $personne';
+  }
+
+  @override
+  String dossierDetailAttributionEntree(String personne) {
+    return 'Écrite par $personne';
+  }
+
+  @override
+  String participantsPermissionsDialogueTitre(String personne) {
+    return 'Permissions de $personne';
+  }
+
+  @override
+  String get participantsPermissionGererParticipants =>
+      'Ajouter/retirer des participants, changer leur rôle';
+
+  @override
+  String get participantsPermissionSupprimerDossier => 'Supprimer le dossier';
+
+  @override
+  String get participantsPermissionModererContenu =>
+      'Modifier/supprimer le contenu des autres sans validation';
+
+  @override
+  String get participantsMenuPermissions => 'Permissions…';
+
+  @override
+  String get aTraiterOngletMesDossiers => 'Mes dossiers';
+
+  @override
+  String get aTraiterOngletPartages => 'Dossiers partagés';
 }

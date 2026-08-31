@@ -10,6 +10,7 @@ class NotificationEnvoyee {
     required this.dossierId,
     required this.parType,
     required this.envoyeLe,
+    this.type = 'digest',
   });
 
   final String id;
@@ -17,6 +18,15 @@ class NotificationEnvoyee {
   final String? dossierId;
   final Map<String, int> parType;
   final DateTime? envoyeLe;
+
+  /// Phase 2 (2026-08-31) : distingue le rappel quotidien ('digest', valeur
+  /// par défaut — absent sur toute notification écrite avant cette date, même
+  /// convention de repli que le reste de ce fichier) d'un événement de
+  /// collaboration ('participantAjoute' | 'participantRetire' | 'roleModifie'
+  /// | 'ajoutParAdministrateur' | 'propositionCreee' | 'propositionResolue',
+  /// voir functions/main.py `_notifier_evenement`) — sert à choisir l'icône/
+  /// le filtre adaptés à l'écran Notifications.
+  final String type;
 
   factory NotificationEnvoyee.depuisDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -27,6 +37,7 @@ class NotificationEnvoyee {
       dossierId: data['dossierId'] as String?,
       parType: parTypeBrut.map((cle, valeur) => MapEntry(cle, (valeur as num).toInt())),
       envoyeLe: (data['envoyeLe'] as Timestamp?)?.toDate(),
+      type: data['type'] as String? ?? 'digest',
     );
   }
 }

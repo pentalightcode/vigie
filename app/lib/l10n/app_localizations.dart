@@ -2370,6 +2370,108 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Rôle'**
   String get participantsDialogueAjouterChampRole;
+
+  /// No description provided for @propositionTypeModifier.
+  ///
+  /// In fr, this message translates to:
+  /// **'Modification'**
+  String get propositionTypeModifier;
+
+  /// No description provided for @propositionTypeMarquerFait.
+  ///
+  /// In fr, this message translates to:
+  /// **'Marquage comme fait'**
+  String get propositionTypeMarquerFait;
+
+  /// No description provided for @propositionTypeMarquerNonFait.
+  ///
+  /// In fr, this message translates to:
+  /// **'Remise à faire'**
+  String get propositionTypeMarquerNonFait;
+
+  /// No description provided for @propositionTypeSupprimer.
+  ///
+  /// In fr, this message translates to:
+  /// **'Suppression'**
+  String get propositionTypeSupprimer;
+
+  /// No description provided for @propositionBadgeTexte.
+  ///
+  /// In fr, this message translates to:
+  /// **'{type} proposée par {personne}, en attente d\'approbation.'**
+  String propositionBadgeTexte(String type, String personne);
+
+  /// No description provided for @propositionBoutonApprouver.
+  ///
+  /// In fr, this message translates to:
+  /// **'Approuver'**
+  String get propositionBoutonApprouver;
+
+  /// No description provided for @propositionBoutonRejeter.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rejeter'**
+  String get propositionBoutonRejeter;
+
+  /// No description provided for @propositionBoutonRetirer.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirer ma proposition'**
+  String get propositionBoutonRetirer;
+
+  /// No description provided for @dossierDetailAttributionTache.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajoutée par {personne}'**
+  String dossierDetailAttributionTache(String personne);
+
+  /// No description provided for @dossierDetailAttributionEntree.
+  ///
+  /// In fr, this message translates to:
+  /// **'Écrite par {personne}'**
+  String dossierDetailAttributionEntree(String personne);
+
+  /// No description provided for @participantsPermissionsDialogueTitre.
+  ///
+  /// In fr, this message translates to:
+  /// **'Permissions de {personne}'**
+  String participantsPermissionsDialogueTitre(String personne);
+
+  /// No description provided for @participantsPermissionGererParticipants.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter/retirer des participants, changer leur rôle'**
+  String get participantsPermissionGererParticipants;
+
+  /// No description provided for @participantsPermissionSupprimerDossier.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer le dossier'**
+  String get participantsPermissionSupprimerDossier;
+
+  /// No description provided for @participantsPermissionModererContenu.
+  ///
+  /// In fr, this message translates to:
+  /// **'Modifier/supprimer le contenu des autres sans validation'**
+  String get participantsPermissionModererContenu;
+
+  /// No description provided for @participantsMenuPermissions.
+  ///
+  /// In fr, this message translates to:
+  /// **'Permissions…'**
+  String get participantsMenuPermissions;
+
+  /// No description provided for @aTraiterOngletMesDossiers.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mes dossiers'**
+  String get aTraiterOngletMesDossiers;
+
+  /// No description provided for @aTraiterOngletPartages.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dossiers partagés'**
+  String get aTraiterOngletPartages;
 }
 
 class _AppLocalizationsDelegate

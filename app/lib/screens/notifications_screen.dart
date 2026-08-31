@@ -103,6 +103,21 @@ class _BarreDeFiltres extends StatelessWidget {
   }
 }
 
+/// Icône par type d'événement (Phase 2, 2026-08-31 — voir functions/main.py
+/// `_notifier_evenement`) — le corps du message est déjà une phrase complète
+/// et détaillée (voir _notifier_evenements_gestion_participant côté
+/// serveur), l'icône suffit à distinguer d'un coup d'œil sans répéter un
+/// libellé texte redondant.
+IconData _iconePourType(String type) => switch (type) {
+      'participantAjoute' => Icons.person_add_outlined,
+      'participantRetire' => Icons.person_remove_outlined,
+      'roleModifie' => Icons.swap_horiz,
+      'ajoutParAdministrateur' => Icons.admin_panel_settings_outlined,
+      'propositionCreee' => Icons.pending_actions_outlined,
+      'propositionResolue' => Icons.fact_check_outlined,
+      _ => Icons.notifications_outlined, // 'digest' (rappel quotidien) ou type inconnu
+    };
+
 class _LigneNotification extends StatelessWidget {
   const _LigneNotification({required this.notif});
 
@@ -126,6 +141,8 @@ class _LigneNotification extends StatelessWidget {
             children: [
               Row(
                 children: [
+                  Icon(_iconePourType(notif.type), size: 16, color: Theme.of(context).colorScheme.outline),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       notif.envoyeLe != null
