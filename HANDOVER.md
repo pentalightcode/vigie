@@ -8,6 +8,8 @@
 
 À lire dans l'ordre : ce document d'abord (méthode + vue d'ensemble + mise en route), puis `PROGRESS.md` (journal chronologique détaillé de chaque session de travail — le plus fiable pour savoir "où on en est exactement" à un instant donné), puis `Notes/` (fiches de décision individuelles et fiches de red team, une par sujet). Le code source lui-même contient énormément de contexte "pourquoi" en commentaire — c'est une convention de la maison, voir section 6.
 
+Si vous êtes une IA (Claude Code ou autre outil qui charge automatiquement un fichier d'instructions de dépôt) : un `CLAUDE.md` existe à la racine de ce dépôt et renvoie ici — s'il vous a été chargé automatiquement, c'est normal, c'est voulu.
+
 ---
 
 ## 1. Méthode de travail — les règles d'or
@@ -71,8 +73,8 @@ Principe central : l'utilisateur ne désigne **jamais** ses dossiers par leur vr
 **Outils à installer** (versions utilisées sur la machine de développement actuelle, au 31/08/2026 — une version proche suffit généralement) :
 - Flutter 3.44.8, canal stable (inclut Dart 3.12.2) — `flutter --version` pour vérifier. Contrainte du projet : `sdk: ^3.12.2` dans `app/pubspec.yaml`.
 - Firebase CLI ≥ 15.26.0 (`npm install -g firebase-tools`) — nécessite Node.js (v24.14.0 utilisé ici) + npm.
-- Python 3.14 pour les Cloud Functions (`app/functions/`) — runtime déclaré `"python314"` dans `app/firebase.json`.
-- Android SDK / Android Studio uniquement si vous devez builder l'APK — pas nécessaire pour travailler sur le code Dart ou Python seul (`flutter run -d chrome` suffit pour tester côté web).
+- Python 3.14 pour les Cloud Functions (`app/functions/`) — runtime déclaré `"python314"` dans `app/firebase.json`. Version très récente, probablement pas préinstallée : installeur officiel sur python.org, ou `pyenv install 3.14` si `pyenv` est déjà utilisé.
+- Android SDK / Android Studio uniquement si vous devez builder l'APK — pas nécessaire pour travailler sur le code Dart ou Python seul (`flutter run -d chrome` suffit pour tester côté web). Après installation d'Android Studio, `flutter doctor --android-licenses` (accepter toutes les licences) est le blocage le plus courant à la première tentative de build Android — `flutter doctor` (sans argument) diagnostique l'ensemble de l'installation si quelque chose semble manquant.
 
 **Étapes :**
 1. Cloner le dépôt : `git clone https://github.com/pentalightcode/vigie.git` (ou l'URL SSH si un accès en écriture a été provisionné, voir section 14).

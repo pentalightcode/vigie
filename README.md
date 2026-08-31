@@ -2,6 +2,8 @@
 
 Application de suivi d'échéances et de rappels, pensée pour rester **confidentielle** — pour les professions où chaque dossier compte et où la discrétion n'est pas négociable (magistrats, avocats, médecins, et plus largement toute activité indépendante).
 
+**Vous rejoignez ce projet sans avoir participé aux échanges précédents ?** Lisez [`HANDOVER.md`](HANDOVER.md) en premier — méthode de travail, histoire du projet, installation pas à pas, architecture, état de sécurité, ce qui reste ouvert. Ce README reste volontairement court (présentation publique du projet).
+
 Par [PENTALIGHTCODE](https://pentalightcode.com).
 
 🔗 [vigie.pentalightcode.com](https://vigie.pentalightcode.com) · 📄 [CGU & confidentialité](https://vigie.pentalightcode.com/confidentialite/)
@@ -25,6 +27,7 @@ Vigie suit des échéances (audiences, rendez-vous, dates limites...) et relance
 ## Structure du dépôt
 
 ```
+HANDOVER.md     Document de transfert — à lire en premier pour rejoindre le projet
 app/            Application Flutter (lib/, android/, web/...)
 app/functions/  Cloud Functions Python (scan Gmail/Calendar/Tasks, rappels, publication de version)
 Notes/          Journal de décisions et recherches du projet
@@ -39,4 +42,4 @@ flutter pub get
 flutter run
 ```
 
-Le backend nécessite un projet Firebase configuré (`firebase_options.dart`, `google-services.json`) et les secrets Cloud Functions correspondants (`firebase functions:secrets:set`) — non inclus dans ce dépôt.
+`firebase_options.dart` et `google-services.json` (identifiants client Firebase publics, pas des secrets) sont **déjà inclus dans ce dépôt** — rien à régénérer. Seuls les secrets serveur des Cloud Functions (`firebase functions:secrets:set`) ne sont pas inclus, nécessaires uniquement pour déployer/exécuter les fonctions avec leur comportement réel (connexion Google, IA Groq...). Voir [`HANDOVER.md`](HANDOVER.md) pour la procédure d'installation complète.
