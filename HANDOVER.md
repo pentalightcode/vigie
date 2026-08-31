@@ -34,6 +34,12 @@ Cette section n'existait pas avant le 31/08/2026 — ajoutée sur demande explic
 
 8. **Une chose à la fois — valider avant de passer à la suite.** Ne pas enchaîner plusieurs chantiers sans un point de validation explicite entre chacun, même quand la suite logique semble évidente.
 
+9. **Avant tout commit/push : relire `git status`/`git diff` réellement, jamais `git add -A` en confiance aveugle.** Vérifier qu'aucun secret n'est présent dans le contenu (pas juste dans le nom du fichier), et que seuls les fichiers vraiment liés au chantier en cours sont inclus. Ne jamais pousser (`git push`) sans confirmation explicite de Tobie — sauf situation d'urgence explicitement autorisée par lui dans l'échange (ex : passation de fin de session).
+
+**Comment cette méthode arrive jusqu'à une AUTRE IA que celle qui a écrit ce document** (question posée par Tobie le 01/09/2026, en préparant une passation) : deux mécanismes distincts, à ne pas confondre.
+- `CLAUDE.md` à la racine du dépôt est chargé **automatiquement**, mais seulement par un outil qui sait le faire (Claude Code, ou un équivalent) — invisible pour un autre produit IA qui n'a pas ce mécanisme.
+- **Ce document (`HANDOVER.md`) n'est JAMAIS chargé automatiquement, par personne.** C'est volontaire : c'est le seul canal qui marche quel que soit l'outil, parce que c'est juste du texte que quiconque (humain ou IA, à qui on dit explicitement de le lire) peut ouvrir. C'est pour ça que cette section 1 existe et répète tout — ne pas supposer qu'un `CLAUDE.md` bien écrit suffit, toujours pointer explicitement vers ce fichier en premier message à toute nouvelle IA qui rejoint le projet.
+
 ## 2. Histoire du projet, en condensé
 
 Version courte de l'arc complet — le détail exhaustif, jour par jour, vit dans `PROGRESS.md` et `Notes/`. Utile pour comprendre le "pourquoi" de certaines décisions sans avoir à tout relire.
