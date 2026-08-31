@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/dossier.dart';
@@ -11,6 +12,8 @@ import '../utils/confirmation.dart';
 import '../utils/dates_fr.dart';
 import '../utils/notes_structurees.dart';
 import '../widgets/dialogue_phrase_secrete.dart';
+import '../widgets/vue_acces_revoque.dart';
+import 'participants_dossier_screen.dart';
 
 /// Écran de détail d'un dossier — corrige le point le plus critique du
 /// dernier Red Team : voir/ajouter/modifier/supprimer les tâches d'un
@@ -26,26 +29,57 @@ class DossierDetailScreen extends StatelessWidget {
       body: StreamBuilder<Dossier>(
         stream: FirestoreService.instance.dossier(dossierId),
         builder: (context, snapshotDossier) {
+          // Accès révoqué pendant la consultation (retiré du dossier par un
+          // administrateur) : sans ce garde-fou, l'écran reste bloqué sur le
+          // chargement pour toujours (voir VueAccesRevoque).
+          if (snapshotDossier.hasError) {
+            return const VueAccesRevoque();
+          }
           if (!snapshotDossier.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
           final l10n = AppLocalizations.of(context)!;
           final dossier = snapshotDossier.data!;
+          // Repli défensif plutôt qu'un `!.uid` qui planterait (trouvé en
+          // Red Team le 2026-08-30, via /code-review) : un garde d'auth au
+          // sommet de l'app (main.dart) rend `currentUser` null quasiment
+          // impossible ici en pratique, mais reste plus sûr qu'un crash pur
+          // si jamais un rebuild survenait pile pendant une déconnexion.
+          final monUid = FirebaseAuth.instance.currentUser?.uid;
+          if (monUid == null) {
+            return const VueAccesRevoque();
+          }
+          // Bouton "Supprimer" réservé créateur/administrateur côté règles
+          // (voir firestore.rules) — masqué ici pour un simple contributeur
+          // plutôt que de le laisser taper dans le vide après la double
+          // confirmation (trouvé en Red Team le 2026-08-30, via /code-review) :
+          // avant la Phase 1, TOUT participant était forcément le seul
+          // propriétaire, donc ce bouton n'avait jamais besoin d'être masqué.
+          final monRole = dossier.roleDe(monUid);
+          final jePeuxSupprimer = monRole == 'createur' || monRole == 'administrateur';
           return CustomScrollView(
             slivers: [
               SliverAppBar(
                 title: Text(dossier.nomCode),
                 actions: [
                   IconButton(
+                    icon: const Icon(Icons.people_outline),
+                    tooltip: l10n.dossierDetailParticipantsTooltip,
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => ParticipantsDossierScreen(dossierId: dossier.id)),
+                    ),
+                  ),
+                  IconButton(
                     icon: const Icon(Icons.edit),
                     tooltip: l10n.dossierDetailModifierTooltip,
                     onPressed: () => _modifierDossier(context, dossier),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    tooltip: l10n.dossierDetailSupprimerTooltip,
-                    onPressed: () => _supprimerDossier(context, dossier),
-                  ),
+                  if (jePeuxSupprimer)
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      tooltip: l10n.dossierDetailSupprimerTooltip,
+                      onPressed: () => _supprimerDossier(context, dossier),
+                    ),
                 ],
               ),
               SliverToBoxAdapter(
@@ -93,7 +127,14 @@ class DossierDetailScreen extends StatelessWidget {
                   );
                 },
               ),
-              SliverToBoxAdapter(child: _SectionJournal(dossierId: dossierId)),
+              SliverToBoxAdapter(
+                child: _SectionJournal(
+                  dossierId: dossierId,
+                  participantsUids: dossier.participantsUids,
+                  monUid: monUid,
+                  monRole: monRole,
+                ),
+              ),
               const SliverToBoxAdapter(child: SizedBox(height: 80)),
             ],
           );
@@ -131,8 +172,20 @@ class DossierDetailScreen extends StatelessWidget {
       destructif: true,
     );
     if (confirme && context.mounted) {
-      await FirestoreService.instance.supprimerDossier(dossier.id);
-      if (context.mounted) Navigator.of(context).pop();
+      try {
+        await FirestoreService.instance.supprimerDossier(dossier.id);
+        if (context.mounted) Navigator.of(context).pop();
+      } catch (e) {
+        // Défense en profondeur (le bouton est déjà masqué pour un simple
+        // contributeur) : couvre la fenêtre de course où le rôle changerait
+        // pendant la double confirmation, plutôt qu'une exception non
+        // gérée sans aucun retour visible pour l'utilisateur.
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.participantsErreurGenerique)),
+          );
+        }
+      }
     }
   }
 
@@ -435,13 +488,25 @@ class _DialogueTacheState extends State<_DialogueTache> {
             );
             final notesTexte = notes.estVide ? null : notes.formater();
             if (widget.tache == null) {
+              // Relit le dossier ICI plutôt que d'utiliser le `widget.dossier`
+              // capturé à l'ouverture du dialogue (trouvé en Red Team le
+              // 2026-08-31, via /code-review) : la boîte peut rester ouverte
+              // un moment (temps de remplir le formulaire) pendant lequel les
+              // participants peuvent avoir changé — `tacheCoherente()` côté
+              // firestore.rules exige désormais une correspondance EXACTE
+              // avec l'état ACTUEL du dossier, donc une liste périmée
+              // provoquerait un refus (PERMISSION_DENIED) même pour un
+              // utilisateur parfaitement légitime.
+              final dossierActuel = await FirestoreService.instance.dossier(widget.dossier!.id).first;
               await FirestoreService.instance.ajouterTacheADossier(
-                dossierId: widget.dossier!.id,
-                nomCodeDossier: widget.dossier!.nomCode,
+                dossierId: dossierActuel.id,
+                nomCodeDossier: dossierActuel.nomCode,
                 descriptionCourte: description,
                 nature: _nature!.nom,
                 dateDeclenchante: _date,
                 notesDetaillees: notesTexte,
+                proprietaireUid: dossierActuel.uid,
+                participantsUids: dossierActuel.participantsUids,
               );
             } else {
               await FirestoreService.instance.modifierTache(
@@ -515,8 +580,16 @@ class _EntreeAffichable {
 /// la saisie, et affichée en frise chronologique plutôt qu'en simples cartes
 /// identiques ("il ne s'agit pas juste d'ajouter une note tout court").
 class _SectionJournal extends StatefulWidget {
-  const _SectionJournal({required this.dossierId});
+  const _SectionJournal({
+    required this.dossierId,
+    required this.participantsUids,
+    required this.monUid,
+    required this.monRole,
+  });
   final String dossierId;
+  final List<String> participantsUids;
+  final String monUid;
+  final String monRole;
 
   @override
   State<_SectionJournal> createState() => _SectionJournalState();
@@ -542,16 +615,33 @@ class _SectionJournalState extends State<_SectionJournal> {
   Future<void> _ajouter() async {
     final texte = _controleur.text.trim();
     if (texte.isEmpty) return;
-    final deverrouille = await demanderPhraseSecrete(context);
-    if (!deverrouille || !mounted) return;
+    // Chiffrement désactivé dès qu'un dossier est partagé (décision de
+    // Tobie le 2026-08-30, Red Team) : la clé dérivée de la phrase secrète
+    // est strictement personnelle à celui qui écrit, jamais partagée — un
+    // autre participant ne pourrait JAMAIS déchiffrer une entrée chiffrée
+    // avec la clé de quelqu'un d'autre (voir _dechiffrerToutes, qui affiche
+    // alors l'entrée comme verrouillée pour toujours, même après avoir
+    // déverrouillé SA PROPRE phrase secrète). Reste actif pour un dossier
+    // strictement solo, où ce problème ne se pose pas.
+    if (widget.participantsUids.length <= 1) {
+      final deverrouille = await demanderPhraseSecrete(context);
+      if (!deverrouille || !mounted) return;
+    }
     setState(() => _enCours = true);
     try {
-      final texteChiffre = await ChiffrementNotesService.instance.chiffrer(texte);
+      // Relu ICI, pas avant l'attente ci-dessus (trouvé en Red Team le
+      // 2026-08-30, via /code-review) : le dossier peut avoir été partagé
+      // PENDANT que l'utilisateur saisissait sa phrase secrète — utiliser
+      // une valeur capturée avant l'attente aurait pu chiffrer une entrée
+      // qui atterrit dans un dossier déjà devenu partagé entre-temps.
+      final estPartage = widget.participantsUids.length > 1;
+      final texteAEcrire = estPartage ? texte : await ChiffrementNotesService.instance.chiffrer(texte);
       await FirestoreService.instance.ajouterEntreeJournal(
         widget.dossierId,
-        texteChiffre,
+        texteAEcrire,
         _typeSelectionne,
-        chiffre: true,
+        chiffre: !estPartage,
+        participantsUids: widget.participantsUids,
       );
       _controleur.clear();
     } catch (e) {
@@ -575,7 +665,18 @@ class _SectionJournalState extends State<_SectionJournal> {
       destructif: true,
     );
     if (confirme) {
-      await FirestoreService.instance.supprimerEntreeJournal(entree.id);
+      try {
+        await FirestoreService.instance.supprimerEntreeJournal(entree.id);
+      } catch (e) {
+        // Défense en profondeur : le bouton est déjà masqué pour qui n'a pas
+        // le droit (voir peutGererCetteEntree), mais couvre la fenêtre de
+        // course où le rôle changerait pendant la double confirmation.
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.participantsErreurGenerique)),
+          );
+        }
+      }
     }
   }
 
@@ -899,6 +1000,12 @@ class _SectionJournalState extends State<_SectionJournal> {
   Widget _ligneEntree(BuildContext context, _EntreeAffichable affichable, bool dernierDuJour) {
     final entree = affichable.entree;
     final l10n = AppLocalizations.of(context)!;
+    // Modifier/supprimer réservé à l'auteur ou créateur/administrateur
+    // (décision de Tobie le 2026-08-30, voir estAuteurOuGestionnaire côté
+    // firestore.rules — même règle reproduite ici pour ne pas afficher des
+    // boutons qui échoueraient côté serveur).
+    final peutGererCetteEntree =
+        entree.auteurUid == widget.monUid || widget.monRole == 'createur' || widget.monRole == 'administrateur';
     final estFrancais = Localizations.localeOf(context).languageCode != 'en';
     final heure = estFrancais
         ? '${entree.creeLe.hour.toString().padLeft(2, '0')}h${entree.creeLe.minute.toString().padLeft(2, '0')}'
@@ -950,24 +1057,26 @@ class _SectionJournalState extends State<_SectionJournal> {
                           padding: const EdgeInsets.only(left: 4),
                           child: Text(l10n.dossierDetailModifieSuffixe, style: const TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic)),
                         ),
-                      SizedBox(
-                        width: 28,
-                        height: 28,
-                        child: IconButton(
-                          padding: EdgeInsets.zero,
-                          icon: const Icon(Icons.edit_outlined, size: 16),
-                          onPressed: affichable.verrouillee ? null : () => _editer(context, entree),
+                      if (peutGererCetteEntree) ...[
+                        SizedBox(
+                          width: 28,
+                          height: 28,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(Icons.edit_outlined, size: 16),
+                            onPressed: affichable.verrouillee ? null : () => _editer(context, entree),
+                          ),
                         ),
-                      ),
-                      SizedBox(
-                        width: 28,
-                        height: 28,
-                        child: IconButton(
-                          padding: EdgeInsets.zero,
-                          icon: const Icon(Icons.delete_outline, size: 16),
-                          onPressed: () => _supprimer(context, entree),
+                        SizedBox(
+                          width: 28,
+                          height: 28,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(Icons.delete_outline, size: 16),
+                            onPressed: () => _supprimer(context, entree),
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                   if (affichable.verrouillee)

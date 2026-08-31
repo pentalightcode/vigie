@@ -2,23 +2,250 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Chacun ne peut lire/modifier que ses propres dossiers et tâches
-    // (le champ "uid" doit correspondre à l'utilisateur connecté).
+    // Accès par dossier (refonte du 2026-08-29, après une exploration
+    // complète de "comment Vigie sert le travail de groupe" — voir
+    // Notes/2026-08-29-redteam-collaboration-multi-angles.md). Remplace une
+    // première tentative "collaborateur de tout le compte" faite plus tôt
+    // le même jour, jamais utilisée par l'app : l'exploration a montré
+    // qu'un dossier ne se ferme jamais et que ses participants changent
+    // dans le temps (Angle 41), donc l'accès doit se décider PAR DOSSIER,
+    // pas par compte entier.
+    //
+    // Chaque dossier porte deux champs dénormalisés :
+    // - participantsUids (tableau) : qui a accès, pour les requêtes
+    //   ("mes dossiers" = where participantsUids array-contains monUid) ET
+    //   pour ces règles (aucune lecture supplémentaire nécessaire).
+    // - roles (map uid -> 'createur'|'administrateur'|'contributeur') :
+    //   pour savoir QUEL niveau chacun a.
+    // - participantsEmails (map uid -> email), écrit UNIQUEMENT par la
+    //   fonction serveur gerer_participant_dossier (SDK Admin, ignore ces
+    //   règles) — pour que l'écran de gestion des participants affiche un
+    //   email plutôt qu'un uid brut, sans requête supplémentaire.
+    // Les tâches et entrées de journal portent une COPIE de
+    // participantsUids (synchronisée automatiquement par la fonction
+    // serveur quand la liste change sur le dossier) pour pouvoir être
+    // interrogées directement, sans dépendre d'une lecture du dossier
+    // parent à chaque fois.
+    // Rétrocompatibilité : les dossiers/tâches/entrées créés AVANT ce
+    // changement de modèle (2026-08-29) n'ont pas encore de
+    // participantsUids — sans repli, leurs propriétaires perdraient l'accès
+    // à leurs propres données existantes. Le repli `data.uid` ne s'applique
+    // donc QUE tant que participantsUids est totalement absent du document —
+    // dès qu'il existe (créé après le 29/08, ou touché au moins une fois par
+    // la synchronisation serveur), c'est lui seul qui décide.
+    //
+    // Trouvé en Red Team le 2026-08-30 (voir
+    // Notes/2026-08-30-redteam-code-collaboration.md, faille critique) :
+    // avec un OR permanent entre les deux replis, un participant RETIRÉ
+    // gardait un accès pour toujours à toute entrée de journalDossier qu'il
+    // avait lui-même écrite — sur journalDossier, `uid` désigne l'AUTEUR de
+    // l'entrée (n'importe quel participant, retirable), pas le créateur du
+    // dossier (jamais retirable, comme sur dossiers/taches) ; la
+    // synchronisation met à jour participantsUids mais ne touche jamais
+    // `uid`, donc l'ancien OR laissait l'auteur retiré accéder à ses propres
+    // notes indéfiniment. Vérifié que cette bascule ne casse rien pour
+    // dossiers/taches : leur `uid` désigne toujours quelqu'un jamais
+    // retirable (le créateur), automatiquement inclus dans participantsUids
+    // dès que ce champ existe.
+    function estParticipant(data) {
+      return request.auth != null && (
+        ('participantsUids' in data)
+          ? request.auth.uid in data.participantsUids
+          : (data.uid is string && data.uid == request.auth.uid)
+      );
+    }
+    function role(dossierData) {
+      return ('roles' in dossierData && request.auth.uid in dossierData.roles)
+        ? dossierData.roles[request.auth.uid]
+        : (dossierData.uid == request.auth.uid ? 'createur' : null);
+    }
+
+    // Modifier/supprimer une entrée de journal : son auteur, ou créateur/
+    // administrateur du dossier (décision de Tobie le 2026-08-30, en
+    // reposant la question du point "n'importe quel participant peut
+    // modifier l'entrée d'un autre" — sa vision d'origine du journal partagé
+    // était de "distinguer les entrées de chaque collaborateur", donc
+    // protéger l'auteur, avec la nuance que créateur/administrateur gardent
+    // un droit de modération). `uid` sur journalDossier = l'auteur réel
+    // (toujours request.auth.uid à la création, jamais changé après, voir
+    // règle update ci-dessous) — comparer directement dessus, pas besoin
+    // d'un champ séparé.
+    // estParticipant() exigé en préalable (retrouvé en re-vérifiant ce
+    // correctif, via /code-review) : sans lui, `data.uid == request.auth.uid`
+    // reste vrai POUR TOUJOURS (uid est figé, jamais réécrit) — un auteur
+    // RETIRÉ du dossier gardait donc un droit de modifier/supprimer SES
+    // PROPRES anciennes entrées même après ne plus pouvoir les lire du tout
+    // (estParticipant bloque déjà correctement la lecture), en ciblant le
+    // document directement par son identifiant plutôt que via la requête de
+    // liste. Défait tout l'intérêt de le retirer.
+    function estAuteurOuGestionnaire(data) {
+      return estParticipant(data)
+        && (
+          data.uid == request.auth.uid
+          || (
+            exists(/databases/$(database)/documents/dossiers/$(data.dossierId))
+            && role(get(/databases/$(database)/documents/dossiers/$(data.dossierId)).data) in ['createur', 'administrateur']
+          )
+        );
+    }
+
+    // Empêche de forger une tâche/entrée de journal en y injectant l'uid de
+    // quelqu'un d'autre dans participantsUids (trouvé en Red Team le
+    // 2026-08-30, via /code-review) : sans ce contrôle, estParticipant()
+    // vérifiait seulement que le DEMANDEUR figurait dans la liste qu'IL
+    // écrivait lui-même — rien n'empêchait d'y ajouter aussi l'uid d'une
+    // victime, injectant directement une tâche forgée dans ses écrans "À
+    // traiter"/Bilan et son rappel quotidien, sans jamais avoir été un vrai
+    // participant de quoi que ce soit.
+    // - participantsUids == [soi-même] (cas solo) : toujours autorisé sans
+    //   lecture supplémentaire — nécessaire pour la création "dossier +
+    //   première tâche" dans le MÊME batch (voir
+    //   _ajouterDossierEtTacheAuBatch, firestore_service.dart) : le dossier
+    //   n'existe pas encore au moment où cette règle s'évalue, get() ne
+    //   verrait de toute façon jamais les écritures d'un même batch.
+    // - Toute autre liste (plusieurs personnes) DOIT correspondre EXACTEMENT
+    //   à la vraie liste actuelle du dossier référencé.
+    // Le repli "solo" ne doit s'appliquer QUE si le dossier référencé
+    // N'EXISTE PAS ENCORE (cas dossier+première tâche créés dans le même
+    // batch) — trouvé en re-vérifiant ce correctif, via /code-review : sans
+    // le `!exists(...)`, n'importe qui pouvait créer une tâche/entrée solo
+    // (participantsUids == [soi-même], sans lien réel avec le VRAI dossier)
+    // en pointant `dossierId` vers le dossier RÉEL de quelqu'un d'autre.
+    // Invisible au début (participantsUids ne contient que l'attaquant), le
+    // document forgé "s'activait" ensuite tout seul : la moindre action de
+    // gestion légitime sur ce dossier (ajouter/retirer un participant)
+    // déclenche `_synchroniser_participants_dossier`, qui écrase
+    // AVEUGLÉMENT participantsUids sur TOUS les documents portant ce
+    // dossierId — y compris le document forgé — avec la vraie liste de
+    // participants, le rendant alors visible de tous, sans jamais avoir été
+    // un vrai participant.
+    function participantsCoherents(data) {
+      return (
+        !exists(/databases/$(database)/documents/dossiers/$(data.dossierId))
+        && data.get('participantsUids', []) == [request.auth.uid]
+      )
+        || (
+          exists(/databases/$(database)/documents/dossiers/$(data.dossierId))
+          && data.get('participantsUids', [])
+            == get(/databases/$(database)/documents/dossiers/$(data.dossierId)).data.get('participantsUids', [])
+        );
+    }
+
+    // Sur une TÂCHE, `uid` désigne le PROPRIÉTAIRE du dossier — pas
+    // forcément le demandeur (un contributeur peut ajouter une tâche au
+    // dossier de quelqu'un d'autre, voir ajouterTacheADossier). `uid` et
+    // participantsUids doivent donc être validés ENSEMBLE, jamais chacun de
+    // son côté (deuxième trou trouvé en corrigeant le premier, via
+    // /code-review, le 2026-08-30) : vérifier `uid` seul (repli "correspond
+    // au vrai propriétaire" OU "égal au demandeur") indépendamment de
+    // participantsUids aurait permis de forger `uid` = victime réelle tout en
+    // gardant participantsUids solo (== [soi-même], inoffensif en apparence,
+    // suffisant pour estParticipant) — combinaison qui ne correspond à AUCUN
+    // scénario légitime, seulement à une forgerie.
+    // Même correctif que participantsCoherents ci-dessus (`!exists(...)` sur
+    // le repli solo) : même vecteur de forgerie, activée plus tard par la
+    // même synchronisation en cascade.
+    function tacheCoherente(data) {
+      return (
+        !exists(/databases/$(database)/documents/dossiers/$(data.dossierId))
+        && data.uid == request.auth.uid
+        && data.get('participantsUids', []) == [request.auth.uid]
+      )
+        || (
+          exists(/databases/$(database)/documents/dossiers/$(data.dossierId))
+          && data.uid == get(/databases/$(database)/documents/dossiers/$(data.dossierId)).data.uid
+          && data.get('participantsUids', [])
+            == get(/databases/$(database)/documents/dossiers/$(data.dossierId)).data.get('participantsUids', [])
+        );
+    }
+
     match /dossiers/{dossierId} {
-      allow read, delete: if request.auth != null && resource.data.uid == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
-      // Une modification ne doit jamais pouvoir changer le propriétaire du document.
-      allow update: if request.auth != null
-        && resource.data.uid == request.auth.uid
-        && request.resource.data.uid == resource.data.uid;
+      allow read: if estParticipant(resource.data);
+      // Un dossier ne peut être créé qu'avec SOI-MÊME comme unique
+      // participant (createur) — rétrocompatible avec l'app pas encore mise
+      // à jour (écrit encore seulement "uid", sans participantsUids/roles,
+      // couvert par les valeurs par défaut ci-dessous). Toute invitation
+      // d'un autre participant doit obligatoirement passer ENSUITE par la
+      // fonction serveur `gerer_participant_dossier` (vérifie l'email,
+      // le droit d'inviter du demandeur).
+      //
+      // Trouvé en Red Team le 2026-08-30 (voir
+      // Notes/2026-08-30-redteam-code-collaboration.md) : l'ancienne règle
+      // vérifiait seulement que LE CRÉATEUR se déclarait bien "createur",
+      // sans rien limiter sur le RESTE de participantsUids/roles — un client
+      // parlant directement à l'API (pas forcément l'app) pouvait donc créer
+      // un dossier en y ajoutant n'importe quel autre uid (même inexistant)
+      // avec n'importe quel rôle dès la création, contournant entièrement le
+      // circuit d'invitation vérifié.
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.get('participantsUids', [request.auth.uid]) == [request.auth.uid]
+        && request.resource.data.get('roles', {request.auth.uid: 'createur'}) == {request.auth.uid: 'createur'}
+        && request.resource.data.get('participantsEmails', {}) == {};
+      // Modifier le contenu (nom, date) : tout participant, quel que soit
+      // son rôle (accès complet choisi par Tobie). Modifier QUI a accès
+      // (participantsUids/roles/participantsEmails) : PERSONNE, pas même le
+      // créateur — doit obligatoirement passer par `gerer_participant_dossier`.
+      //
+      // Ce champ était réservé au créateur seul jusqu'au 30/08 (décision du
+      // même jour : un administrateur ne gère que des contributeurs) — trou
+      // retrouvé en re-vérifiant CE correctif, via /code-review : le
+      // créateur pouvait encore écrire ces champs en direct, contournant
+      // TOUTES les validations de la fonction serveur (résolution d'email,
+      // vérification "déjà participant", valeurs de rôle valides,
+      // restriction administrateur/administrateur) ET sa synchronisation en
+      // cascade vers les tâches/entrées de journal existantes — un ajout en
+      // écriture directe laisserait le dossier durablement incohérent avec
+      // son propre contenu. Aucun chemin légitime de l'app n'écrit jamais
+      // ces champs directement (voir firestore_service.dart,
+      // `modifierDossier`) — les figer entièrement ne casse rien.
+      // `uid` figé aussi — voir Notes 2026-08-30, retrouvé via /code-review :
+      // la refonte du 29/08 avait par erreur abandonné cet invariant présent
+      // dans les règles d'ORIGINE (avant la refonte collaboration), ouvrant
+      // une vraie faille de destruction de données — n'importe quel
+      // participant pouvait réécrire `uid` vers la victime de son choix ;
+      // quand cette victime supprimait ensuite SON PROPRE compte,
+      // `supprimer_compte_definitivement` (qui filtre par `uid==`) effaçait
+      // le dossier de quelqu'un d'autre sans lien avec elle.
+      allow update: if estParticipant(resource.data)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.get('participantsUids', []) == resource.data.get('participantsUids', [])
+        && request.resource.data.get('roles', {}) == resource.data.get('roles', {})
+        && request.resource.data.get('participantsEmails', {}) == resource.data.get('participantsEmails', {});
+      // Supprimer le dossier : créateur ou administrateur seulement (voir
+      // Notes — un simple contributeur ne peut pas supprimer unilatéralement,
+      // le vrai workflow d'approbation à plusieurs reste pour la Phase 2).
+      allow delete: if estParticipant(resource.data)
+        && role(resource.data) in ['createur', 'administrateur'];
     }
 
     match /taches/{tacheId} {
-      allow read, delete: if request.auth != null && resource.data.uid == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
-      allow update: if request.auth != null
-        && resource.data.uid == request.auth.uid
-        && request.resource.data.uid == resource.data.uid;
+      allow read, delete: if estParticipant(resource.data);
+      // `uid` jamais vérifié à la création avant ce correctif (trouvé en Red
+      // Team le 2026-08-30, via /code-review) : n'importe qui pouvait forger
+      // une tâche avec `uid` = une victime réelle, exposée ensuite à cette
+      // victime via `_taches_actives_visibles` (SDK Admin, ignore ces
+      // règles) — voir tacheCoherente() ci-dessus.
+      allow create: if estParticipant(request.resource.data) && tacheCoherente(request.resource.data);
+      // participantsUids figé à l'update (trouvé en Red Team le 2026-08-30) :
+      // seule la fonction serveur `_synchroniser_participants_dossier` (SDK
+      // Admin, ignore ces règles) a besoin de le changer, quand la liste
+      // change sur le dossier parent. Sans ce verrou, n'importe quel
+      // participant (même simple contributeur) pouvait ajouter un tiers en
+      // direct sur UNE tâche (invitation "sauvage", sans passer par
+      // gerer_participant_dossier ni vérification d'email) ou au contraire
+      // retirer le créateur de CETTE tâche précise pour la lui cacher.
+      // `uid` figé — même correctif que sur /dossiers ci-dessus (Red Team du
+      // 2026-08-30, via /code-review) : sans lui, `uid` était librement
+      // réécrivable vers n'importe quelle victime, qui perdait ensuite cette
+      // tâche à sa propre suppression de compte (filtre `uid==` de
+      // `supprimer_compte_definitivement`), ou pire, se retrouvait ajoutée
+      // aux rappels quotidiens d'un dossier auquel elle n'a jamais eu accès
+      // (`_taches_actives_visibles` interroge aussi par `uid==`).
+      allow update: if estParticipant(resource.data)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.dossierId == resource.data.dossierId
+        && request.resource.data.get('participantsUids', []) == resource.data.get('participantsUids', []);
     }
 
     // Journal de bord d'un dossier : des entrées datées qu'on ajoute au fil
@@ -26,24 +253,64 @@ service cloud.firestore {
     // "update" — seulement create/delete, un journal ne se corrige pas
     // rétroactivement, on ajoute ou on supprime une entrée erronée).
     match /journalDossier/{entreeId} {
-      allow read, delete: if request.auth != null && resource.data.uid == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow read: if estParticipant(resource.data);
+      // Réservé à l'auteur ou à créateur/administrateur (décision de Tobie
+      // le 2026-08-30, voir estAuteurOuGestionnaire ci-dessus) — un simple
+      // contributeur ne peut plus supprimer l'entrée de quelqu'un d'autre.
+      allow delete: if estAuteurOuGestionnaire(resource.data);
+      // Sur une entrée de journal, `uid` désigne l'AUTEUR réel — toujours le
+      // demandeur lui-même (jamais quelqu'un d'autre, contrairement à
+      // /taches où `uid` = propriétaire du dossier). Figé sans condition,
+      // ferme la même forgerie que sur /taches (trouvé en Red Team le
+      // 2026-08-30, via /code-review) : sans ce contrôle, n'importe qui
+      // pouvait créer une entrée avec `uid` = victime réelle et
+      // dossierId = son VRAI dossier, la rendant visible dans son journal.
+      allow create: if estParticipant(request.resource.data)
+        && request.resource.data.uid == request.auth.uid
+        && participantsCoherents(request.resource.data);
       // Modification autorisée (choix explicite de Tobie le 2026-08-21) : seuls le
-      // texte/type/modifieLe peuvent changer, jamais le propriétaire, le dossier ou
-      // la date de création réelle — pour ne pas pouvoir maquiller l'historique.
-      allow update: if request.auth != null
-        && resource.data.uid == request.auth.uid
+      // texte/type/modifieLe peuvent changer, jamais le dossier ou la date de
+      // création réelle — pour ne pas pouvoir maquiller l'historique.
+      // participantsUids ET uid figés aussi (même raison que sur /taches
+      // ci-dessus, Red Team du 2026-08-30, via /code-review) : seule la
+      // fonction serveur change participantsUids, et `uid` ne doit JAMAIS
+      // être réécrit vers une victime arbitraire.
+      // Même restriction que delete (décision de Tobie le 2026-08-30) :
+      // auteur ou créateur/administrateur seulement.
+      // `auteurUid` figé aussi (trouvé en re-vérifiant ce correctif, via
+      // /code-review) : sans ça, créateur/administrateur pouvait réécrire à
+      // qui une entrée est attribuée — l'écran affiche modifier/supprimer
+      // selon `auteurUid` (dossier_detail_screen.dart), donc ceci aurait pu
+      // afficher à tort les boutons de gestion à quelqu'un d'autre (l'action
+      // aurait quand même échoué côté serveur, qui vérifie `uid` et jamais
+      // `auteurUid`, mais l'attribution affichée resterait fausse et
+      // indétectable pour les autres participants). Aucun chemin légitime
+      // ne modifie jamais ce champ (voir `modifierEntreeJournal`).
+      allow update: if estAuteurOuGestionnaire(resource.data)
         && request.resource.data.uid == resource.data.uid
+        && request.resource.data.get('auteurUid', null) == resource.data.get('auteurUid', null)
         && request.resource.data.dossierId == resource.data.dossierId
-        && request.resource.data.creeLe == resource.data.creeLe;
+        && request.resource.data.creeLe == resource.data.creeLe
+        && request.resource.data.get('participantsUids', []) == resource.data.get('participantsUids', []);
     }
 
-    // Réglages personnels : chacun ne voit/modifie que son propre document,
-    // identifié directement par son uid (pas de champ "uid" à vérifier ici).
+    // Réglages personnels : strictement le propriétaire du compte — le
+    // modèle "collaborateur de tout le compte" a été abandonné (voir plus
+    // haut), un collaborateur reçoit maintenant un accès PAR DOSSIER, pas
+    // aux réglages généraux de quelqu'un d'autre.
     match /utilisateurs/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
 
-      // Natures de dossier personnalisées : même règle, propres à chaque utilisateur.
+      // Collaborateurs "par défaut" (ajouté le 2026-08-29) : liste de
+      // personnes que ce compte ajoute automatiquement comme participants à
+      // chaque nouveau dossier créé — pure commodité côté client (n'accorde
+      // par elle-même aucun accès ; c'est participantsUids sur le dossier
+      // qui compte). Le propriétaire uniquement peut la gérer.
+      match /collaborateursParDefaut/{collabId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Natures de dossier personnalisées : propres à chaque utilisateur.
       match /naturesDossier/{natureId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }

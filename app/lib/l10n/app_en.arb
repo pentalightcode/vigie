@@ -639,5 +639,47 @@
       "message": {"type": "String"}
     }
   },
-  "connexionGoogleAdresseInconnue": "Connected account (reconnect to see the address)"
+  "connexionGoogleAdresseInconnue": "Connected account (reconnect to see the address)",
+  "commonRetirer": "Remove",
+  "dossierDetailParticipantsTooltip": "Participants",
+  "participantsTitre": "Participants",
+  "participantsLectureSeuleInfo": "Only the creator and administrators can manage participants.",
+  "participantsAjouterBouton": "Add a participant",
+  "participantsRoleCreateur": "Creator",
+  "participantsRoleAdministrateur": "Administrator",
+  "participantsRoleContributeur": "Contributor",
+  "participantsSousTitreMoi": "{role} · you",
+  "@participantsSousTitreMoi": {
+    "placeholders": {
+      "role": {"type": "String"}
+    }
+  },
+  "dossierAccesRevoqueMessage": "You no longer have access to this case. An administrator may have removed you while you were viewing it.",
+  "participantsMenuPasserAdministrateur": "Make administrator",
+  "participantsMenuPasserContributeur": "Make contributor",
+  "participantsRetirerTitre": "Remove this participant?",
+  "participantsRetirerMessage": "{affichage} will no longer have access to this case.",
+  "@participantsRetirerMessage": {
+    "placeholders": {
+      "affichage": {"type": "String"}
+    }
+  },
+  "participantsQuitterBouton": "Leave",
+  "participantsQuitterTitre": "Leave this case?",
+  "participantsQuitterMessage": "You'll no longer have access to this case or its content. You can ask to be invited again later.",
+  "participantsErreur": "Couldn't complete this action: {erreur}",
+  "@participantsErreur": {
+    "placeholders": {
+      "erreur": {"type": "String"}
+    }
+  },
+  "participantsErreurAucunCompte": "No Vigie account exists with this email.",
+  "participantsErreurDejaParticipant": "This person is already a participant on this case.",
+  "participantsErreurPermission": "You don't have permission to manage this case's participants.",
+  "participantsErreurCreateurNonRetirable": "The case's creator can't be removed.",
+  "participantsErreurCreateurRoleFixe": "The creator's role can't be changed.",
+  "participantsErreurGenerique": "Something went wrong. Try again.",
+  "participantsDialogueAjouterTitre": "Add a participant",
+  "participantsDialogueAjouterChampEmail": "Vigie account email",
+  "participantsDialogueAjouterChampRole": "Role"
 }

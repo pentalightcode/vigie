@@ -22,6 +22,8 @@ class EntreeJournal {
     required this.type,
     this.modifieLe,
     this.chiffre = false,
+    this.participantsUids = const [],
+    this.auteurUid,
   });
 
   final String id;
@@ -37,6 +39,11 @@ class EntreeJournal {
   /// d'avant, restées en clair — jamais rechiffrées rétroactivement, pour
   /// ne prendre aucun risque de migration sur des données existantes.
   final bool chiffre;
+  /// Copié depuis le dossier parent (voir `Dossier.participantsUids`).
+  final List<String> participantsUids;
+  /// Qui a réellement écrit cette entrée — distinct de `uid` (à qui
+  /// appartient le dossier), voir `Notes/2026-08-29-redteam-collaboration-multi-angles.md`.
+  final String? auteurUid;
 
   factory EntreeJournal.depuisDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -48,6 +55,8 @@ class EntreeJournal {
       type: _typeDepuisTexte(data['type'] as String?),
       modifieLe: (data['modifieLe'] as Timestamp?)?.toDate(),
       chiffre: data['chiffre'] as bool? ?? false,
+      participantsUids: (data['participantsUids'] as List<dynamic>?)?.cast<String>() ?? const [],
+      auteurUid: data['auteurUid'] as String? ?? data['uid'] as String?,
     );
   }
 
@@ -59,5 +68,7 @@ class EntreeJournal {
         type: type,
         modifieLe: modifieLe,
         chiffre: chiffre,
+        participantsUids: participantsUids,
+        auteurUid: auteurUid,
       );
 }

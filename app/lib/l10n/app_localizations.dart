@@ -2190,6 +2190,168 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Compte connecté (reconnecte-toi pour voir l\'adresse)'**
   String get connexionGoogleAdresseInconnue;
+
+  /// No description provided for @commonRetirer.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirer'**
+  String get commonRetirer;
+
+  /// No description provided for @dossierDetailParticipantsTooltip.
+  ///
+  /// In fr, this message translates to:
+  /// **'Participants'**
+  String get dossierDetailParticipantsTooltip;
+
+  /// No description provided for @participantsTitre.
+  ///
+  /// In fr, this message translates to:
+  /// **'Participants'**
+  String get participantsTitre;
+
+  /// No description provided for @participantsLectureSeuleInfo.
+  ///
+  /// In fr, this message translates to:
+  /// **'Seuls le créateur et les administrateurs peuvent gérer les participants.'**
+  String get participantsLectureSeuleInfo;
+
+  /// No description provided for @participantsAjouterBouton.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter un participant'**
+  String get participantsAjouterBouton;
+
+  /// No description provided for @participantsRoleCreateur.
+  ///
+  /// In fr, this message translates to:
+  /// **'Créateur'**
+  String get participantsRoleCreateur;
+
+  /// No description provided for @participantsRoleAdministrateur.
+  ///
+  /// In fr, this message translates to:
+  /// **'Administrateur'**
+  String get participantsRoleAdministrateur;
+
+  /// No description provided for @participantsRoleContributeur.
+  ///
+  /// In fr, this message translates to:
+  /// **'Contributeur'**
+  String get participantsRoleContributeur;
+
+  /// No description provided for @participantsSousTitreMoi.
+  ///
+  /// In fr, this message translates to:
+  /// **'{role} · toi'**
+  String participantsSousTitreMoi(String role);
+
+  /// No description provided for @dossierAccesRevoqueMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tu n\'as plus accès à ce dossier. Un administrateur t\'a peut-être retiré pendant que tu le consultais.'**
+  String get dossierAccesRevoqueMessage;
+
+  /// No description provided for @participantsMenuPasserAdministrateur.
+  ///
+  /// In fr, this message translates to:
+  /// **'Passer administrateur'**
+  String get participantsMenuPasserAdministrateur;
+
+  /// No description provided for @participantsMenuPasserContributeur.
+  ///
+  /// In fr, this message translates to:
+  /// **'Passer contributeur'**
+  String get participantsMenuPasserContributeur;
+
+  /// No description provided for @participantsRetirerTitre.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirer ce participant ?'**
+  String get participantsRetirerTitre;
+
+  /// No description provided for @participantsRetirerMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'{affichage} n\'aura plus accès à ce dossier.'**
+  String participantsRetirerMessage(String affichage);
+
+  /// No description provided for @participantsQuitterBouton.
+  ///
+  /// In fr, this message translates to:
+  /// **'Quitter'**
+  String get participantsQuitterBouton;
+
+  /// No description provided for @participantsQuitterTitre.
+  ///
+  /// In fr, this message translates to:
+  /// **'Quitter ce dossier ?'**
+  String get participantsQuitterTitre;
+
+  /// No description provided for @participantsQuitterMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tu n\'auras plus accès à ce dossier ni à son contenu. Tu peux redemander à être invité plus tard.'**
+  String get participantsQuitterMessage;
+
+  /// No description provided for @participantsErreur.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible d\'effectuer cette action : {erreur}'**
+  String participantsErreur(String erreur);
+
+  /// No description provided for @participantsErreurAucunCompte.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun compte Vigie n\'existe avec cet email.'**
+  String get participantsErreurAucunCompte;
+
+  /// No description provided for @participantsErreurDejaParticipant.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cette personne est déjà participante de ce dossier.'**
+  String get participantsErreurDejaParticipant;
+
+  /// No description provided for @participantsErreurPermission.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tu n\'as pas le droit de gérer les participants de ce dossier.'**
+  String get participantsErreurPermission;
+
+  /// No description provided for @participantsErreurCreateurNonRetirable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le créateur du dossier ne peut pas être retiré.'**
+  String get participantsErreurCreateurNonRetirable;
+
+  /// No description provided for @participantsErreurCreateurRoleFixe.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le rôle du créateur ne peut pas être changé.'**
+  String get participantsErreurCreateurRoleFixe;
+
+  /// No description provided for @participantsErreurGenerique.
+  ///
+  /// In fr, this message translates to:
+  /// **'Une erreur est survenue. Réessaie.'**
+  String get participantsErreurGenerique;
+
+  /// No description provided for @participantsDialogueAjouterTitre.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter un participant'**
+  String get participantsDialogueAjouterTitre;
+
+  /// No description provided for @participantsDialogueAjouterChampEmail.
+  ///
+  /// In fr, this message translates to:
+  /// **'Email du compte Vigie'**
+  String get participantsDialogueAjouterChampEmail;
+
+  /// No description provided for @participantsDialogueAjouterChampRole.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rôle'**
+  String get participantsDialogueAjouterChampRole;
 }
 
 class _AppLocalizationsDelegate

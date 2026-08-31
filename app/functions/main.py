@@ -381,19 +381,37 @@ def _corps_escalade(groupe: dict) -> str:
     return f"{nom} : {total} tâche(s) à traiter."
 
 
+def _taches_actives_visibles(db, uid: str):
+    """Tâches "à faire" visibles par cet utilisateur : les siennes (uid==,
+    dossiers dont il est propriétaire) ET celles des dossiers PARTAGÉS dont
+    il est participant (participantsUids array-contains) — dédupliquées par
+    identifiant de document. Miroir côté serveur de `_filtreParticipant` côté
+    app (voir firestore_service.dart).
+
+    Trouvé en continuant la Phase 1 collaboration (2026-08-30) : sans ce
+    deuxième filtre, `digest_quotidien` ne cherchait jamais que les tâches
+    dont `uid` == le PROPRIÉTAIRE du dossier — un participant ajouté à un
+    dossier partagé ne recevait donc jamais aucun rappel pour ses tâches,
+    alors que les rappels sont la fonctionnalité centrale de Vigie. Deux
+    requêtes séparées plutôt qu'un Filter.or côté Python : les index
+    composites nécessaires (uid+statut, participantsUids+statut) existent
+    déjà tous les deux dans firestore.indexes.json."""
+    par_id: dict[str, dict] = {}
+    requetes = [
+        db.collection("taches").where("uid", "==", uid).where("statut", "==", "aFaire"),
+        db.collection("taches").where("participantsUids", "array_contains", uid).where("statut", "==", "aFaire"),
+    ]
+    for requete in requetes:
+        for doc in requete.stream():
+            par_id[doc.id] = doc.to_dict()
+    return par_id.values()
+
+
 def _construire_digests(db, uid: str, maintenant: datetime) -> list[dict]:
     """Un digest par dossier ayant au moins une tâche active — ou, s'il n'y
     en a aucun, un unique rappel générique d'alimentation."""
-    taches = (
-        db.collection("taches")
-        .where("uid", "==", uid)
-        .where("statut", "==", "aFaire")
-        .stream()
-    )
-
     par_dossier: dict[str, dict] = {}
-    for doc in taches:
-        t = doc.to_dict()
+    for t in _taches_actives_visibles(db, uid):
         date_premier_rappel = t.get("datePremierRappel")
         if not date_premier_rappel or date_premier_rappel > maintenant:
             continue  # Pas encore active ("en attente").
@@ -1369,6 +1387,49 @@ def _supprimer_par_lots(query, taille_lot: int = 400) -> None:
         batch.commit()
 
 
+def _synchroniser_participants_dossier(db, dossier_id: str) -> None:
+    """Recopie participantsUids sur les tâches/entrées de journal déjà
+    existantes d'un dossier (refonte collaboration du 2026-08-29) — les
+    documents créés APRÈS ce changement reçoivent déjà la bonne liste depuis
+    le téléphone (voir FirestoreService.ajouterTacheADossier /
+    ajouterEntreeJournal), seuls les anciens doivent être rattrapés ici.
+
+    Relit la liste ACTUELLE du dossier au lieu de recevoir une valeur figée
+    en paramètre (trouvé en Red Team le 2026-08-30, via /code-review) : deux
+    appels concurrents (deux administrateurs qui gèrent des participants
+    presque en même temps) synchronisaient chacun avec la liste qu'ILS
+    venaient d'écrire — si leurs synchronisations s'exécutaient dans le désordre
+    (aucune garantie d'ordre entre deux appels serveur indépendants), la plus
+    lente pouvait écraser le résultat de la plus récente. Relire la vraie
+    liste au moment de la synchronisation, plutôt que de faire confiance à
+    une valeur capturée plus tôt, fait converger vers le bon état quel que
+    soit l'ordre d'exécution.
+
+    Best-effort, jamais bloquant (trouvé en re-vérifiant ce correctif, via
+    /code-review, le 2026-08-31) : cette synchronisation se produit APRÈS
+    que le retrait/ajout du participant a déjà été validé par la
+    transaction sur le dossier lui-même — une vraie atomicité serait
+    impossible ici (un dossier peut avoir bien plus de documents que la
+    limite d'une transaction Firestore). Si elle échoue partiellement
+    (panne, délai dépassé sur un très gros dossier), l'échec est au moins
+    journalisé au lieu de rester totalement silencieux, mais ne fait pas
+    échouer l'appel entier : l'action principale (ajout/retrait) a déjà
+    réussi, la resynchronisation se rattrapera à la prochaine gestion de
+    participants sur ce dossier."""
+    dossier_doc = db.collection("dossiers").document(dossier_id).get()
+    participants_uids = (dossier_doc.to_dict() or {}).get("participantsUids") or []
+    for collection in ("taches", "journalDossier"):
+        try:
+            docs = list(db.collection(collection).where("dossierId", "==", dossier_id).stream())
+            for i in range(0, len(docs), 400):
+                batch = db.batch()
+                for doc in docs[i:i + 400]:
+                    batch.update(doc.reference, {"participantsUids": participants_uids})
+                batch.commit()
+        except Exception as e:  # pylint: disable=broad-except
+            print(f"Échec de synchronisation ({collection}) pour le dossier {dossier_id} : {type(e).__name__}: {e}")
+
+
 @https_fn.on_call(secrets=[_token_chiffrement_cle], timeout_sec=120)
 def supprimer_compte_definitivement(req: https_fn.CallableRequest) -> dict:
     """Supprime VRAIMENT tout : révoque chaque connexion Google auprès de
@@ -1382,9 +1443,47 @@ def supprimer_compte_definitivement(req: https_fn.CallableRequest) -> dict:
     uid = req.auth.uid
     db = firestore.client()
 
+    # Tâches/entrées de journal des dossiers que ce compte POSSÈDE, par
+    # dossierId (trouvé en Red Team le 2026-08-30, via /code-review) : `uid`
+    # sur journalDossier vaut l'AUTEUR réel, pas le propriétaire du dossier —
+    # une entrée écrite par un AUTRE participant (Bob) dans le dossier de ce
+    # compte (Alice) a `uid: Bob`, jamais retrouvée par un filtre `uid==`.
+    ids_dossiers_possedes = [d.id for d in db.collection("dossiers").where("uid", "==", uid).stream()]
+    for dossier_id in ids_dossiers_possedes:
+        _supprimer_par_lots(db.collection("taches").where("dossierId", "==", dossier_id))
+        _supprimer_par_lots(db.collection("journalDossier").where("dossierId", "==", dossier_id))
     _supprimer_par_lots(db.collection("dossiers").where("uid", "==", uid))
+    # Filtre `uid==` gardé EN PLUS du filtre par dossierId ci-dessus (retrouvé
+    # en re-vérifiant ce correctif, via /code-review) : le filtre par
+    # dossierId ne retrouve que le contenu des dossiers ACTUELLEMENT possédés
+    # — un document déjà orphelin (dossier supprimé par un autre moyen avant
+    # ce correctif, ex. avant que journalDossier soit inclus dans
+    # FirestoreService.supprimerDossier) ne serait jamais retrouvé sans ce
+    # filtre complémentaire sur les propres documents de ce compte.
     _supprimer_par_lots(db.collection("taches").where("uid", "==", uid))
     _supprimer_par_lots(db.collection("journalDossier").where("uid", "==", uid))
+
+    # Retire ce compte des dossiers PARTAGÉS appartenant à d'autres personnes
+    # (trouvé le 2026-08-29 pendant l'exploration collaboration, Angle 66 :
+    # sans ça, un compte supprimé restait "participant fantôme" — toujours
+    # listé dans participantsUids/roles — dans les dossiers des autres).
+    for doc in db.collection("dossiers").where("participantsUids", "array_contains", uid).stream():
+        data = doc.to_dict() or {}
+        if data.get("uid") == uid:
+            continue  # dossier dont ce compte était propriétaire, déjà supprimé ci-dessus
+        nouveaux_participants = [p for p in (data.get("participantsUids") or []) if p != uid]
+        nouveaux_roles = {k: v for k, v in (data.get("roles") or {}).items() if k != uid}
+        # participantsEmails aussi (trouvé en Red Team le 2026-08-30, via
+        # /code-review) : oublié initialement, laissait l'email du compte
+        # supprimé visible indéfiniment dans le dossier des autres alors même
+        # que le compte était censé être "vraiment" supprimé.
+        nouveaux_emails = {k: v for k, v in (data.get("participantsEmails") or {}).items() if k != uid}
+        doc.reference.update({
+            "participantsUids": nouveaux_participants,
+            "roles": nouveaux_roles,
+            "participantsEmails": nouveaux_emails,
+        })
+        _synchroniser_participants_dossier(db, doc.id)
 
     doc_utilisateur_ref = db.collection("utilisateurs").document(uid)
     _supprimer_sous_collections(doc_utilisateur_ref)
@@ -1392,3 +1491,177 @@ def supprimer_compte_definitivement(req: https_fn.CallableRequest) -> dict:
 
     firebase_auth.delete_user(uid)
     return {"ok": True}
+
+
+_ROLES_ATTRIBUABLES = {"administrateur", "contributeur"}
+
+
+@https_fn.on_call()
+def gerer_participant_dossier(req: https_fn.CallableRequest) -> dict:
+    """Ajoute, retire ou change le rôle d'un participant sur un dossier
+    partagé. Passe par le SDK Admin (qui ignore firestore.rules) car
+    l'opération modifie participantsUids/roles eux-mêmes — que les règles
+    réservent à créateur/administrateur (voir firestore.rules, règle
+    "update" de /dossiers) ; cette fonction reproduit donc elle-même ce
+    contrôle d'accès avant d'agir. Champs attendus dans req.data :
+    - action : "ajouter" | "retirer" | "changerRole"
+    - dossierId : toujours requis
+    - email (ajouter) / uid (retirer, changerRole)
+    - role (ajouter, changerRole) : "administrateur" | "contributeur"
+
+    Lecture+écriture du dossier faites dans une TRANSACTION Firestore
+    (trouvé en Red Team le 2026-08-30, voir
+    Notes/2026-08-30-redteam-code-collaboration.md, point 4) : sans ça, deux
+    administrateurs agissant sur le même dossier presque en même temps
+    pouvaient silencieusement s'écraser l'un l'autre (lecture-modification-
+    écriture non protégée = perte d'un ajout/retrait).
+    """
+    if req.auth is None:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.UNAUTHENTICATED, "Non connecté.")
+
+    donnees = req.data or {}
+    action = donnees.get("action")
+    dossier_id = donnees.get("dossierId")
+    if action not in ("ajouter", "retirer", "changerRole") or not dossier_id:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "Paramètres invalides.")
+
+    demandeur_uid = req.auth.uid
+
+    # Résolution de l'email AVANT la transaction : appel à l'API Auth
+    # (externe à Firestore), ne dépend pas de l'état du dossier — inutile de
+    # le refaire à chaque nouvelle tentative en cas de conflit transactionnel.
+    nouvel_uid = None
+    nouvel_email = None
+    role_ajoute = None
+    if action == "ajouter":
+        email = (donnees.get("email") or "").strip()
+        role_ajoute = donnees.get("role")
+        if not email or role_ajoute not in _ROLES_ATTRIBUABLES:
+            raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "email/role invalides.")
+        try:
+            utilisateur = firebase_auth.get_user_by_email(email)
+        except firebase_auth.UserNotFoundError:
+            raise https_fn.HttpsError(https_fn.FunctionsErrorCode.NOT_FOUND, "Aucun compte Vigie avec cet email.")
+        nouvel_uid = utilisateur.uid
+        nouvel_email = utilisateur.email
+
+    db = firestore.client()
+    dossier_ref = db.collection("dossiers").document(dossier_id)
+
+    @firestore.transactional
+    def _appliquer(transaction: firestore.Transaction) -> dict:
+        dossier_doc = dossier_ref.get(transaction=transaction)
+        if not dossier_doc.exists:
+            raise https_fn.HttpsError(https_fn.FunctionsErrorCode.NOT_FOUND, "Dossier introuvable.")
+
+        dossier_data = dossier_doc.to_dict() or {}
+        proprietaire_uid = dossier_data.get("uid")
+        participants_uids = list(dossier_data.get("participantsUids") or [proprietaire_uid])
+        roles = dict(dossier_data.get("roles") or {proprietaire_uid: "createur"})
+        # Emails affichables (uid -> email), pour que l'écran de gestion des
+        # participants n'ait jamais besoin d'afficher un uid brut. Auto-réparé
+        # ici si absent (dossiers créés avant ce champ, ou créateur jamais
+        # encore résolu) plutôt qu'ajouté partout où un dossier est créé.
+        participants_emails = dict(dossier_data.get("participantsEmails") or {})
+        if proprietaire_uid not in participants_emails:
+            try:
+                participants_emails[proprietaire_uid] = firebase_auth.get_user(proprietaire_uid).email
+            except firebase_auth.UserNotFoundError:
+                pass
+
+        role_demandeur = roles.get(demandeur_uid, "createur" if proprietaire_uid == demandeur_uid else None)
+        # Se retirer SOI-MÊME reste toujours possible, quel que soit son rôle
+        # (décision de Tobie le 2026-08-30, "tranchons alors") : avant ce
+        # correctif, un simple contributeur — et même un administrateur, une
+        # fois la restriction admin/admin ajoutée — n'avait AUCUN moyen de
+        # quitter volontairement un dossier partagé, seuls créateur/
+        # administrateur pouvaient appeler "retirer", même pour SE retirer.
+        # Le créateur reste seul exception (voir plus bas : il ne peut pas
+        # être retiré, ni par lui-même ni par personne — supprimer le dossier
+        # est le seul chemin, transférer la propriété reste hors périmètre).
+        est_auto_retrait = action == "retirer" and donnees.get("uid") == demandeur_uid
+        if not est_auto_retrait and role_demandeur not in ("createur", "administrateur"):
+            raise https_fn.HttpsError(
+                https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+                "Seuls le créateur et les administrateurs peuvent gérer les participants.",
+            )
+
+        # Seul le créateur gère les administrateurs — un administrateur ne
+        # peut agir que sur des contributeurs (décision de Tobie le
+        # 2026-08-30, en continuant le Red Team : la première version
+        # laissait n'importe quel administrateur retirer/rétrograder
+        # n'importe quel AUTRE administrateur, y compris entre pairs).
+        _MSG_ADMIN_RESERVE_CREATEUR = "Seul le créateur peut gérer un autre administrateur."
+
+        if action == "ajouter":
+            if nouvel_uid in participants_uids:
+                raise https_fn.HttpsError(
+                    https_fn.FunctionsErrorCode.ALREADY_EXISTS, "Déjà participant de ce dossier."
+                )
+            if role_ajoute == "administrateur" and role_demandeur != "createur":
+                raise https_fn.HttpsError(
+                    https_fn.FunctionsErrorCode.PERMISSION_DENIED, _MSG_ADMIN_RESERVE_CREATEUR
+                )
+            participants_uids.append(nouvel_uid)
+            roles[nouvel_uid] = role_ajoute
+            participants_emails[nouvel_uid] = nouvel_email
+
+        elif action == "retirer":
+            cible_uid = donnees.get("uid")
+            if not cible_uid:
+                raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "uid manquant.")
+            if cible_uid == proprietaire_uid:
+                # `details` porte un code stable (pas le message français) —
+                # traduit côté app selon la langue de l'appareil (trouvé en
+                # Red Team le 2026-08-30, point 7 : l'app affichait avant ce
+                # message brut tel quel, jamais en anglais).
+                raise https_fn.HttpsError(
+                    https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+                    "Le créateur ne peut pas être retiré du dossier.",
+                    details="createurNonRetirable",
+                )
+            if cible_uid not in participants_uids:
+                raise https_fn.HttpsError(https_fn.FunctionsErrorCode.NOT_FOUND, "Ce n'est pas un participant.")
+            if not est_auto_retrait and roles.get(cible_uid) == "administrateur" and role_demandeur != "createur":
+                raise https_fn.HttpsError(
+                    https_fn.FunctionsErrorCode.PERMISSION_DENIED, _MSG_ADMIN_RESERVE_CREATEUR
+                )
+            participants_uids.remove(cible_uid)
+            roles.pop(cible_uid, None)
+            participants_emails.pop(cible_uid, None)
+
+        else:  # changerRole
+            cible_uid = donnees.get("uid")
+            role_cible = donnees.get("role")
+            if not cible_uid or role_cible not in _ROLES_ATTRIBUABLES:
+                raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "uid/role invalides.")
+            if cible_uid == proprietaire_uid:
+                raise https_fn.HttpsError(
+                    https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+                    "Le rôle du créateur ne peut pas être changé.",
+                    details="createurRoleFixe",
+                )
+            if cible_uid not in participants_uids:
+                raise https_fn.HttpsError(https_fn.FunctionsErrorCode.NOT_FOUND, "Ce n'est pas un participant.")
+            # Promotion vers administrateur OU changement du rôle d'un
+            # administrateur déjà en place : réservé au créateur dans les
+            # deux cas (voir _MSG_ADMIN_RESERVE_CREATEUR ci-dessus).
+            if role_demandeur != "createur" and (roles.get(cible_uid) == "administrateur" or role_cible == "administrateur"):
+                raise https_fn.HttpsError(
+                    https_fn.FunctionsErrorCode.PERMISSION_DENIED, _MSG_ADMIN_RESERVE_CREATEUR
+                )
+            roles[cible_uid] = role_cible
+
+        transaction.update(dossier_ref, {
+            "participantsUids": participants_uids,
+            "roles": roles,
+            "participantsEmails": participants_emails,
+        })
+        return {"participantsUids": participants_uids, "roles": roles, "participantsEmails": participants_emails}
+
+    resultat = _appliquer(db.transaction())
+
+    if action != "changerRole":
+        _synchroniser_participants_dossier(db, dossier_id)
+
+    return {"ok": True, **resultat}

@@ -22,7 +22,10 @@ class Tache {
     required this.statut,
     this.dateFait,
     this.notesDetaillees,
-  });
+    List<String>? participantsUids,
+    String? auteurUid,
+  })  : participantsUids = participantsUids ?? [uid],
+        auteurUid = auteurUid ?? uid;
 
   final String id;
   final String uid;
@@ -34,6 +37,15 @@ class Tache {
   final DateTime datePremierRappel;
   final StatutTache statut;
   final DateTime? dateFait; // pour savoir si c'est "fait cette semaine" dans le bilan
+  /// Copié depuis le dossier parent (voir `Dossier.participantsUids`),
+  /// synchronisé par la fonction serveur quand la liste change — permet de
+  /// retrouver "mes tâches" par une requête directe, sans passer par le
+  /// dossier à chaque fois.
+  final List<String> participantsUids;
+  /// Qui a réellement créé cette tâche — distinct de `uid` (qui reste
+  /// l'identifiant du dossier auquel elle appartient, pas forcément la
+  /// personne qui l'a écrite une fois plusieurs participants possibles).
+  final String auteurUid;
   /// Détails libres — rempli automatiquement quand la tâche vient d'un
   /// événement Google Calendar ou d'une tâche Google Tasks (leur description
   /// d'origine, sinon perdue), modifiable ensuite comme un bloc-notes libre
@@ -65,6 +77,8 @@ class Tache {
       statut: _statutDepuisTexte(data['statut'] as String),
       dateFait: (data['dateFait'] as Timestamp?)?.toDate(),
       notesDetaillees: data['notesDetaillees'] as String?,
+      participantsUids: (data['participantsUids'] as List<dynamic>?)?.cast<String>(),
+      auteurUid: data['auteurUid'] as String?,
     );
   }
 
@@ -80,6 +94,8 @@ class Tache {
       'statut': statut.name,
       'dateFait': dateFait != null ? Timestamp.fromDate(dateFait!) : null,
       'notesDetaillees': notesDetaillees,
+      'participantsUids': participantsUids,
+      'auteurUid': auteurUid,
     };
   }
 

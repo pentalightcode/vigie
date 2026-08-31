@@ -642,5 +642,47 @@
       "message": {"type": "String"}
     }
   },
-  "connexionGoogleAdresseInconnue": "Compte connecté (reconnecte-toi pour voir l'adresse)"
+  "connexionGoogleAdresseInconnue": "Compte connecté (reconnecte-toi pour voir l'adresse)",
+  "commonRetirer": "Retirer",
+  "dossierDetailParticipantsTooltip": "Participants",
+  "participantsTitre": "Participants",
+  "participantsLectureSeuleInfo": "Seuls le créateur et les administrateurs peuvent gérer les participants.",
+  "participantsAjouterBouton": "Ajouter un participant",
+  "participantsRoleCreateur": "Créateur",
+  "participantsRoleAdministrateur": "Administrateur",
+  "participantsRoleContributeur": "Contributeur",
+  "participantsSousTitreMoi": "{role} · toi",
+  "@participantsSousTitreMoi": {
+    "placeholders": {
+      "role": {"type": "String"}
+    }
+  },
+  "dossierAccesRevoqueMessage": "Tu n'as plus accès à ce dossier. Un administrateur t'a peut-être retiré pendant que tu le consultais.",
+  "participantsMenuPasserAdministrateur": "Passer administrateur",
+  "participantsMenuPasserContributeur": "Passer contributeur",
+  "participantsRetirerTitre": "Retirer ce participant ?",
+  "participantsRetirerMessage": "{affichage} n'aura plus accès à ce dossier.",
+  "@participantsRetirerMessage": {
+    "placeholders": {
+      "affichage": {"type": "String"}
+    }
+  },
+  "participantsQuitterBouton": "Quitter",
+  "participantsQuitterTitre": "Quitter ce dossier ?",
+  "participantsQuitterMessage": "Tu n'auras plus accès à ce dossier ni à son contenu. Tu peux redemander à être invité plus tard.",
+  "participantsErreur": "Impossible d'effectuer cette action : {erreur}",
+  "@participantsErreur": {
+    "placeholders": {
+      "erreur": {"type": "String"}
+    }
+  },
+  "participantsErreurAucunCompte": "Aucun compte Vigie n'existe avec cet email.",
+  "participantsErreurDejaParticipant": "Cette personne est déjà participante de ce dossier.",
+  "participantsErreurPermission": "Tu n'as pas le droit de gérer les participants de ce dossier.",
+  "participantsErreurCreateurNonRetirable": "Le créateur du dossier ne peut pas être retiré.",
+  "participantsErreurCreateurRoleFixe": "Le rôle du créateur ne peut pas être changé.",
+  "participantsErreurGenerique": "Une erreur est survenue. Réessaie.",
+  "participantsDialogueAjouterTitre": "Ajouter un participant",
+  "participantsDialogueAjouterChampEmail": "Email du compte Vigie",
+  "participantsDialogueAjouterChampRole": "Rôle"
 }

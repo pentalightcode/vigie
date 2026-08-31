@@ -20,6 +20,23 @@ class FirestoreService {
     return uid;
   }
 
+  /// Filtre "j'ai accès à ce document" pour les requêtes de LISTE sur
+  /// taches/journalDossier — équivalent de `estParticipant()` côté
+  /// `firestore.rules`, mais exprimé comme une requête (Firestore exige que
+  /// la requête elle-même prouve qu'elle ne peut renvoyer que des documents
+  /// autorisés, voir le commentaire historique sur journalDossier() plus
+  /// bas). Combine (OR, dédupliqué nativement par Firestore) l'ancien
+  /// critère `uid == moi` (documents créés avant la refonte collaboration
+  /// du 2026-08-29, qui n'ont pas encore `participantsUids`) et le nouveau
+  /// `participantsUids array-contains moi` — choisi plutôt qu'une migration
+  /// qui aurait dû réécrire tous les documents existants : aucune écriture
+  /// requise, aucun risque de migration ratée, marche à l'identique pour
+  /// les anciens ET les nouveaux documents.
+  Filter get _filtreParticipant => Filter.or(
+        Filter('uid', isEqualTo: _uid),
+        Filter('participantsUids', arrayContains: _uid),
+      );
+
   void _ajouterDossierEtTacheAuBatch(
     WriteBatch batch, {
     required String nomCode,
@@ -96,6 +113,10 @@ class FirestoreService {
 
   /// Ajoute une tâche supplémentaire à un dossier déjà existant (un dossier
   /// peut avoir plusieurs écritures/diligences liées à la même affaire).
+  /// [proprietaireUid]/[participantsUids] viennent du dossier parent
+  /// (`dossier.uid`/`dossier.participantsUids`) — l'auteur réel de cette
+  /// tâche reste celui qui l'ajoute (voir `Tache.auteurUid`), même si elle
+  /// appartient au dossier d'un autre participant.
   Future<void> ajouterTacheADossier({
     required String dossierId,
     required String nomCodeDossier,
@@ -103,11 +124,13 @@ class FirestoreService {
     required String nature,
     required DateTime dateDeclenchante,
     String? notesDetaillees,
+    String? proprietaireUid,
+    List<String>? participantsUids,
   }) async {
     final delai = await UtilisateurService.instance.delaiRappelJours();
     final tache = Tache(
       id: '',
-      uid: _uid,
+      uid: proprietaireUid ?? _uid,
       dossierId: dossierId,
       nomCodeDossier: nomCodeDossier,
       descriptionCourte: descriptionCourte,
@@ -116,6 +139,8 @@ class FirestoreService {
       datePremierRappel: Tache.calculerDatePremierRappel(dateDeclenchante, delai),
       statut: StatutTache.aFaire,
       notesDetaillees: notesDetaillees,
+      participantsUids: participantsUids ?? [proprietaireUid ?? _uid],
+      auteurUid: _uid,
     );
     await _db.collection('taches').add(tache.versDocument());
   }
@@ -152,7 +177,7 @@ class FirestoreService {
     final delai = await UtilisateurService.instance.delaiRappelJours();
     final taches = await _db
         .collection('taches')
-        .where('uid', isEqualTo: _uid)
+        .where(_filtreParticipant)
         .where('dossierId', isEqualTo: dossierId)
         .get();
 
@@ -169,16 +194,28 @@ class FirestoreService {
     await batch.commit();
   }
 
-  /// Supprime un dossier et toutes ses tâches liées.
+  /// Supprime un dossier et toutes ses tâches ET entrées de journal liées.
+  /// Le journal était oublié jusqu'ici (trouvé en Red Team le 2026-08-30,
+  /// voir Notes/2026-08-30-redteam-code-collaboration.md, point 5) : des
+  /// notes potentiellement confidentielles restaient orphelines dans
+  /// Firestore pour toujours après la "suppression" de leur dossier.
   Future<void> supprimerDossier(String dossierId) async {
     final taches = await _db
         .collection('taches')
-        .where('uid', isEqualTo: _uid)
+        .where(_filtreParticipant)
+        .where('dossierId', isEqualTo: dossierId)
+        .get();
+    final entreesJournal = await _db
+        .collection('journalDossier')
+        .where(_filtreParticipant)
         .where('dossierId', isEqualTo: dossierId)
         .get();
 
     final batch = _db.batch();
     for (final doc in taches.docs) {
+      batch.delete(doc.reference);
+    }
+    for (final doc in entreesJournal.docs) {
       batch.delete(doc.reference);
     }
     batch.delete(_db.collection('dossiers').doc(dossierId));
@@ -192,28 +229,29 @@ class FirestoreService {
   Stream<List<Tache>> tachesDuDossier(String dossierId) {
     return _db
         .collection('taches')
-        .where('uid', isEqualTo: _uid)
+        .where(_filtreParticipant)
         .where('dossierId', isEqualTo: dossierId)
         .snapshots()
         .map((snap) => snap.docs.map(Tache.depuisDocument).toList());
   }
 
-  /// Toutes les tâches non terminées de l'utilisateur, pour l'écran "À traiter"
+  /// Toutes les tâches non terminées de l'utilisateur (les siennes + celles
+  /// des dossiers partagés dont il est participant), pour l'écran "À traiter"
   /// (le filtrage "actif"/"en retard" se fait ensuite côté modèle).
   Stream<List<Tache>> tachesNonTerminees() {
     return _db
         .collection('taches')
-        .where('uid', isEqualTo: _uid)
+        .where(_filtreParticipant)
         .where('statut', isEqualTo: StatutTache.aFaire.name)
         .snapshots()
         .map((snap) => snap.docs.map(Tache.depuisDocument).toList());
   }
 
-  /// Toutes les tâches (faites ou non), pour le bilan.
+  /// Toutes les tâches (faites ou non, y compris les dossiers partagés), pour le bilan.
   Stream<List<Tache>> toutesLesTaches() {
     return _db
         .collection('taches')
-        .where('uid', isEqualTo: _uid)
+        .where(_filtreParticipant)
         .snapshots()
         .map((snap) => snap.docs.map(Tache.depuisDocument).toList());
   }
@@ -249,15 +287,16 @@ class FirestoreService {
   /// pour documenter l'avancement, jamais écrasées (demandé par Tobie le
   /// 2026-08-20, distinct des notes par tâche qui décrivent un état ponctuel).
   Stream<List<EntreeJournal>> journalDossier(String dossierId) {
-    // Le filtre sur "uid" est nécessaire même si les règles Firestore le
-    // vérifient déjà par document : pour une requête de LISTE (pas juste un
-    // document), Firestore exige que la requête elle-même prouve qu'elle ne
-    // peut renvoyer que des documents autorisés — sans ce filtre, la requête
-    // est refusée en bloc (PERMISSION_DENIED), trouvé le 2026-08-20 avec le
-    // vrai message d'erreur montré par Tobie.
+    // Le filtre sur "participant" (voir _filtreParticipant) est nécessaire
+    // même si les règles Firestore le vérifient déjà par document : pour une
+    // requête de LISTE (pas juste un document), Firestore exige que la
+    // requête elle-même prouve qu'elle ne peut renvoyer que des documents
+    // autorisés — sans ce filtre, la requête est refusée en bloc
+    // (PERMISSION_DENIED), trouvé le 2026-08-20 avec le vrai message
+    // d'erreur montré par Tobie.
     return _db
         .collection('journalDossier')
-        .where('uid', isEqualTo: _uid)
+        .where(_filtreParticipant)
         .where('dossierId', isEqualTo: dossierId)
         .orderBy('creeLe', descending: true)
         .snapshots()
@@ -267,11 +306,15 @@ class FirestoreService {
   /// [chiffre] doit refléter si [texte] est déjà chiffré (voir
   /// ChiffrementNotesService) — ce champ ne change jamais après coup,
   /// même en cas de modification ultérieure de l'entrée.
+  /// [participantsUids] vient du dossier parent (`dossier.participantsUids`)
+  /// — permet à chaque participant de retrouver cette entrée par une
+  /// requête directe, sans dépendre d'une lecture du dossier à chaque fois.
   Future<void> ajouterEntreeJournal(
     String dossierId,
     String texte,
     TypeEntreeJournal type, {
     required bool chiffre,
+    List<String>? participantsUids,
   }) {
     return _db.collection('journalDossier').add({
       'uid': _uid,
@@ -280,6 +323,8 @@ class FirestoreService {
       'type': type.name,
       'creeLe': Timestamp.now(),
       'chiffre': chiffre,
+      'participantsUids': participantsUids ?? [_uid],
+      'auteurUid': _uid,
     });
   }
 

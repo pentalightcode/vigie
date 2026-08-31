@@ -1256,4 +1256,100 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get connexionGoogleAdresseInconnue =>
       'Compte connecté (reconnecte-toi pour voir l\'adresse)';
+
+  @override
+  String get commonRetirer => 'Retirer';
+
+  @override
+  String get dossierDetailParticipantsTooltip => 'Participants';
+
+  @override
+  String get participantsTitre => 'Participants';
+
+  @override
+  String get participantsLectureSeuleInfo =>
+      'Seuls le créateur et les administrateurs peuvent gérer les participants.';
+
+  @override
+  String get participantsAjouterBouton => 'Ajouter un participant';
+
+  @override
+  String get participantsRoleCreateur => 'Créateur';
+
+  @override
+  String get participantsRoleAdministrateur => 'Administrateur';
+
+  @override
+  String get participantsRoleContributeur => 'Contributeur';
+
+  @override
+  String participantsSousTitreMoi(String role) {
+    return '$role · toi';
+  }
+
+  @override
+  String get dossierAccesRevoqueMessage =>
+      'Tu n\'as plus accès à ce dossier. Un administrateur t\'a peut-être retiré pendant que tu le consultais.';
+
+  @override
+  String get participantsMenuPasserAdministrateur => 'Passer administrateur';
+
+  @override
+  String get participantsMenuPasserContributeur => 'Passer contributeur';
+
+  @override
+  String get participantsRetirerTitre => 'Retirer ce participant ?';
+
+  @override
+  String participantsRetirerMessage(String affichage) {
+    return '$affichage n\'aura plus accès à ce dossier.';
+  }
+
+  @override
+  String get participantsQuitterBouton => 'Quitter';
+
+  @override
+  String get participantsQuitterTitre => 'Quitter ce dossier ?';
+
+  @override
+  String get participantsQuitterMessage =>
+      'Tu n\'auras plus accès à ce dossier ni à son contenu. Tu peux redemander à être invité plus tard.';
+
+  @override
+  String participantsErreur(String erreur) {
+    return 'Impossible d\'effectuer cette action : $erreur';
+  }
+
+  @override
+  String get participantsErreurAucunCompte =>
+      'Aucun compte Vigie n\'existe avec cet email.';
+
+  @override
+  String get participantsErreurDejaParticipant =>
+      'Cette personne est déjà participante de ce dossier.';
+
+  @override
+  String get participantsErreurPermission =>
+      'Tu n\'as pas le droit de gérer les participants de ce dossier.';
+
+  @override
+  String get participantsErreurCreateurNonRetirable =>
+      'Le créateur du dossier ne peut pas être retiré.';
+
+  @override
+  String get participantsErreurCreateurRoleFixe =>
+      'Le rôle du créateur ne peut pas être changé.';
+
+  @override
+  String get participantsErreurGenerique =>
+      'Une erreur est survenue. Réessaie.';
+
+  @override
+  String get participantsDialogueAjouterTitre => 'Ajouter un participant';
+
+  @override
+  String get participantsDialogueAjouterChampEmail => 'Email du compte Vigie';
+
+  @override
+  String get participantsDialogueAjouterChampRole => 'Rôle';
 }

@@ -1244,4 +1244,99 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get connexionGoogleAdresseInconnue =>
       'Connected account (reconnect to see the address)';
+
+  @override
+  String get commonRetirer => 'Remove';
+
+  @override
+  String get dossierDetailParticipantsTooltip => 'Participants';
+
+  @override
+  String get participantsTitre => 'Participants';
+
+  @override
+  String get participantsLectureSeuleInfo =>
+      'Only the creator and administrators can manage participants.';
+
+  @override
+  String get participantsAjouterBouton => 'Add a participant';
+
+  @override
+  String get participantsRoleCreateur => 'Creator';
+
+  @override
+  String get participantsRoleAdministrateur => 'Administrator';
+
+  @override
+  String get participantsRoleContributeur => 'Contributor';
+
+  @override
+  String participantsSousTitreMoi(String role) {
+    return '$role · you';
+  }
+
+  @override
+  String get dossierAccesRevoqueMessage =>
+      'You no longer have access to this case. An administrator may have removed you while you were viewing it.';
+
+  @override
+  String get participantsMenuPasserAdministrateur => 'Make administrator';
+
+  @override
+  String get participantsMenuPasserContributeur => 'Make contributor';
+
+  @override
+  String get participantsRetirerTitre => 'Remove this participant?';
+
+  @override
+  String participantsRetirerMessage(String affichage) {
+    return '$affichage will no longer have access to this case.';
+  }
+
+  @override
+  String get participantsQuitterBouton => 'Leave';
+
+  @override
+  String get participantsQuitterTitre => 'Leave this case?';
+
+  @override
+  String get participantsQuitterMessage =>
+      'You\'ll no longer have access to this case or its content. You can ask to be invited again later.';
+
+  @override
+  String participantsErreur(String erreur) {
+    return 'Couldn\'t complete this action: $erreur';
+  }
+
+  @override
+  String get participantsErreurAucunCompte =>
+      'No Vigie account exists with this email.';
+
+  @override
+  String get participantsErreurDejaParticipant =>
+      'This person is already a participant on this case.';
+
+  @override
+  String get participantsErreurPermission =>
+      'You don\'t have permission to manage this case\'s participants.';
+
+  @override
+  String get participantsErreurCreateurNonRetirable =>
+      'The case\'s creator can\'t be removed.';
+
+  @override
+  String get participantsErreurCreateurRoleFixe =>
+      'The creator\'s role can\'t be changed.';
+
+  @override
+  String get participantsErreurGenerique => 'Something went wrong. Try again.';
+
+  @override
+  String get participantsDialogueAjouterTitre => 'Add a participant';
+
+  @override
+  String get participantsDialogueAjouterChampEmail => 'Vigie account email';
+
+  @override
+  String get participantsDialogueAjouterChampRole => 'Role';
 }
