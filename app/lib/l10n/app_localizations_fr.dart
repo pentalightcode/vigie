@@ -1329,6 +1329,14 @@ class AppLocalizationsFr extends AppLocalizations {
       'Aucun compte Vigie n\'existe avec cet email.';
 
   @override
+  String get participantsErreurDossierIntrouvable =>
+      'Ce dossier n\'existe plus.';
+
+  @override
+  String get participantsErreurPasParticipant =>
+      'Cette personne n\'est déjà plus participante de ce dossier.';
+
+  @override
   String get participantsErreurDejaParticipant =>
       'Cette personne est déjà participante de ce dossier.';
 

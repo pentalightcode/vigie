@@ -1415,9 +1415,21 @@ def _synchroniser_participants_dossier(db, dossier_id: str) -> None:
     journalisé au lieu de rester totalement silencieux, mais ne fait pas
     échouer l'appel entier : l'action principale (ajout/retrait) a déjà
     réussi, la resynchronisation se rattrapera à la prochaine gestion de
-    participants sur ce dossier."""
-    dossier_doc = db.collection("dossiers").document(dossier_id).get()
-    participants_uids = (dossier_doc.to_dict() or {}).get("participantsUids") or []
+    participants sur ce dossier.
+
+    La relecture initiale du dossier (ligne suivante) est protégée par le
+    MÊME filet que les deux collections ci-dessous, pas seulement elles
+    (trouvé en re-vérifiant ce correctif une deuxième fois, via /code-review,
+    le 2026-08-31) : une erreur transitoire pile à cette lecture aurait
+    propagé une exception non gérée jusqu'à l'appelant (gerer_participant_dossier),
+    faisant croire à un échec total de l'action alors que l'ajout/retrait
+    avait déjà réussi juste avant."""
+    try:
+        dossier_doc = db.collection("dossiers").document(dossier_id).get()
+        participants_uids = (dossier_doc.to_dict() or {}).get("participantsUids") or []
+    except Exception as e:  # pylint: disable=broad-except
+        print(f"Échec de relecture du dossier {dossier_id} pour synchronisation : {type(e).__name__}: {e}")
+        return
     for collection in ("taches", "journalDossier"):
         try:
             docs = list(db.collection(collection).where("dossierId", "==", dossier_id).stream())
@@ -1462,6 +1474,15 @@ def supprimer_compte_definitivement(req: https_fn.CallableRequest) -> dict:
     # filtre complémentaire sur les propres documents de ce compte.
     _supprimer_par_lots(db.collection("taches").where("uid", "==", uid))
     _supprimer_par_lots(db.collection("journalDossier").where("uid", "==", uid))
+    # Tâches AUTEURÉES (pas possédées) par ce compte dans le dossier de
+    # quelqu'un d'autre (trouvé en re-vérifiant ce correctif, via
+    # /code-review, le 2026-08-31) : `taches.uid` vaut le PROPRIÉTAIRE du
+    # dossier, jamais l'auteur réel d'un contributeur — le même écart déjà
+    # corrigé pour journalDossier ci-dessus, manqué pour taches puisque
+    # `auteurUid` n'y a jamais été interrogé. Sans ce filtre, une tâche
+    # ajoutée par ce compte au dossier d'un autre restait pour toujours,
+    # attribuée à un compte qui n'existe plus.
+    _supprimer_par_lots(db.collection("taches").where("auteurUid", "==", uid))
 
     # Retire ce compte des dossiers PARTAGÉS appartenant à d'autres personnes
     # (trouvé le 2026-08-29 pendant l'exploration collaboration, Angle 66 :
@@ -1496,9 +1517,18 @@ def supprimer_compte_definitivement(req: https_fn.CallableRequest) -> dict:
 _ROLES_ATTRIBUABLES = {"administrateur", "contributeur"}
 
 
-@https_fn.on_call()
+@https_fn.on_call(timeout_sec=120)
 def gerer_participant_dossier(req: https_fn.CallableRequest) -> dict:
-    """Ajoute, retire ou change le rôle d'un participant sur un dossier
+    """`timeout_sec` explicite (trouvé en re-vérifiant ce correctif, via
+    /code-review, le 2026-08-31) : cette fonction termine par une
+    synchronisation en cascade sur potentiellement toutes les tâches/entrées
+    du dossier (_synchroniser_participants_dossier) — le délai par défaut
+    d'un `on_call` sans timeout explicite risquerait d'être dépassé sur un
+    gros dossier, faisant croire à un échec côté app alors que le retrait/
+    ajout a déjà réussi. Même valeur que les autres fonctions à plusieurs
+    étapes de ce fichier (supprimer_compte_definitivement).
+
+    Ajoute, retire ou change le rôle d'un participant sur un dossier
     partagé. Passe par le SDK Admin (qui ignore firestore.rules) car
     l'opération modifie participantsUids/roles eux-mêmes — que les règles
     réservent à créateur/administrateur (voir firestore.rules, règle
@@ -1541,7 +1571,9 @@ def gerer_participant_dossier(req: https_fn.CallableRequest) -> dict:
         try:
             utilisateur = firebase_auth.get_user_by_email(email)
         except firebase_auth.UserNotFoundError:
-            raise https_fn.HttpsError(https_fn.FunctionsErrorCode.NOT_FOUND, "Aucun compte Vigie avec cet email.")
+            raise https_fn.HttpsError(
+                https_fn.FunctionsErrorCode.NOT_FOUND, "Aucun compte Vigie avec cet email.", details="aucunCompte"
+            )
         nouvel_uid = utilisateur.uid
         nouvel_email = utilisateur.email
 
@@ -1552,7 +1584,9 @@ def gerer_participant_dossier(req: https_fn.CallableRequest) -> dict:
     def _appliquer(transaction: firestore.Transaction) -> dict:
         dossier_doc = dossier_ref.get(transaction=transaction)
         if not dossier_doc.exists:
-            raise https_fn.HttpsError(https_fn.FunctionsErrorCode.NOT_FOUND, "Dossier introuvable.")
+            raise https_fn.HttpsError(
+                https_fn.FunctionsErrorCode.NOT_FOUND, "Dossier introuvable.", details="dossierIntrouvable"
+            )
 
         dossier_data = dossier_doc.to_dict() or {}
         proprietaire_uid = dossier_data.get("uid")
@@ -1621,7 +1655,9 @@ def gerer_participant_dossier(req: https_fn.CallableRequest) -> dict:
                     details="createurNonRetirable",
                 )
             if cible_uid not in participants_uids:
-                raise https_fn.HttpsError(https_fn.FunctionsErrorCode.NOT_FOUND, "Ce n'est pas un participant.")
+                raise https_fn.HttpsError(
+                    https_fn.FunctionsErrorCode.NOT_FOUND, "Ce n'est pas un participant.", details="pasParticipant"
+                )
             if not est_auto_retrait and roles.get(cible_uid) == "administrateur" and role_demandeur != "createur":
                 raise https_fn.HttpsError(
                     https_fn.FunctionsErrorCode.PERMISSION_DENIED, _MSG_ADMIN_RESERVE_CREATEUR
@@ -1642,7 +1678,9 @@ def gerer_participant_dossier(req: https_fn.CallableRequest) -> dict:
                     details="createurRoleFixe",
                 )
             if cible_uid not in participants_uids:
-                raise https_fn.HttpsError(https_fn.FunctionsErrorCode.NOT_FOUND, "Ce n'est pas un participant.")
+                raise https_fn.HttpsError(
+                    https_fn.FunctionsErrorCode.NOT_FOUND, "Ce n'est pas un participant.", details="pasParticipant"
+                )
             # Promotion vers administrateur OU changement du rôle d'un
             # administrateur déjà en place : réservé au créateur dans les
             # deux cas (voir _MSG_ADMIN_RESERVE_CREATEUR ci-dessus).

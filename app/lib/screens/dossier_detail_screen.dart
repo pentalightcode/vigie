@@ -30,8 +30,9 @@ class DossierDetailScreen extends StatelessWidget {
         stream: FirestoreService.instance.dossier(dossierId),
         builder: (context, snapshotDossier) {
           // Accès révoqué pendant la consultation (retiré du dossier par un
-          // administrateur) : sans ce garde-fou, l'écran reste bloqué sur le
-          // chargement pour toujours (voir VueAccesRevoque).
+          // administrateur, trouvé en Red Team le 2026-08-30) : sans ce
+          // garde-fou, l'écran reste bloqué sur le chargement pour toujours
+          // (voir VueAccesRevoque).
           if (snapshotDossier.hasError) {
             return VueAccesRevoque(erreur: snapshotDossier.error);
           }
@@ -102,6 +103,20 @@ class DossierDetailScreen extends StatelessWidget {
               StreamBuilder<List<Tache>>(
                 stream: FirestoreService.instance.tachesDuDossier(dossierId),
                 builder: (context, snapshotTaches) {
+                  // Sans ce garde-fou, une erreur laissait cette section
+                  // bloquée sur le chargement pour toujours, sans aucune
+                  // explication (même défaut que celui déjà corrigé sur le
+                  // flux du dossier lui-même — trouvé en re-vérifiant ce
+                  // correctif, via /code-review, le 2026-08-31 : il n'avait
+                  // été appliqué qu'au dossier, pas à ses tâches).
+                  if (snapshotTaches.hasError) {
+                    return SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(l10n.participantsErreurGenerique),
+                      ),
+                    );
+                  }
                   final taches = snapshotTaches.data ?? [];
                   if (!snapshotTaches.hasData) {
                     return const SliverToBoxAdapter(
@@ -176,10 +191,11 @@ class DossierDetailScreen extends StatelessWidget {
         await FirestoreService.instance.supprimerDossier(dossier.id);
         if (context.mounted) Navigator.of(context).pop();
       } catch (e) {
-        // Défense en profondeur (le bouton est déjà masqué pour un simple
-        // contributeur) : couvre la fenêtre de course où le rôle changerait
-        // pendant la double confirmation, plutôt qu'une exception non
-        // gérée sans aucun retour visible pour l'utilisateur.
+        // Défense en profondeur, trouvé en Red Team le 2026-08-30 (le
+        // bouton est déjà masqué pour un simple contributeur) : couvre la
+        // fenêtre de course où le rôle changerait pendant la double
+        // confirmation, plutôt qu'une exception non gérée sans aucun
+        // retour visible pour l'utilisateur.
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(l10n.participantsErreurGenerique)),
@@ -487,44 +503,58 @@ class _DialogueTacheState extends State<_DialogueTache> {
               autre: _autreController.text.trim(),
             );
             final notesTexte = notes.estVide ? null : notes.formater();
-            if (widget.tache == null) {
-              // Relit le dossier ICI plutôt que d'utiliser le `widget.dossier`
-              // capturé à l'ouverture du dialogue (trouvé en Red Team le
-              // 2026-08-31, via /code-review) : la boîte peut rester ouverte
-              // un moment (temps de remplir le formulaire) pendant lequel les
-              // participants peuvent avoir changé — `tacheCoherente()` côté
-              // firestore.rules exige désormais une correspondance EXACTE
-              // avec l'état ACTUEL du dossier, donc une liste périmée
-              // provoquerait un refus (PERMISSION_DENIED) même pour un
-              // utilisateur parfaitement légitime.
-              final dossierActuel = await FirestoreService.instance.dossier(widget.dossier!.id).first;
-              await FirestoreService.instance.ajouterTacheADossier(
-                dossierId: dossierActuel.id,
-                nomCodeDossier: dossierActuel.nomCode,
-                descriptionCourte: description,
-                nature: _nature!.nom,
-                dateDeclenchante: _date,
-                notesDetaillees: notesTexte,
-                proprietaireUid: dossierActuel.uid,
-                participantsUids: dossierActuel.participantsUids,
-              );
-            } else {
-              await FirestoreService.instance.modifierTache(
-                Tache(
-                  id: widget.tache!.id,
-                  uid: widget.tache!.uid,
-                  dossierId: widget.tache!.dossierId,
-                  nomCodeDossier: widget.tache!.nomCodeDossier,
+            try {
+              if (widget.tache == null) {
+                // Relit le dossier ICI plutôt que d'utiliser le
+                // `widget.dossier` capturé à l'ouverture du dialogue (trouvé
+                // en Red Team le 2026-08-31, via /code-review) : la boîte
+                // peut rester ouverte un moment (temps de remplir le
+                // formulaire) pendant lequel les participants peuvent avoir
+                // changé — `tacheCoherente()` côté firestore.rules exige
+                // désormais une correspondance EXACTE avec l'état ACTUEL du
+                // dossier, donc une liste périmée provoquerait un refus
+                // (PERMISSION_DENIED) même pour un utilisateur parfaitement
+                // légitime.
+                final dossierActuel = await FirestoreService.instance.dossierDepuisServeur(widget.dossier!.id);
+                await FirestoreService.instance.ajouterTacheADossier(
+                  dossierId: dossierActuel.id,
+                  nomCodeDossier: dossierActuel.nomCode,
                   descriptionCourte: description,
                   nature: _nature!.nom,
                   dateDeclenchante: _date,
-                  datePremierRappel: widget.tache!.datePremierRappel,
-                  statut: widget.tache!.statut,
                   notesDetaillees: notesTexte,
-                ),
-              );
+                  proprietaireUid: dossierActuel.uid,
+                  participantsUids: dossierActuel.participantsUids,
+                );
+              } else {
+                await FirestoreService.instance.modifierTache(
+                  Tache(
+                    id: widget.tache!.id,
+                    uid: widget.tache!.uid,
+                    dossierId: widget.tache!.dossierId,
+                    nomCodeDossier: widget.tache!.nomCodeDossier,
+                    descriptionCourte: description,
+                    nature: _nature!.nom,
+                    dateDeclenchante: _date,
+                    datePremierRappel: widget.tache!.datePremierRappel,
+                    statut: widget.tache!.statut,
+                    notesDetaillees: notesTexte,
+                  ),
+                );
+              }
+              if (context.mounted) Navigator.pop(context);
+            } catch (e) {
+              // Trouvé en re-vérifiant ce correctif, via /code-review, le
+              // 2026-08-31 : ce bouton n'avait aucune gestion d'erreur, alors
+              // que `tacheCoherente()` peut désormais réellement rejeter
+              // l'écriture (participants changés pendant la saisie) — sans
+              // ça, la boîte restait ouverte sans aucun retour à l'utilisateur.
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(AppLocalizations.of(context)!.participantsErreurGenerique)),
+                );
+              }
             }
-            if (context.mounted) Navigator.pop(context);
           },
           child: Text(l10n.commonEnregistrer),
         ),
@@ -634,14 +664,21 @@ class _SectionJournalState extends State<_SectionJournal> {
       // PENDANT que l'utilisateur saisissait sa phrase secrète — utiliser
       // une valeur capturée avant l'attente aurait pu chiffrer une entrée
       // qui atterrit dans un dossier déjà devenu partagé entre-temps.
-      final estPartage = widget.participantsUids.length > 1;
+      //
+      // Lu depuis le SERVEUR, pas `widget.participantsUids` (trouvé en
+      // re-vérifiant ce correctif, via /code-review, le 2026-08-31) : même
+      // raison que pour l'ajout de tâche (voir dossierDepuisServeur) — un
+      // prop mis en cache par le dernier instantané reçu peut être périmé
+      // de deux façons ici, l'écriture ET la décision de chiffrement.
+      final dossierActuel = await FirestoreService.instance.dossierDepuisServeur(widget.dossierId);
+      final estPartage = dossierActuel.participantsUids.length > 1;
       final texteAEcrire = estPartage ? texte : await ChiffrementNotesService.instance.chiffrer(texte);
       await FirestoreService.instance.ajouterEntreeJournal(
         widget.dossierId,
         texteAEcrire,
         _typeSelectionne,
         chiffre: !estPartage,
-        participantsUids: widget.participantsUids,
+        participantsUids: dossierActuel.participantsUids,
       );
       _controleur.clear();
     } catch (e) {
@@ -668,9 +705,10 @@ class _SectionJournalState extends State<_SectionJournal> {
       try {
         await FirestoreService.instance.supprimerEntreeJournal(entree.id);
       } catch (e) {
-        // Défense en profondeur : le bouton est déjà masqué pour qui n'a pas
-        // le droit (voir peutGererCetteEntree), mais couvre la fenêtre de
-        // course où le rôle changerait pendant la double confirmation.
+        // Défense en profondeur, trouvé en Red Team le 2026-08-31 : le
+        // bouton est déjà masqué pour qui n'a pas le droit (voir
+        // peutGererCetteEntree), mais couvre la fenêtre de course où le
+        // rôle changerait pendant la double confirmation.
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(l10n.participantsErreurGenerique)),

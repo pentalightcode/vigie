@@ -678,6 +678,8 @@
     }
   },
   "participantsErreurAucunCompte": "Aucun compte Vigie n'existe avec cet email.",
+  "participantsErreurDossierIntrouvable": "Ce dossier n'existe plus.",
+  "participantsErreurPasParticipant": "Cette personne n'est déjà plus participante de ce dossier.",
   "participantsErreurDejaParticipant": "Cette personne est déjà participante de ce dossier.",
   "participantsErreurPermission": "Tu n'as pas le droit de gérer les participants de ce dossier.",
   "participantsErreurCreateurNonRetirable": "Le créateur du dossier ne peut pas être retiré.",

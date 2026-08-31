@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
+import '../models/dossier.dart';
 
 /// Contenu de corps affiché à la place d'un écran de dossier quand le flux
 /// Firestore sous-jacent renvoie une erreur plutôt que de nouvelles données —
@@ -30,7 +31,12 @@ class VueAccesRevoque extends StatelessWidget {
 
   bool get _revocationConfirmee {
     final e = erreur;
-    return e is FirebaseException && e.code == 'permission-denied';
+    // Dossier supprimé (pas seulement un retrait d'accès) : `doc.exists`
+    // faux, `Dossier.depuisDocument` lève ceci plutôt qu'un TypeError sur un
+    // cast null — traité comme "plus disponible" au même titre qu'un vrai
+    // retrait, la distinction n'a pas d'importance pour l'utilisateur
+    // (trouvé en re-vérifiant ce correctif, via /code-review, le 2026-08-31).
+    return (e is FirebaseException && e.code == 'permission-denied') || e is DossierIntrouvableException;
   }
 
   @override

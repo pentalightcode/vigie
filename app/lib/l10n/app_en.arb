@@ -675,6 +675,8 @@
     }
   },
   "participantsErreurAucunCompte": "No Vigie account exists with this email.",
+  "participantsErreurDossierIntrouvable": "This case no longer exists.",
+  "participantsErreurPasParticipant": "This person is already no longer a participant on this case.",
   "participantsErreurDejaParticipant": "This person is already a participant on this case.",
   "participantsErreurPermission": "You don't have permission to manage this case's participants.",
   "participantsErreurCreateurNonRetirable": "The case's creator can't be removed.",

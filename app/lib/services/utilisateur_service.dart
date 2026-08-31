@@ -5,6 +5,7 @@ import '../models/profession.dart';
 import '../models/reglages_utilisateur.dart';
 import '../models/tache.dart';
 import 'chiffrement_notes_service.dart';
+import 'firestore_service.dart';
 import 'nature_dossier_service.dart';
 
 /// Réglages propres à chaque utilisateur (délai de rappel, pseudo, profession...).
@@ -61,9 +62,13 @@ class UtilisateurService {
   Future<void> definirDelaiRappelJours(int jours) async {
     await _document.set({'delaiRappelJours': jours}, SetOptions(merge: true));
 
+    // filtreParticipant (pas juste `uid == moi`, trouvé en re-vérifiant ce
+    // correctif, via /code-review, le 2026-08-31) : sinon, les tâches des
+    // dossiers partagés dont on n'est pas propriétaire ne se recalculaient
+    // jamais, malgré la promesse du commentaire ci-dessus ("sans exception").
     final taches = await _db
         .collection('taches')
-        .where('uid', isEqualTo: _uid)
+        .where(FirestoreService.instance.filtreParticipant)
         .where('statut', isEqualTo: StatutTache.aFaire.name)
         .get();
 

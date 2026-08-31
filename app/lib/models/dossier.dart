@@ -43,6 +43,18 @@ class Dossier {
   final Map<String, String> participantsEmails;
 
   factory Dossier.depuisDocument(DocumentSnapshot doc) {
+    // Vérifié AVANT le cast (trouvé en re-vérifiant ce correctif, via
+    // /code-review, le 2026-08-31) : si le dossier a été SUPPRIMÉ (pas
+    // seulement un retrait d'accès), Firestore livre un instantané avec
+    // `exists: false` — `doc.data()` renvoie alors `null`, pas une Map, et
+    // `as Map<String, dynamic>` plantait avec un `TypeError` générique.
+    // `VueAccesRevoque` ne reconnaissait que les `FirebaseException` de code
+    // `permission-denied` comme "accès révoqué" — un `TypeError` y affichait
+    // à tort le message "erreur réseau" au lieu de "tu n'as plus accès",
+    // exactement le cas que ce widget avait été conçu pour distinguer.
+    if (!doc.exists) {
+      throw DossierIntrouvableException(doc.id);
+    }
     final data = doc.data() as Map<String, dynamic>;
     final uid = data['uid'] as String;
     return Dossier(
@@ -103,4 +115,16 @@ class Dossier {
       participantsEmails: participantsEmails,
     );
   }
+}
+
+/// Levée par `Dossier.depuisDocument` quand le document n'existe plus
+/// (supprimé) — distincte d'une `FirebaseException` de permission, pour que
+/// `VueAccesRevoque` puisse traiter les deux comme "ce dossier n'est plus
+/// disponible pour toi" sans confondre ça avec une vraie erreur réseau.
+class DossierIntrouvableException implements Exception {
+  const DossierIntrouvableException(this.dossierId);
+  final String dossierId;
+
+  @override
+  String toString() => 'Dossier introuvable (supprimé ou jamais existé) : $dossierId';
 }

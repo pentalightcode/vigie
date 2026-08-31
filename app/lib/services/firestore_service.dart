@@ -32,7 +32,13 @@ class FirestoreService {
   /// qui aurait dû réécrire tous les documents existants : aucune écriture
   /// requise, aucun risque de migration ratée, marche à l'identique pour
   /// les anciens ET les nouveaux documents.
-  Filter get _filtreParticipant => Filter.or(
+  ///
+  /// Rendu public (trouvé en re-vérifiant ce correctif, via /code-review, le
+  /// 2026-08-31) : `UtilisateurService.definirDelaiRappelJours` avait besoin
+  /// exactement du même filtre et le dupliquait en `uid ==` seul, oubliant
+  /// les tâches des dossiers partagés dont l'utilisateur n'est pas
+  /// propriétaire — mieux vaut le réutiliser d'ici que le tripler.
+  Filter get filtreParticipant => Filter.or(
         Filter('uid', isEqualTo: _uid),
         Filter('participantsUids', arrayContains: _uid),
       );
@@ -177,7 +183,7 @@ class FirestoreService {
     final delai = await UtilisateurService.instance.delaiRappelJours();
     final taches = await _db
         .collection('taches')
-        .where(_filtreParticipant)
+        .where(filtreParticipant)
         .where('dossierId', isEqualTo: dossierId)
         .get();
 
@@ -202,12 +208,12 @@ class FirestoreService {
   Future<void> supprimerDossier(String dossierId) async {
     final taches = await _db
         .collection('taches')
-        .where(_filtreParticipant)
+        .where(filtreParticipant)
         .where('dossierId', isEqualTo: dossierId)
         .get();
     final entreesJournal = await _db
         .collection('journalDossier')
-        .where(_filtreParticipant)
+        .where(filtreParticipant)
         .where('dossierId', isEqualTo: dossierId)
         .get();
 
@@ -226,10 +232,23 @@ class FirestoreService {
     return _db.collection('dossiers').doc(dossierId).snapshots().map(Dossier.depuisDocument);
   }
 
+  /// Lecture ponctuelle, forcée depuis le SERVEUR (pas le cache local) —
+  /// pour les cas où la fraîcheur compte vraiment (trouvé en re-vérifiant ce
+  /// correctif, via /code-review, le 2026-08-31) : `dossier(id).first` sur
+  /// le flux ci-dessus peut se résoudre depuis le cache local si une version
+  /// y est déjà présente, AVANT tout aller-retour serveur — exactement le
+  /// contraire de ce que cherche `_ajouterTache` en relisant le dossier pour
+  /// satisfaire la correspondance EXACTE exigée par `tacheCoherente()` côté
+  /// firestore.rules.
+  Future<Dossier> dossierDepuisServeur(String dossierId) async {
+    final doc = await _db.collection('dossiers').doc(dossierId).get(const GetOptions(source: Source.server));
+    return Dossier.depuisDocument(doc);
+  }
+
   Stream<List<Tache>> tachesDuDossier(String dossierId) {
     return _db
         .collection('taches')
-        .where(_filtreParticipant)
+        .where(filtreParticipant)
         .where('dossierId', isEqualTo: dossierId)
         .snapshots()
         .map((snap) => snap.docs.map(Tache.depuisDocument).toList());
@@ -241,7 +260,7 @@ class FirestoreService {
   Stream<List<Tache>> tachesNonTerminees() {
     return _db
         .collection('taches')
-        .where(_filtreParticipant)
+        .where(filtreParticipant)
         .where('statut', isEqualTo: StatutTache.aFaire.name)
         .snapshots()
         .map((snap) => snap.docs.map(Tache.depuisDocument).toList());
@@ -251,7 +270,7 @@ class FirestoreService {
   Stream<List<Tache>> toutesLesTaches() {
     return _db
         .collection('taches')
-        .where(_filtreParticipant)
+        .where(filtreParticipant)
         .snapshots()
         .map((snap) => snap.docs.map(Tache.depuisDocument).toList());
   }
@@ -287,7 +306,7 @@ class FirestoreService {
   /// pour documenter l'avancement, jamais écrasées (demandé par Tobie le
   /// 2026-08-20, distinct des notes par tâche qui décrivent un état ponctuel).
   Stream<List<EntreeJournal>> journalDossier(String dossierId) {
-    // Le filtre sur "participant" (voir _filtreParticipant) est nécessaire
+    // Le filtre sur "participant" (voir filtreParticipant) est nécessaire
     // même si les règles Firestore le vérifient déjà par document : pour une
     // requête de LISTE (pas juste un document), Firestore exige que la
     // requête elle-même prouve qu'elle ne peut renvoyer que des documents
@@ -296,7 +315,7 @@ class FirestoreService {
     // d'erreur montré par Tobie.
     return _db
         .collection('journalDossier')
-        .where(_filtreParticipant)
+        .where(filtreParticipant)
         .where('dossierId', isEqualTo: dossierId)
         .orderBy('creeLe', descending: true)
         .snapshots()

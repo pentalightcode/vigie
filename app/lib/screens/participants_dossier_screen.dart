@@ -116,13 +116,22 @@ class _ParticipantsDossierScreenState extends State<ParticipantsDossierScreen> {
     final l10n = AppLocalizations.of(context)!;
     if (e is FirebaseFunctionsException) {
       return switch (e.code) {
-        'not-found' => l10n.participantsErreurAucunCompte,
-        'already-exists' => l10n.participantsErreurDejaParticipant,
-        'permission-denied' => l10n.participantsErreurPermission,
         // Le texte brut envoyé par la fonction (e.message) est toujours en
         // français — on ne s'appuie plus dessus pour l'affichage (trouvé en
         // Red Team le 2026-08-30) : la fonction envoie plutôt un code stable
         // dans `details`, traduit ici selon la langue de l'appareil.
+        //
+        // 'not-found' recouvrait à tort TROIS échecs différents avec le même
+        // message "aucun compte avec cet email" (trouvé en re-vérifiant ce
+        // correctif, via /code-review, le 2026-08-31) — désormais
+        // désambiguïsé via `details`, comme 'failed-precondition' ci-dessous.
+        'not-found' => switch (e.details) {
+            'dossierIntrouvable' => l10n.participantsErreurDossierIntrouvable,
+            'pasParticipant' => l10n.participantsErreurPasParticipant,
+            _ => l10n.participantsErreurAucunCompte,
+          },
+        'already-exists' => l10n.participantsErreurDejaParticipant,
+        'permission-denied' => l10n.participantsErreurPermission,
         'failed-precondition' => switch (e.details) {
             'createurNonRetirable' => l10n.participantsErreurCreateurNonRetirable,
             'createurRoleFixe' => l10n.participantsErreurCreateurRoleFixe,

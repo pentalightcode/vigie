@@ -2311,6 +2311,18 @@ abstract class AppLocalizations {
   /// **'Aucun compte Vigie n\'existe avec cet email.'**
   String get participantsErreurAucunCompte;
 
+  /// No description provided for @participantsErreurDossierIntrouvable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce dossier n\'existe plus.'**
+  String get participantsErreurDossierIntrouvable;
+
+  /// No description provided for @participantsErreurPasParticipant.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cette personne n\'est déjà plus participante de ce dossier.'**
+  String get participantsErreurPasParticipant;
+
   /// No description provided for @participantsErreurDejaParticipant.
   ///
   /// In fr, this message translates to:

@@ -1317,6 +1317,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'No Vigie account exists with this email.';
 
   @override
+  String get participantsErreurDossierIntrouvable =>
+      'This case no longer exists.';
+
+  @override
+  String get participantsErreurPasParticipant =>
+      'This person is already no longer a participant on this case.';
+
+  @override
   String get participantsErreurDejaParticipant =>
       'This person is already a participant on this case.';
 
