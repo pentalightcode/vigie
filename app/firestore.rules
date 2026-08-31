@@ -89,6 +89,27 @@ service cloud.firestore {
         );
     }
 
+    // Variante pour /taches : `uid` y désigne le PROPRIÉTAIRE du dossier, pas
+    // l'auteur réel (contrairement à journalDossier où `uid` = auteur) —
+    // comparer sur `auteurUid` à la place. Décision de Tobie le 2026-08-31,
+    // "même règle que le journal" : suite au red team trouvant que n'importe
+    // quel participant (même simple contributeur) pouvait supprimer la
+    // tâche de quelqu'un d'autre, alors que le journal avait déjà été
+    // restreint pour la même préoccupation d'intégrité — Tobie a tranché
+    // pour la cohérence entre les deux. `data.get('auteurUid', data.uid)`
+    // replie sur `uid` pour les tâches créées avant l'introduction du champ
+    // (créateur d'origine = seul auteur possible à l'époque, correct).
+    function estAuteurTacheOuGestionnaire(data) {
+      return estParticipant(data)
+        && (
+          data.get('auteurUid', data.uid) == request.auth.uid
+          || (
+            exists(/databases/$(database)/documents/dossiers/$(data.dossierId))
+            && role(get(/databases/$(database)/documents/dossiers/$(data.dossierId)).data) in ['createur', 'administrateur']
+          )
+        );
+    }
+
     // Empêche de forger une tâche/entrée de journal en y injectant l'uid de
     // quelqu'un d'autre dans participantsUids (trouvé en Red Team le
     // 2026-08-30, via /code-review) : sans ce contrôle, estParticipant()
@@ -220,7 +241,11 @@ service cloud.firestore {
     }
 
     match /taches/{tacheId} {
-      allow read, delete: if estParticipant(resource.data);
+      allow read: if estParticipant(resource.data);
+      // Réservé à l'auteur ou à créateur/administrateur (décision de Tobie
+      // le 2026-08-31, "même règle que le journal") — un simple
+      // contributeur ne peut plus supprimer la tâche de quelqu'un d'autre.
+      allow delete: if estAuteurTacheOuGestionnaire(resource.data);
       // `uid` jamais vérifié à la création avant ce correctif (trouvé en Red
       // Team le 2026-08-30, via /code-review) : n'importe qui pouvait forger
       // une tâche avec `uid` = une victime réelle, exposée ensuite à cette

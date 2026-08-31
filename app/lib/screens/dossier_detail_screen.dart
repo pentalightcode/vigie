@@ -136,7 +136,7 @@ class DossierDetailScreen extends StatelessWidget {
                       SliverToBoxAdapter(child: _BarreProgression(taches: taches)),
                       SliverList.builder(
                         itemCount: taches.length,
-                        itemBuilder: (context, i) => _LigneTacheDetail(tache: taches[i]),
+                        itemBuilder: (context, i) => _LigneTacheDetail(tache: taches[i], monUid: monUid, monRole: monRole),
                       ),
                     ],
                   );
@@ -255,12 +255,19 @@ class _BarreProgression extends StatelessWidget {
 }
 
 class _LigneTacheDetail extends StatelessWidget {
-  const _LigneTacheDetail({required this.tache});
+  const _LigneTacheDetail({required this.tache, required this.monUid, required this.monRole});
 
   final Tache tache;
+  final String monUid;
+  final String monRole;
 
   @override
   Widget build(BuildContext context) {
+    // Supprimer réservé à l'auteur ou créateur/administrateur (décision de
+    // Tobie le 2026-08-31, "même règle que le journal") — modifier reste
+    // ouvert à tout participant (accès complet, inchangé pour le contenu).
+    final peutSupprimer =
+        tache.auteurUid == monUid || monRole == 'createur' || monRole == 'administrateur';
     return ListTile(
       leading: Checkbox(
         value: tache.statut == StatutTache.fait,
@@ -288,10 +295,11 @@ class _LigneTacheDetail extends StatelessWidget {
               builder: (context) => _DialogueTache(tache: tache),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => _supprimer(context),
-          ),
+          if (peutSupprimer)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () => _supprimer(context),
+            ),
         ],
       ),
     );
@@ -323,7 +331,19 @@ class _LigneTacheDetail extends StatelessWidget {
       destructif: true,
     );
     if (confirme) {
-      await FirestoreService.instance.supprimerTache(tache.id);
+      try {
+        await FirestoreService.instance.supprimerTache(tache.id);
+      } catch (e) {
+        // Défense en profondeur, trouvé en corrigeant ce même correctif, le
+        // 2026-08-31 : le bouton est déjà masqué pour qui n'a pas le droit
+        // (voir peutSupprimer), mais couvre la fenêtre de course où le rôle
+        // changerait pendant la double confirmation.
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.participantsErreurGenerique)),
+          );
+        }
+      }
     }
   }
 }
