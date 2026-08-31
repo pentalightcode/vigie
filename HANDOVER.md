@@ -8,6 +8,8 @@
 
 À lire dans l'ordre : ce document d'abord (méthode + vue d'ensemble + mise en route), puis `PROGRESS.md` (journal chronologique détaillé de chaque session de travail — le plus fiable pour savoir "où on en est exactement" à un instant donné), puis `Notes/` (fiches de décision individuelles et fiches de red team, une par sujet). Le code source lui-même contient énormément de contexte "pourquoi" en commentaire — c'est une convention de la maison, voir section 6.
 
+`PROGRESS.md` fait plusieurs centaines de lignes (environ 780 au 31/08/2026) — pas fait pour être lu linéairement du début à la fin avant de commencer à travailler. Pour une orientation rapide, lire les 100-150 dernières lignes (l'état le plus récent) suffit généralement ; y revenir ensuite par recherche de mot-clé (nom de fichier, nom de fonctionnalité) quand un point précis a besoin de contexte historique.
+
 Si vous êtes une IA (Claude Code ou autre outil qui charge automatiquement un fichier d'instructions de dépôt) : un `CLAUDE.md` existe à la racine de ce dépôt et renvoie ici — s'il vous a été chargé automatiquement, c'est normal, c'est voulu.
 
 ---
@@ -86,6 +88,9 @@ Principe central : l'utilisateur ne désigne **jamais** ses dossiers par leur vr
 7. Lancer l'app en local : `flutter run` depuis `app/` (choisir la cible — Chrome pour le web, un appareil/émulateur Android connecté sinon).
 8. Pour valider une modification des règles Firestore ou des index **sans rien déployer en production** : `firebase deploy --only firestore --dry-run` (depuis `app/`) — compile et vérifie la syntaxe uniquement.
 9. Pour valider une modification de `functions/main.py` sans déployer : `cd app/functions && source venv/bin/activate && python3 -c "import main"` (charge le fichier, révèle toute erreur de syntaxe/référence) — pas un vrai test d'exécution, juste une vérification rapide de cohérence.
+10. `flutter test` (depuis `app/`) exécute le seul test du projet (`test/widget_test.dart`, très minimal — pas de vraie suite de tests à ce jour, la vérification se fait surtout manuellement, voir règle 1 en section 1). Un message sur des outils Linux manquants (`clang`, `cmake`, `ninja`...) peut s'afficher avant le résultat — sans rapport, ne concerne que `flutter run -d linux`, jamais les tests ni le web/Android.
+
+**Un point volontairement simple** : tout ce projet a toujours été développé en committant directement sur `main`, sans branches ni pull requests (décision explicite de Tobie, reconfirmée le 31/08/2026 malgré l'arrivée d'un deuxième contributeur) — continuez sur ce même mode plutôt que d'introduire un workflow de review sans que ce soit demandé. Ce dépôt public n'a par ailleurs **aucune licence open-source** (tous droits réservés par défaut, choix explicite de Tobie/PENTALIGHTCODE) — le code est visible publiquement mais pas réutilisable par un tiers.
 
 **Ce que vous n'aurez PAS automatiquement en clonant** (à demander à Tobie personnellement, jamais par un canal non sécurisé — email en clair, chat, collé dans une conversation avec une IA) :
 - Les vraies valeurs des secrets serveur (Secret Manager, section 13) — inutiles sauf si vous devez modifier une fonction qui les utilise ET la tester en conditions réelles connectées à Google/Groq.
