@@ -1292,6 +1292,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Tu n\'as plus accès à ce dossier. Un administrateur t\'a peut-être retiré pendant que tu le consultais.';
 
   @override
+  String get dossierErreurChargementMessage =>
+      'Impossible de charger ce dossier pour l\'instant. Vérifie ta connexion et réessaie.';
+
+  @override
   String get participantsMenuPasserAdministrateur => 'Passer administrateur';
 
   @override

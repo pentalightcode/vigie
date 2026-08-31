@@ -36,7 +36,7 @@ class _ParticipantsDossierScreenState extends State<ParticipantsDossierScreen> {
         builder: (context, snapshot) {
           // Accès révoqué pendant la consultation — voir VueAccesRevoque.
           if (snapshot.hasError) {
-            return const VueAccesRevoque();
+            return VueAccesRevoque(erreur: snapshot.error);
           }
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());

@@ -2251,6 +2251,12 @@ abstract class AppLocalizations {
   /// **'Tu n\'as plus accès à ce dossier. Un administrateur t\'a peut-être retiré pendant que tu le consultais.'**
   String get dossierAccesRevoqueMessage;
 
+  /// No description provided for @dossierErreurChargementMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de charger ce dossier pour l\'instant. Vérifie ta connexion et réessaie.'**
+  String get dossierErreurChargementMessage;
+
   /// No description provided for @participantsMenuPasserAdministrateur.
   ///
   /// In fr, this message translates to:

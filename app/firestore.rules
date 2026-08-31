@@ -301,11 +301,18 @@ service cloud.firestore {
     match /utilisateurs/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
 
-      // Collaborateurs "par défaut" (ajouté le 2026-08-29) : liste de
-      // personnes que ce compte ajoute automatiquement comme participants à
-      // chaque nouveau dossier créé — pure commodité côté client (n'accorde
-      // par elle-même aucun accès ; c'est participantsUids sur le dossier
-      // qui compte). Le propriétaire uniquement peut la gérer.
+      // Collaborateurs "par défaut" — PAS ENCORE UNE FONCTIONNALITÉ ACTIVE
+      // (trouvé en re-vérifiant ce correctif, via /code-review, le
+      // 2026-08-31 : le commentaire précédent laissait croire à tort que
+      // c'était déjà branché). L'idée, jamais construite : une liste de
+      // personnes que ce compte ajouterait automatiquement comme
+      // participants à chaque nouveau dossier créé — pure commodité côté
+      // client (n'accorderait par elle-même aucun accès ; c'est
+      // participantsUids sur le dossier qui compte). La permission
+      // ci-dessous existe par anticipation, mais AUCUN code (app ou
+      // fonction Cloud) ne lit ni n'écrit cette sous-collection à ce jour —
+      // voir PROGRESS.md/HANDOVER.md, "chantiers en attente". Le propriétaire
+      // uniquement pourrait la gérer, le jour où elle sera construite.
       match /collaborateursParDefaut/{collabId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }

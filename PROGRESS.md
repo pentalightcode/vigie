@@ -797,3 +797,10 @@
 - [x] **Ajouté dans `HANDOVER.md`** : une note explicite indiquant que la section "Mise en route" a été vérifiée pour de vrai (pas juste rédigée) — avec le rappel que c'est justement cette vérification qui a permis de trouver le test cassé plus tôt.
 - [x] **Dossier de test nettoyé** après vérification (scratchpad, pas laissé traîner).
 - [x] **Commité et poussé.**
+
+## 2026-08-31 (suite) — Dixième passe de Red Team (retour au code, encore /code-review)
+- [x] **Appel à `/code-review`** sur l'ensemble du chantier collaboration (commit `1d69000` à `HEAD`). 5 trouvailles : 3 déjà connues et déjà tranchées (l'incertitude `Filter.or`/règle conditionnelle — priorité n°1 de test déjà documentée ; l'énumération de comptes par email — risque accepté déjà documenté ; l'appel `get_user()` dans la boucle de retry — déjà analysé et jugé négligeable), 2 nouvelles, corrigées.
+- [x] **🟡 Corrigé** : `VueAccesRevoque` traitait TOUTE erreur du flux Firestore comme "accès révoqué", pas seulement `permission-denied` — une simple erreur réseau transitoire (l'app cible des connexions mobiles pas toujours fiables) affichait faussement "tu n'as plus accès à ce dossier" à quelqu'un qui n'a en réalité rien perdu. Corrigé : `VueAccesRevoque` distingue maintenant un vrai retrait (`FirebaseException` avec le code `permission-denied`) d'une erreur transitoire (nouveau message, nouvelle icône, moins alarmant et honnête sur ce qui s'est vraiment passé). Nouvelle clé l10n FR/EN.
+- [x] **🟢 Corrigé** : le commentaire de la règle `collaborateursParDefaut` (au présent, "ajoute automatiquement...") laissait croire à tort que cette fonctionnalité était déjà active — vérifié qu'aucun code (app ou fonction Cloud) ne lit ni n'écrit cette sous-collection à ce jour. Commentaire corrigé pour refléter que seule la permission existe par anticipation, rien n'est construit.
+- [x] **Vérifié** : `flutter analyze` propre, `flutter test` passe, `firebase deploy --only firestore:rules --dry-run` compile sans nouvelle erreur.
+- [ ] **Toujours rien déployé.**

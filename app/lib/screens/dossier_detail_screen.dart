@@ -33,7 +33,7 @@ class DossierDetailScreen extends StatelessWidget {
           // administrateur) : sans ce garde-fou, l'écran reste bloqué sur le
           // chargement pour toujours (voir VueAccesRevoque).
           if (snapshotDossier.hasError) {
-            return const VueAccesRevoque();
+            return VueAccesRevoque(erreur: snapshotDossier.error);
           }
           if (!snapshotDossier.hasData) {
             return const Center(child: CircularProgressIndicator());

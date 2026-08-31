@@ -1280,6 +1280,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'You no longer have access to this case. An administrator may have removed you while you were viewing it.';
 
   @override
+  String get dossierErreurChargementMessage =>
+      'Couldn\'t load this case right now. Check your connection and try again.';
+
+  @override
   String get participantsMenuPasserAdministrateur => 'Make administrator';
 
   @override

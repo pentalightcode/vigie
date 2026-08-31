@@ -655,6 +655,7 @@
     }
   },
   "dossierAccesRevoqueMessage": "You no longer have access to this case. An administrator may have removed you while you were viewing it.",
+  "dossierErreurChargementMessage": "Couldn't load this case right now. Check your connection and try again.",
   "participantsMenuPasserAdministrateur": "Make administrator",
   "participantsMenuPasserContributeur": "Make contributor",
   "participantsRetirerTitre": "Remove this participant?",
