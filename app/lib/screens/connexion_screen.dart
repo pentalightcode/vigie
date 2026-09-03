@@ -81,28 +81,60 @@ class _ConnexionScreenState extends State<ConnexionScreen> {
         ),
         if (kIsWeb) ...[
           const SizedBox(height: 20),
-          FilledButton.icon(
-            onPressed: _telechargerApk,
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.green.shade700,
-              padding: const EdgeInsets.symmetric(vertical: 16),
+          if (defaultTargetPlatform == TargetPlatform.iOS) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Column(
+                children: [
+                  Icon(Icons.apple, size: 32, color: Colors.blue.shade900),
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.connexionInstructionsIosTitre,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    l10n.connexionInstructionsIos,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.blue.shade900, height: 1.4),
+                  ),
+                ],
+              ),
             ),
-            icon: const Icon(Icons.android),
-            label: Text(
-              _versionDisponible != null
-                  ? l10n.connexionTelechargerAvecVersion(_versionDisponible!)
-                  : l10n.connexionTelechargerSansVersion,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+            const SizedBox(height: 20),
+            const Divider(),
+          ] else ...[
+            FilledButton.icon(
+              onPressed: _telechargerApk,
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.green.shade700,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              icon: const Icon(Icons.android),
+              label: Text(
+                _versionDisponible != null
+                    ? l10n.connexionTelechargerAvecVersion(_versionDisponible!)
+                    : l10n.connexionTelechargerSansVersion,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            l10n.connexionVersionInstalleeMeilleure,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
-          ),
-          const SizedBox(height: 20),
-          const Divider(),
+            const SizedBox(height: 8),
+            Text(
+              l10n.connexionVersionInstalleeMeilleure,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 20),
+            const Divider(),
+          ],
         ],
         const SizedBox(height: 8),
         Text(

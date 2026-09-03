@@ -983,6 +983,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get connexionRecevoirLienBouton => 'Recevoir le lien de connexion';
 
   @override
+  String get connexionInstructionsIosTitre => 'Installer sur iPhone / iPad';
+
+  @override
+  String get connexionInstructionsIos =>
+      '1. Touchez l\'icône Partager en bas de Safari.\n2. Choisissez « Sur l\'écran d\'accueil ».';
+
+  @override
   String connexionLienEnvoye(String email) {
     return 'Un lien a été envoyé à $email.\nOuvre ta boîte mail et clique sur le lien pour te connecter.';
   }

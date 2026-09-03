@@ -24,6 +24,7 @@ import 'services/locale_service.dart';
 import 'services/notification_service.dart';
 import 'services/theme_service.dart';
 import 'services/utilisateur_service.dart';
+import 'widgets/banniere_installation_ios.dart';
 import 'widgets/banniere_mise_a_jour.dart';
 
 Future<void> main() async {
@@ -253,6 +254,8 @@ class _EcranPrincipalState extends State<_EcranPrincipal> {
           // dernière version dès qu'on recharge la page, pas besoin d'une
           // bannière pour se mettre à jour soi-même.
           if (!kIsWeb) const BanniereMiseAJour(),
+          // Uniquement sur le Web iOS : pour guider l'utilisateur à installer la PWA.
+          if (kIsWeb) const BanniereInstallationIos(),
           Expanded(child: _ecrans[_ongletActif]),
         ],
       ),

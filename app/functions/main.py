@@ -2081,3 +2081,54 @@ def gerer_participant_dossier(req: https_fn.CallableRequest) -> dict:
 
     resultat_public = {k: v for k, v in resultat.items() if not k.startswith("_")}
     return {"ok": True, **resultat_public}
+
+@https_fn.on_call(timeout_sec=120)
+def supprimer_dossier_partage(req: https_fn.CallableRequest) -> dict:
+    """Supprime un dossier partagé et tout son contenu (tâches, journal) en cascade.
+    L'appelant doit être le créateur OU un administrateur ayant la permission 'supprimerDossier'.
+    Exécuté avec le SDK Admin pour outrepasser les règles de sécurité, car un administrateur
+    sans 'modererContenu' n'a pas le droit de supprimer les tâches/entrées des autres
+    individuellement (Firestore rules)."""
+    if req.auth is None:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.UNAUTHENTICATED, "Non connecté.")
+
+    donnees = req.data or {}
+    dossier_id = donnees.get("dossierId")
+    if not dossier_id:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "dossierId manquant.")
+
+    db = firestore.client()
+    dossier_ref = db.collection("dossiers").document(dossier_id)
+    dossier_doc = dossier_ref.get()
+
+    if not dossier_doc.exists:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.NOT_FOUND, "Dossier introuvable.")
+
+    dossier_data = dossier_doc.to_dict() or {}
+    demandeur_uid = req.auth.uid
+    proprietaire_uid = dossier_data.get("uid")
+
+    if demandeur_uid != proprietaire_uid:
+        # Vérifier si c'est un administrateur avec le droit de supprimer
+        roles = dossier_data.get("roles") or {}
+        if roles.get(demandeur_uid) != "administrateur":
+             raise https_fn.HttpsError(
+                https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+                "Seul le créateur ou un administrateur peut supprimer ce dossier."
+            )
+        
+        # Vérifier les permissions à la carte s'il y en a
+        if "permissionsAdministrateur" in dossier_data:
+            permissions = dossier_data["permissionsAdministrateur"].get(demandeur_uid) or []
+            if "supprimerDossier" not in permissions:
+                 raise https_fn.HttpsError(
+                    https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+                    "Vous n'avez pas la permission de supprimer ce dossier."
+                )
+
+    # Suppression en cascade (tâches, journal, puis dossier)
+    _supprimer_par_lots(db.collection("taches").where("dossierId", "==", dossier_id))
+    _supprimer_par_lots(db.collection("journalDossier").where("dossierId", "==", dossier_id))
+    dossier_ref.delete()
+
+    return {"ok": True}

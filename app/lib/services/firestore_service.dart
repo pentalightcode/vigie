@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/dossier.dart';
 import '../models/entree_journal.dart';
@@ -272,8 +273,6 @@ class FirestoreService {
       'dateEvenement': dateEvenement != null ? Timestamp.fromDate(dateEvenement) : null,
     });
 
-    if (dateEvenement == null) return;
-
     final delai = await UtilisateurService.instance.delaiRappelJours();
     final taches = await _db
         .collection('taches')
@@ -283,43 +282,26 @@ class FirestoreService {
 
     final batch = _db.batch();
     for (final doc in taches.docs) {
-      batch.update(doc.reference, {
+      final misesAJour = <String, dynamic>{
         'nomCodeDossier': nomCode,
-        'dateDeclenchante': Timestamp.fromDate(dateEvenement),
-        'datePremierRappel': Timestamp.fromDate(
+      };
+      if (dateEvenement != null) {
+        misesAJour['dateDeclenchante'] = Timestamp.fromDate(dateEvenement);
+        misesAJour['datePremierRappel'] = Timestamp.fromDate(
           Tache.calculerDatePremierRappel(dateEvenement, delai),
-        ),
-      });
+        );
+      }
+      batch.update(doc.reference, misesAJour);
     }
     await batch.commit();
   }
 
-  /// Supprime un dossier et toutes ses tâches ET entrées de journal liées.
-  /// Le journal était oublié jusqu'ici (trouvé en Red Team le 2026-08-30,
-  /// voir Notes/2026-08-30-redteam-code-collaboration.md, point 5) : des
-  /// notes potentiellement confidentielles restaient orphelines dans
-  /// Firestore pour toujours après la "suppression" de leur dossier.
+  /// Supprimer un dossier via une Cloud Function pour contourner les
+  /// règles Firestore de suppression (une suppression par lot client
+  /// échouerait si l'admin n'a pas la permission `modererContenu` sur les tâches/journal des autres).
   Future<void> supprimerDossier(String dossierId) async {
-    final taches = await _db
-        .collection('taches')
-        .where(filtreParticipant)
-        .where('dossierId', isEqualTo: dossierId)
-        .get();
-    final entreesJournal = await _db
-        .collection('journalDossier')
-        .where(filtreParticipant)
-        .where('dossierId', isEqualTo: dossierId)
-        .get();
-
-    final batch = _db.batch();
-    for (final doc in taches.docs) {
-      batch.delete(doc.reference);
-    }
-    for (final doc in entreesJournal.docs) {
-      batch.delete(doc.reference);
-    }
-    batch.delete(_db.collection('dossiers').doc(dossierId));
-    await batch.commit();
+    final callable = FirebaseFunctions.instance.httpsCallable('supprimer_dossier_partage');
+    await callable.call({'dossierId': dossierId});
   }
 
   Stream<Dossier> dossier(String dossierId) {

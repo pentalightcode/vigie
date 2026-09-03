@@ -630,6 +630,8 @@
   "connexionVersionInstalleeMeilleure": "La version installée fonctionne mieux que le site (notifications, Gmail...).",
   "connexionInstructions": "Entre ton adresse email, tu recevras un lien de connexion — pas besoin de mot de passe.",
   "connexionRecevoirLienBouton": "Recevoir le lien de connexion",
+  "connexionInstructionsIosTitre": "Installer sur iPhone / iPad",
+  "connexionInstructionsIos": "1. Touchez l'icône Partager en bas de Safari.\n2. Choisissez « Sur l'écran d'accueil ».",
   "connexionLienEnvoye": "Un lien a été envoyé à {email}.\nOuvre ta boîte mail et clique sur le lien pour te connecter.",
   "@connexionLienEnvoye": {
     "placeholders": {

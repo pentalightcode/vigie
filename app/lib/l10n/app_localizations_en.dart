@@ -979,6 +979,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connexionRecevoirLienBouton => 'Receive the sign-in link';
 
   @override
+  String get connexionInstructionsIosTitre => 'Install on iPhone / iPad';
+
+  @override
+  String get connexionInstructionsIos =>
+      '1. Tap the Share icon at the bottom of Safari.\n2. Choose \'Add to Home Screen\'.';
+
+  @override
   String connexionLienEnvoye(String email) {
     return 'A link was sent to $email.\nOpen your mailbox and click the link to sign in.';
   }

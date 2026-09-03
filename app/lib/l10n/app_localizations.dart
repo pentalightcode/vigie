@@ -1735,6 +1735,18 @@ abstract class AppLocalizations {
   /// **'Recevoir le lien de connexion'**
   String get connexionRecevoirLienBouton;
 
+  /// No description provided for @connexionInstructionsIosTitre.
+  ///
+  /// In fr, this message translates to:
+  /// **'Installer sur iPhone / iPad'**
+  String get connexionInstructionsIosTitre;
+
+  /// No description provided for @connexionInstructionsIos.
+  ///
+  /// In fr, this message translates to:
+  /// **'1. Touchez l\'icône Partager en bas de Safari.\n2. Choisissez « Sur l\'écran d\'accueil ».'**
+  String get connexionInstructionsIos;
+
   /// No description provided for @connexionLienEnvoye.
   ///
   /// In fr, this message translates to:
