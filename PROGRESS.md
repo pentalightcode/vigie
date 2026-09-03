@@ -898,3 +898,9 @@
 - [x] **Validation** : `dart analyze` passé avec succès (quelques avertissements mineurs).
 - [x] **Solution iOS (PWA)** : Ajout d'une bannière spécifique (`BanniereInstallationIos`) sur la version Web pour guider les utilisateurs Safari (iOS) à installer l'application sur leur écran d'accueil, contournant ainsi l'absence de l'app sur l'App Store.
 - [x] **Déploiement terminé** : Firebase (Functions, Firestore), Web (Hosting avec la bannière PWA iOS), et APK Android (copié sur le Bureau) ont été déployés avec succès. La Phase 2 est officiellement close.
+
+## 2026-09-03 — Préparation de la version de test pour Tobie
+- [x] **Bump version** : Passage à la version 1.19.0+50 dans `pubspec.yaml`.
+- [x] **Déploiement complet** : Exécution stricte du rituel de déploiement (Firestore, Cloud Functions, builds APK et Web, Hosting).
+- [x] **Publication** : Script de publication lancé (`1.19.0 50`), 3 utilisateurs notifiés.
+- [x] **Statut** : Version prête à être testée par Tobie en conditions réelles (Bannière iOS PWA + Correction administrateur).
