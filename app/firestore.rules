@@ -247,6 +247,16 @@ service cloud.firestore {
         );
     }
 
+    // Utilisé pour la création d'une tâche ou d'une entrée de journal.
+    // L'auteur est toujours soi-même à la création, donc on ne peut pas utiliser
+    // estAuteurTacheOuGestionnaire (qui serait toujours vrai, ouvrant une faille).
+    // Seul un gestionnaire (ou lors de la création d'un nouveau dossier solo)
+    // a le droit de créer directement sans propositionEnAttente.
+    function estGestionnairePourCreation(data) {
+      return (!exists(/databases/$(database)/documents/dossiers/$(data.dossierId)) && data.get('participantsUids', []) == [request.auth.uid])
+        || (exists(/databases/$(database)/documents/dossiers/$(data.dossierId)) && estGestionnaireContenu(get(/databases/$(database)/documents/dossiers/$(data.dossierId)).data));
+    }
+
     match /dossiers/{dossierId} {
       allow read: if estParticipant(resource.data);
       // Un dossier ne peut être créé qu'avec SOI-MÊME comme unique
@@ -337,11 +347,12 @@ service cloud.firestore {
       // une tâche avec `uid` = une victime réelle, exposée ensuite à cette
       // victime via `_taches_actives_visibles` (SDK Admin, ignore ces
       // règles) — voir tacheCoherente() ci-dessus.
-      // Création directe (sans proposition) réservée à l'auteur ou au créateur/administrateur
-      // avec 'modererContenu'. Les autres doivent forger une proposition de création (type 'creer').
+      // Création directe (sans proposition) réservée au créateur/administrateur
+      // avec 'modererContenu' (ou création initiale du dossier). Les autres (contributeurs)
+      // doivent forger une proposition de création (type 'creer').
       allow create: if estParticipant(request.resource.data) && (
-          (estAuteurTacheOuGestionnaire(request.resource.data) && request.resource.data.get('propositionEnAttente', null) == null) ||
-          (!estAuteurTacheOuGestionnaire(request.resource.data) && request.resource.data.get('propositionEnAttente', null) != null && request.resource.data.propositionEnAttente.type == 'creer' && request.resource.data.propositionEnAttente.proposePar == request.auth.uid)
+          (estGestionnairePourCreation(request.resource.data) && request.resource.data.get('propositionEnAttente', null) == null) ||
+          (!estGestionnairePourCreation(request.resource.data) && request.resource.data.get('propositionEnAttente', null) != null && request.resource.data.propositionEnAttente.type == 'creer' && request.resource.data.propositionEnAttente.proposePar == request.auth.uid)
         ) && tacheCoherente(request.resource.data);
       // participantsUids figé à l'update (trouvé en Red Team le 2026-08-30) :
       // seule la fonction serveur `_synchroniser_participants_dossier` (SDK
@@ -437,8 +448,8 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && participantsCoherents(request.resource.data)
         && (
-          (estAuteurTacheOuGestionnaire(request.resource.data) && request.resource.data.get('propositionEnAttente', null) == null) ||
-          (!estAuteurTacheOuGestionnaire(request.resource.data) && request.resource.data.get('propositionEnAttente', null) != null && request.resource.data.propositionEnAttente.type == 'creer' && request.resource.data.propositionEnAttente.proposePar == request.auth.uid)
+          (estGestionnairePourCreation(request.resource.data) && request.resource.data.get('propositionEnAttente', null) == null) ||
+          (!estGestionnairePourCreation(request.resource.data) && request.resource.data.get('propositionEnAttente', null) != null && request.resource.data.propositionEnAttente.type == 'creer' && request.resource.data.propositionEnAttente.proposePar == request.auth.uid)
         );
       // Modification autorisée (choix explicite de Tobie le 2026-08-21) : seuls le
       // texte/type/modifieLe peuvent changer, jamais le dossier ou la date de

@@ -99,11 +99,26 @@ class DossierDetailScreen extends StatelessWidget {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: Text(
-                    dossier.dateEvenement != null
-                        ? l10n.dossierDetailDateAvecValeur(formaterDateFr(dossier.dateEvenement!))
-                        : l10n.dossierDetailPasDeDate,
-                    style: Theme.of(context).textTheme.bodyLarge,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        dossier.dateEvenement != null
+                            ? l10n.dossierDetailDateAvecValeur(formaterDateFr(dossier.dateEvenement!))
+                            : l10n.dossierDetailPasDeDate,
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                      if (dossier.creeLe != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            l10n.dossierDetailCreeLe(formaterDateFr(dossier.creeLe!)),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.outline,
+                                ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -477,11 +492,15 @@ class _LigneTacheDetail extends StatelessWidget {
           // Attribution (Phase 2, 2026-08-31, remarque de Tobie : "on ne
           // sait pas qui a ajouté telle tâche") — seulement affichée sur un
           // dossier partagé, inutile sur un dossier solo (toujours soi-même).
-          if (afficherAttribution)
+          if (tache.creeLe != null || afficherAttribution)
             Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Text(
-                l10n.dossierDetailAttributionTache(auteurAffichage),
+                tache.creeLe != null
+                    ? (afficherAttribution
+                        ? l10n.dossierDetailAjouteeLePar(formaterDateFr(tache.creeLe!), auteurAffichage)
+                        : l10n.dossierDetailAjouteeLe(formaterDateFr(tache.creeLe!)))
+                    : l10n.dossierDetailAttributionTache(auteurAffichage),
                 style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.outline),
               ),
             ),
@@ -837,7 +856,14 @@ class _DialogueTacheState extends State<_DialogueTache> {
                   await FirestoreService.instance.modifierTache(tacheMiseAJour);
                 }
               }
-              if (context.mounted) Navigator.pop(context);
+              if (context.mounted) {
+                if (widget.proposerSeulement) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(AppLocalizations.of(context)!.propositionSoumiseSucces)),
+                  );
+                }
+                Navigator.pop(context);
+              }
             } catch (e) {
               // Trouvé en re-vérifiant ce correctif, via /code-review, le
               // 2026-08-31 : ce bouton n'avait aucune gestion d'erreur, alors
@@ -891,9 +917,16 @@ extension _AffichageType on TypeEntreeJournal {
 /// si [verrouillee] est faux, ou reste le texte chiffré (jamais affiché
 /// directement, voir _ligneEntree) si vrai.
 class _EntreeAffichable {
-  _EntreeAffichable({required this.entree, required this.verrouillee});
+  _EntreeAffichable({
+    required this.entree, 
+    required this.verrouillee,
+    this.verrouilleeEtrangere = false,
+    this.verrouilleeErreur = false,
+  });
   final EntreeJournal entree;
   final bool verrouillee;
+  final bool verrouilleeEtrangere;
+  final bool verrouilleeErreur;
 }
 
 /// Journal de bord du dossier — des entrées datées et taguées qu'on ajoute
@@ -978,6 +1011,11 @@ class _SectionJournalState extends State<_SectionJournal> {
           participantsUids: dossierActuel.participantsUids,
           proposerSeulement: true,
         );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(AppLocalizations.of(context)!.propositionSoumiseSucces)),
+          );
+        }
       }
       _controleur.clear();
     } catch (e) {
@@ -1131,19 +1169,25 @@ class _SectionJournalState extends State<_SectionJournal> {
         resultat.add(_EntreeAffichable(entree: entree, verrouillee: false));
         continue;
       }
+      
+      final estAuteur = entree.auteurUid == widget.monUid;
+      if (!estAuteur) {
+        // C'est l'entrée chiffrée de quelqu'un d'autre, impossible à lire par définition de l'E2EE.
+        resultat.add(_EntreeAffichable(entree: entree, verrouillee: true, verrouilleeEtrangere: true));
+        continue;
+      }
+
       if (!ChiffrementNotesService.instance.estDeverrouille) {
         resultat.add(_EntreeAffichable(entree: entree, verrouillee: true));
         continue;
       }
+      
       try {
         final clair = await ChiffrementNotesService.instance.dechiffrer(entree.texte);
         resultat.add(_EntreeAffichable(entree: entree.copierAvec(texte: clair), verrouillee: false));
       } catch (_) {
-        // Improbable (mauvaise clé déjà validée par le vérificateur pour
-        // déverrouiller la session), mais si le déchiffrement échoue quand
-        // même sur une entrée précise, mieux vaut la montrer verrouillée
-        // que planter tout l'écran.
-        resultat.add(_EntreeAffichable(entree: entree, verrouillee: true));
+        // Échec du déchiffrement de sa propre note (ex: clé perdue/modifiée).
+        resultat.add(_EntreeAffichable(entree: entree, verrouillee: true, verrouilleeErreur: true));
       }
     }
     return resultat;
@@ -1461,17 +1505,22 @@ class _SectionJournalState extends State<_SectionJournal> {
                       ],
                     ],
                   ),
-                  if (afficherAttribution)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
-                      child: Text(
-                        l10n.dossierDetailAttributionEntree(auteurAffichage),
-                        style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.outline),
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Text(
+                      afficherAttribution
+                          ? l10n.dossierDetailAjouteeLePar(formaterDateFr(entree.creeLe), auteurAffichage)
+                          : l10n.dossierDetailAjouteeLe(formaterDateFr(entree.creeLe)),
+                      style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.outline),
                     ),
+                  ),
                   if (affichable.verrouillee)
                     Text(
-                      l10n.dossierDetailEntreeVerrouillee,
+                      affichable.verrouilleeEtrangere
+                          ? l10n.dossierDetailEntreeVerrouilleeEtrangere
+                          : affichable.verrouilleeErreur
+                              ? l10n.dossierDetailEntreeVerrouilleeErreur
+                              : l10n.dossierDetailEntreeVerrouillee,
                       style: const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 13),
                     )
                   else

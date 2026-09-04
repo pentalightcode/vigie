@@ -883,6 +883,33 @@
       }
     }
   },
+  "dossierDetailAjouteeLe": "Added on {date}",
+  "@dossierDetailAjouteeLe": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dossierDetailAjouteeLePar": "Added on {date} by {personne}",
+  "@dossierDetailAjouteeLePar": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "personne": {
+        "type": "String"
+      }
+    }
+  },
+  "dossierDetailCreeLe": "Created on {date}",
+  "@dossierDetailCreeLe": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "dossierDetailAttributionEntree": "Written by {personne}",
   "@dossierDetailAttributionEntree": {
     "placeholders": {
@@ -904,5 +931,8 @@
   "participantsPermissionModererContenu": "Edit/delete others' content without approval",
   "participantsMenuPermissions": "Permissions…",
   "aTraiterOngletMesDossiers": "My cases",
-  "aTraiterOngletPartages": "Shared cases"
+  "aTraiterOngletPartages": "Shared cases",
+  "propositionSoumiseSucces": "Proposal submitted successfully. Pending approval.",
+  "dossierDetailEntreeVerrouilleeEtrangere": "Locked journal entry (encrypted by another participant).",
+  "dossierDetailEntreeVerrouilleeErreur": "Error decrypting this entry."
 }

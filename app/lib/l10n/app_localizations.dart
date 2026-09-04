@@ -2467,6 +2467,24 @@ abstract class AppLocalizations {
   /// **'Ajoutée par {personne}'**
   String dossierDetailAttributionTache(String personne);
 
+  /// No description provided for @dossierDetailAjouteeLe.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajoutée le {date}'**
+  String dossierDetailAjouteeLe(String date);
+
+  /// No description provided for @dossierDetailAjouteeLePar.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajoutée le {date} par {personne}'**
+  String dossierDetailAjouteeLePar(String date, String personne);
+
+  /// No description provided for @dossierDetailCreeLe.
+  ///
+  /// In fr, this message translates to:
+  /// **'Créé le {date}'**
+  String dossierDetailCreeLe(String date);
+
   /// No description provided for @dossierDetailAttributionEntree.
   ///
   /// In fr, this message translates to:
@@ -2514,6 +2532,24 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Dossiers partagés'**
   String get aTraiterOngletPartages;
+
+  /// No description provided for @propositionSoumiseSucces.
+  ///
+  /// In fr, this message translates to:
+  /// **'Proposition soumise avec succès. En attente d\'approbation.'**
+  String get propositionSoumiseSucces;
+
+  /// No description provided for @dossierDetailEntreeVerrouilleeEtrangere.
+  ///
+  /// In fr, this message translates to:
+  /// **'Entrée de journal verrouillée (chiffrée par un autre participant).'**
+  String get dossierDetailEntreeVerrouilleeEtrangere;
+
+  /// No description provided for @dossierDetailEntreeVerrouilleeErreur.
+  ///
+  /// In fr, this message translates to:
+  /// **'Erreur lors du déchiffrement de cette entrée.'**
+  String get dossierDetailEntreeVerrouilleeErreur;
 }
 
 class _AppLocalizationsDelegate

@@ -1421,6 +1421,21 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String dossierDetailAjouteeLe(String date) {
+    return 'Ajoutée le $date';
+  }
+
+  @override
+  String dossierDetailAjouteeLePar(String date, String personne) {
+    return 'Ajoutée le $date par $personne';
+  }
+
+  @override
+  String dossierDetailCreeLe(String date) {
+    return 'Créé le $date';
+  }
+
+  @override
   String dossierDetailAttributionEntree(String personne) {
     return 'Écrite par $personne';
   }
@@ -1449,4 +1464,16 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aTraiterOngletPartages => 'Dossiers partagés';
+
+  @override
+  String get propositionSoumiseSucces =>
+      'Proposition soumise avec succès. En attente d\'approbation.';
+
+  @override
+  String get dossierDetailEntreeVerrouilleeEtrangere =>
+      'Entrée de journal verrouillée (chiffrée par un autre participant).';
+
+  @override
+  String get dossierDetailEntreeVerrouilleeErreur =>
+      'Erreur lors du déchiffrement de cette entrée.';
 }

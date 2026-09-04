@@ -891,6 +891,33 @@
       }
     }
   },
+  "dossierDetailAjouteeLe": "Ajoutée le {date}",
+  "@dossierDetailAjouteeLe": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dossierDetailAjouteeLePar": "Ajoutée le {date} par {personne}",
+  "@dossierDetailAjouteeLePar": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "personne": {
+        "type": "String"
+      }
+    }
+  },
+  "dossierDetailCreeLe": "Créé le {date}",
+  "@dossierDetailCreeLe": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "dossierDetailAttributionEntree": "Écrite par {personne}",
   "@dossierDetailAttributionEntree": {
     "placeholders": {
@@ -912,5 +939,8 @@
   "participantsPermissionModererContenu": "Modifier/supprimer le contenu des autres sans validation",
   "participantsMenuPermissions": "Permissions…",
   "aTraiterOngletMesDossiers": "Mes dossiers",
-  "aTraiterOngletPartages": "Dossiers partagés"
+  "aTraiterOngletPartages": "Dossiers partagés",
+  "propositionSoumiseSucces": "Proposition soumise avec succès. En attente d'approbation.",
+  "dossierDetailEntreeVerrouilleeEtrangere": "Entrée de journal verrouillée (chiffrée par un autre participant).",
+  "dossierDetailEntreeVerrouilleeErreur": "Erreur lors du déchiffrement de cette entrée."
 }

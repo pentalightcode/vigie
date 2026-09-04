@@ -152,7 +152,9 @@ class FirestoreService {
       auteurUid: _uid,
       propositionEnAttente: proposerSeulement ? PropositionEnAttente(type: 'creer', proposePar: _uid) : null,
     );
-    await _db.collection('taches').add(tache.versDocument());
+    final data = tache.versDocument();
+    data['creeLe'] = FieldValue.serverTimestamp();
+    await _db.collection('taches').add(data);
   }
 
   Future<void> modifierTache(Tache tache) async {
@@ -425,7 +427,7 @@ class FirestoreService {
       'dossierId': dossierId,
       'texte': texte,
       'type': type.name,
-      'creeLe': Timestamp.now(),
+      'creeLe': FieldValue.serverTimestamp(),
       'chiffre': chiffre,
       'participantsUids': participantsUids ?? [_uid],
       'auteurUid': _uid,

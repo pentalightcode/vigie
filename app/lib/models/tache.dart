@@ -27,6 +27,7 @@ class Tache {
     List<String>? participantsUids,
     String? auteurUid,
     this.propositionEnAttente,
+    this.creeLe,
   })  : participantsUids = participantsUids ?? [uid],
         auteurUid = auteurUid ?? uid;
 
@@ -62,6 +63,9 @@ class Tache {
   /// en attente sur cette tâche.
   final PropositionEnAttente? propositionEnAttente;
 
+  /// Date de création réelle de la tâche (ajoutée pour affichage).
+  final DateTime? creeLe;
+
   /// Calculé, jamais stocké : l'échéance est dépassée et ce n'est toujours
   /// pas fait (correction du point O — distinguer "encore le temps" et "trop tard").
   bool get estEnRetard =>
@@ -91,6 +95,7 @@ class Tache {
       propositionEnAttente: (data['propositionEnAttente'] as Map<String, dynamic>?) != null
           ? PropositionEnAttente.depuisMap(data['propositionEnAttente'] as Map<String, dynamic>)
           : null,
+      creeLe: (data['creeLe'] as Timestamp?)?.toDate(),
     );
   }
 

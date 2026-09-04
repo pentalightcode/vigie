@@ -15,6 +15,7 @@ class Dossier {
     this.permissionsAdministrateur = const {},
     this.permissionsAdministrateurDefinies = false,
     this.invitationsEnAttente = const [],
+    this.creeLe,
   })  : participantsUids = participantsUids ?? [uid],
         roles = roles ?? {uid: 'createur'};
 
@@ -23,6 +24,7 @@ class Dossier {
   final String nomCode;
   final DateTime? dateEvenement; // date de l'audience, du rendez-vous, etc.
   final String? notePrivee; // chiffré côté téléphone avant écriture (à venir)
+  final DateTime? creeLe; // Date de création du dossier
 
   /// Qui a accès à ce dossier (ajouté le 2026-08-29, refonte "travail de
   /// groupe" — voir Notes/2026-08-29-redteam-collaboration-multi-angles.md).
@@ -136,6 +138,7 @@ class Dossier {
           const {},
       permissionsAdministrateurDefinies: data.containsKey('permissionsAdministrateur'),
       invitationsEnAttente: (data['invitationsEnAttente'] as List<dynamic>?)?.cast<String>() ?? const [],
+      creeLe: (data['creeLe'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -185,6 +188,7 @@ class Dossier {
       permissionsAdministrateur: permissionsAdministrateur,
       permissionsAdministrateurDefinies: permissionsAdministrateurDefinies,
       invitationsEnAttente: invitationsEnAttente,
+      creeLe: creeLe,
     );
   }
 }
