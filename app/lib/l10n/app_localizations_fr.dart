@@ -1373,6 +1373,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get participantsDialogueAjouterChampRole => 'Rôle';
 
   @override
+  String get propositionTypeCreer => 'Création';
+
+  @override
   String get propositionTypeModifier => 'Modification';
 
   @override

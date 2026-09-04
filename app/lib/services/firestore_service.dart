@@ -134,6 +134,7 @@ class FirestoreService {
     String? notesDetaillees,
     String? proprietaireUid,
     List<String>? participantsUids,
+    bool proposerSeulement = false,
   }) async {
     final delai = await UtilisateurService.instance.delaiRappelJours();
     final tache = Tache(
@@ -149,6 +150,7 @@ class FirestoreService {
       notesDetaillees: notesDetaillees,
       participantsUids: participantsUids ?? [proprietaireUid ?? _uid],
       auteurUid: _uid,
+      propositionEnAttente: proposerSeulement ? PropositionEnAttente(type: 'creer', proposePar: _uid) : null,
     );
     await _db.collection('taches').add(tache.versDocument());
   }
@@ -215,8 +217,11 @@ class FirestoreService {
     });
   }
 
-  Future<void> retirerPropositionTache(String tacheId) {
-    return _db.collection('taches').doc(tacheId).update({'propositionEnAttente': null});
+  Future<void> retirerPropositionTache(Tache tache) {
+    if (tache.propositionEnAttente?.type == 'creer') {
+      return _db.collection('taches').doc(tache.id).delete();
+    }
+    return _db.collection('taches').doc(tache.id).update({'propositionEnAttente': null});
   }
 
   /// Applique la proposition en attente d'une tâche : les vraies valeurs
@@ -230,6 +235,9 @@ class FirestoreService {
     if (proposition == null) return;
     final ref = _db.collection('taches').doc(tache.id);
     switch (proposition.type) {
+      case 'creer':
+        await ref.update({'propositionEnAttente': null});
+        return;
       case 'supprimer':
         await ref.delete();
         return;
@@ -410,6 +418,7 @@ class FirestoreService {
     TypeEntreeJournal type, {
     required bool chiffre,
     List<String>? participantsUids,
+    bool proposerSeulement = false,
   }) {
     return _db.collection('journalDossier').add({
       'uid': _uid,
@@ -420,6 +429,7 @@ class FirestoreService {
       'chiffre': chiffre,
       'participantsUids': participantsUids ?? [_uid],
       'auteurUid': _uid,
+      if (proposerSeulement) 'propositionEnAttente': PropositionEnAttente(type: 'creer', proposePar: _uid).versMap(),
     });
   }
 
@@ -457,14 +467,21 @@ class FirestoreService {
     });
   }
 
-  Future<void> retirerPropositionEntreeJournal(String entreeId) {
-    return _db.collection('journalDossier').doc(entreeId).update({'propositionEnAttente': null});
+  Future<void> retirerPropositionEntreeJournal(EntreeJournal entree) {
+    if (entree.propositionEnAttente?.type == 'creer') {
+      return _db.collection('journalDossier').doc(entree.id).delete();
+    }
+    return _db.collection('journalDossier').doc(entree.id).update({'propositionEnAttente': null});
   }
 
   Future<void> approuverPropositionEntreeJournal(EntreeJournal entree) async {
     final proposition = entree.propositionEnAttente;
     if (proposition == null) return;
     final ref = _db.collection('journalDossier').doc(entree.id);
+    if (proposition.type == 'creer') {
+      await ref.update({'propositionEnAttente': null});
+      return;
+    }
     if (proposition.type == 'supprimer') {
       await ref.delete();
       return;

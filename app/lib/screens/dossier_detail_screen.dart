@@ -26,6 +26,7 @@ class DossierDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final monUid = FirebaseAuth.instance.currentUser?.uid;
     return Scaffold(
       body: StreamBuilder<Dossier>(
         stream: FirestoreService.instance.dossier(dossierId),
@@ -47,7 +48,6 @@ class DossierDetailScreen extends StatelessWidget {
           // sommet de l'app (main.dart) rend `currentUser` null quasiment
           // impossible ici en pratique, mais reste plus sûr qu'un crash pur
           // si jamais un rebuild survenait pile pendant une déconnexion.
-          final monUid = FirebaseAuth.instance.currentUser?.uid;
           if (monUid == null) {
             return const VueAccesRevoque();
           }
@@ -69,6 +69,12 @@ class DossierDetailScreen extends StatelessWidget {
               SliverAppBar(
                 title: Text(dossier.nomCode),
                 actions: [
+                  if (role == 'administrateur')
+                    IconButton(
+                      icon: const Icon(Icons.info_outline),
+                      tooltip: 'Voir mes autorisations',
+                      onPressed: () => _afficherAutorisationsAdmin(context, dossier, monUid),
+                    ),
                   IconButton(
                     icon: const Icon(Icons.people_outline),
                     tooltip: l10n.dossierDetailParticipantsTooltip,
@@ -158,7 +164,7 @@ class DossierDetailScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _ajouterTache(context, dossierId),
+        onPressed: () => _ajouterTache(context, dossierId, monUid),
         icon: const Icon(Icons.add),
         label: Text(AppLocalizations.of(context)!.dossierDetailAjouterTacheBouton),
       ),
@@ -189,6 +195,54 @@ class DossierDetailScreen extends StatelessWidget {
       }
     }
   }
+  void _afficherAutorisationsAdmin(BuildContext context, Dossier dossier, String? monUid) {
+    if (monUid == null) return;
+    final perms = dossier.permissionsAdministrateur[monUid] ?? [];
+    
+    // Convert permissions to readable labels (as defined in `_permissionsAChoisir` in `_LigneParticipant`)
+    final permLabels = {
+      'modererContenu': 'Modérer les notes/tâches des autres',
+      'supprimerDossier': 'Supprimer le dossier partagé',
+      'gererMembres': 'Ajouter/retirer des participants',
+    };
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Mes autorisations'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('En tant qu\'administrateur sur ce dossier, vous avez les autorisations suivantes :'),
+              const SizedBox(height: 16),
+              if (perms.isEmpty)
+                const Text('• Aucune autorisation supplémentaire.', style: TextStyle(fontStyle: FontStyle.italic))
+              else
+                ...perms.map((p) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(permLabels[p] ?? p)),
+                        ],
+                      ),
+                    )),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Fermer'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 
   Future<void> _supprimerDossier(BuildContext context, Dossier dossier) async {
     final l10n = AppLocalizations.of(context)!;
@@ -218,12 +272,15 @@ class DossierDetailScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _ajouterTache(BuildContext context, String dossierId) async {
+  Future<void> _ajouterTache(BuildContext context, String dossierId, String? monUid) async {
     final dossier = await FirestoreService.instance.dossier(dossierId).first;
     if (!context.mounted) return;
     await showDialog(
       context: context,
-      builder: (context) => _DialogueTache(dossier: dossier),
+      builder: (context) => _DialogueTache(
+        dossier: dossier,
+        proposerSeulement: !dossier.estGestionnaireContenu(monUid ?? ''),
+      ),
     );
   }
 }
@@ -271,6 +328,7 @@ class _BarreProgression extends StatelessWidget {
 /// (modifier/marquerFait/marquerNonFait/supprimer) et journal (modifier/
 /// supprimer, sous-ensemble des mêmes libellés). Phase 2, 2026-08-31.
 String _libelleTypeProposition(AppLocalizations l10n, String type) => switch (type) {
+      'creer' => l10n.propositionTypeCreer,
       'modifier' => l10n.propositionTypeModifier,
       'marquerFait' => l10n.propositionTypeMarquerFait,
       'marquerNonFait' => l10n.propositionTypeMarquerNonFait,
@@ -544,7 +602,7 @@ class _LigneTacheDetail extends StatelessWidget {
 
   Future<void> _rejeter(BuildContext context) async {
     try {
-      await FirestoreService.instance.retirerPropositionTache(tache.id);
+      await FirestoreService.instance.retirerPropositionTache(tache);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -758,6 +816,7 @@ class _DialogueTacheState extends State<_DialogueTache> {
                   notesDetaillees: notesTexte,
                   proprietaireUid: dossierActuel.uid,
                   participantsUids: dossierActuel.participantsUids,
+                  proposerSeulement: widget.proposerSeulement,
                 );
               } else {
                 final tacheMiseAJour = Tache(
@@ -902,13 +961,24 @@ class _SectionJournalState extends State<_SectionJournal> {
       final dossierActuel = await FirestoreService.instance.dossierDepuisServeur(widget.dossier.id);
       final estPartage = dossierActuel.participantsUids.length > 1;
       final texteAEcrire = estPartage ? texte : await ChiffrementNotesService.instance.chiffrer(texte);
-      await FirestoreService.instance.ajouterEntreeJournal(
-        widget.dossier.id,
-        texteAEcrire,
-        _typeSelectionne,
-        chiffre: !estPartage,
-        participantsUids: dossierActuel.participantsUids,
-      );
+      if (dossierActuel.estGestionnaireContenu(widget.monUid)) {
+        await FirestoreService.instance.ajouterEntreeJournal(
+          widget.dossier.id,
+          texteAEcrire,
+          _typeSelectionne,
+          chiffre: !estPartage,
+          participantsUids: dossierActuel.participantsUids,
+        );
+      } else {
+        await FirestoreService.instance.ajouterEntreeJournal(
+          widget.dossier.id,
+          texteAEcrire,
+          _typeSelectionne,
+          chiffre: !estPartage,
+          participantsUids: dossierActuel.participantsUids,
+          proposerSeulement: true,
+        );
+      }
       _controleur.clear();
     } catch (e) {
       if (mounted) {
@@ -963,9 +1033,9 @@ class _SectionJournalState extends State<_SectionJournal> {
     }
   }
 
-  Future<void> _rejeterEntree(BuildContext context, String entreeId) async {
+  Future<void> _rejeterEntree(BuildContext context, EntreeJournal entree) async {
     try {
-      await FirestoreService.instance.retirerPropositionEntreeJournal(entreeId);
+      await FirestoreService.instance.retirerPropositionEntreeJournal(entree);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1413,8 +1483,8 @@ class _SectionJournalState extends State<_SectionJournal> {
                       jePeuxResoudre: jeSuisAuteurOuGestionnaire,
                       jeSuisProposeur: jeSuisProposeur,
                       onApprouver: () => _approuverEntree(context, entree),
-                      onRejeter: () => _rejeterEntree(context, entree.id),
-                      onRetirer: () => _rejeterEntree(context, entree.id),
+                      onRejeter: () => _rejeterEntree(context, entree),
+                      onRetirer: () => _rejeterEntree(context, entree),
                     ),
                 ],
               ),

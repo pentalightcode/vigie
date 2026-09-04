@@ -2383,6 +2383,12 @@ abstract class AppLocalizations {
   /// **'Rôle'**
   String get participantsDialogueAjouterChampRole;
 
+  /// No description provided for @propositionTypeCreer.
+  ///
+  /// In fr, this message translates to:
+  /// **'Création'**
+  String get propositionTypeCreer;
+
   /// No description provided for @propositionTypeModifier.
   ///
   /// In fr, this message translates to:

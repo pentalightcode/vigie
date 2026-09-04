@@ -852,6 +852,7 @@
   "participantsDialogueAjouterTitre": "Ajouter un participant",
   "participantsDialogueAjouterChampEmail": "Email du compte Vigie",
   "participantsDialogueAjouterChampRole": "Rôle",
+  "propositionTypeCreer": "Création",
   "propositionTypeModifier": "Modification",
   "propositionTypeMarquerFait": "Marquage comme fait",
   "propositionTypeMarquerNonFait": "Remise à faire",

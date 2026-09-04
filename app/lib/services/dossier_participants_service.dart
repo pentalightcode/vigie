@@ -1,4 +1,34 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+/// Modèle d'une invitation à rejoindre un dossier partagé (Phase 2,
+/// 2026-09-03). Stockée dans utilisateurs/{uid}/invitations/{dossierId}.
+class InvitationDossier {
+  const InvitationDossier({
+    required this.dossierId,
+    required this.nomCodeDossier,
+    required this.role,
+    required this.permissions,
+    required this.inviteParEmail,
+  });
+
+  final String dossierId;
+  final String nomCodeDossier;
+  final String role;
+  final List<String> permissions;
+  final String inviteParEmail;
+
+  factory InvitationDossier.depuisFirestore(String id, Map<String, dynamic> data) {
+    return InvitationDossier(
+      dossierId: id,
+      nomCodeDossier: data['nomCodeDossier'] as String? ?? 'Dossier',
+      role: data['role'] as String? ?? 'contributeur',
+      permissions: List<String>.from(data['permissions'] as List? ?? []),
+      inviteParEmail: data['inviteParEmail'] as String? ?? '',
+    );
+  }
+}
 
 /// Gestion des participants d'un dossier partagé (ajouté le 2026-08-29,
 /// refonte "travail de groupe" — voir
@@ -24,6 +54,21 @@ class DossierParticipantsService {
     'supprimerDossier': 'Supprimer le dossier',
     'modererContenu': 'Modifier/marquer fait/supprimer le contenu des autres sans validation',
   };
+
+  /// Flux des invitations en attente pour l'utilisateur courant (Phase 2,
+  /// 2026-09-03). Écoute la sous-collection Firestore en temps réel.
+  Stream<List<InvitationDossier>> invitations() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return const Stream.empty();
+    return FirebaseFirestore.instance
+        .collection('utilisateurs')
+        .doc(uid)
+        .collection('invitations')
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => InvitationDossier.depuisFirestore(d.id, d.data()))
+            .toList());
+  }
 
   Future<void> ajouter({
     required String dossierId,
@@ -76,6 +121,18 @@ class DossierParticipantsService {
       'dossierId': dossierId,
       'uid': uid,
       'permissions': permissions,
+    });
+  }
+
+  /// Répondre à une invitation (Phase 2, 2026-09-03).
+  /// [reponse] : 'accepter' | 'refuser'
+  Future<void> repondreInvitation({
+    required String dossierId,
+    required String reponse,
+  }) {
+    return FirebaseFunctions.instance.httpsCallable('repondre_invitation').call({
+      'dossierId': dossierId,
+      'reponse': reponse,
     });
   }
 }

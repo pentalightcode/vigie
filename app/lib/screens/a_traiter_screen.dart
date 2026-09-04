@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/proposition_dossier.dart';
 import '../models/tache.dart';
+import '../services/dossier_participants_service.dart';
 import '../services/firestore_service.dart';
 import '../services/gmail_service.dart';
 import '../utils/confirmation.dart';
@@ -104,31 +105,38 @@ class _ATraiterScreenState extends State<ATraiterScreen> {
           ),
         ],
       ),
-      body: StreamBuilder<List<Tache>>(
-        stream: FirestoreService.instance.tachesNonTerminees(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text(l10n.aTraiterErreur(snapshot.error.toString())));
-          }
-          final toutes = snapshot.data ?? [];
-          // Deux onglets distincts (Phase 2, 2026-08-31, remarque de Tobie :
-          // "on retrouve difficilement le dossier auquel on a été invité
-          // comme si c'était un dossier qu'on avait soi-même créé") —
-          // partition purement côté client, `Tache.uid` est déjà le
-          // propriétaire du dossier (dénormalisé exactement pour ce genre de
-          // cas), aucune nouvelle lecture nécessaire.
-          final mesDossiers = monUid == null ? toutes : toutes.where((t) => t.uid == monUid).toList();
-          final dossiersPartages = monUid == null ? <Tache>[] : toutes.where((t) => t.uid != monUid).toList();
-          return TabBarView(
-            children: [
-              _ContenuOnglet(taches: mesDossiers),
-              _ContenuOnglet(taches: dossiersPartages),
-            ],
-          );
-        },
+      body: Column(
+        children: [
+          // Bannière invitations en attente (Phase 2, 2026-09-03)
+          _BanniereInvitations(),
+          Expanded(
+            child: StreamBuilder<List<Tache>>(
+              stream: FirestoreService.instance.tachesNonTerminees(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text(l10n.aTraiterErreur(snapshot.error.toString())));
+                }
+                final toutes = snapshot.data ?? [];
+                // Deux onglets distincts (Phase 2, 2026-08-31, puis corrigé le
+                // 2026-09-03 après remarque de Tobie : un dossier que j'ai créé
+                // mais auquel j'ai ajouté d'autres participants doit apparaître
+                // dans "Partagés", pas dans "Mes dossiers") — critère unique :
+                // participantsUids.length > 1.
+                final mesDossiers = toutes.where((t) => t.participantsUids.length <= 1).toList();
+                final dossiersPartages = toutes.where((t) => t.participantsUids.length > 1).toList();
+                return TabBarView(
+                  children: [
+                    _ContenuOnglet(taches: mesDossiers),
+                    _ContenuOnglet(taches: dossiersPartages),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         tooltip: l10n.aTraiterAjouterTooltip,
@@ -419,5 +427,108 @@ class _LigneTache extends StatelessWidget {
     if (confirme) {
       await FirestoreService.instance.marquerFait(tache.id);
     }
+  }
+}
+
+/// Bannière affichée en haut de l'onglet "À traiter" quand l'utilisateur a
+/// des invitations à rejoindre des dossiers partagés (Phase 2, 2026-09-03).
+/// Disparaît automatiquement quand il n'y a plus d'invitations.
+class _BanniereInvitations extends StatelessWidget {
+  const _BanniereInvitations();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<InvitationDossier>>(
+      stream: DossierParticipantsService.instance.invitations(),
+      builder: (context, snapshot) {
+        final invitations = snapshot.data ?? [];
+        if (invitations.isEmpty) return const SizedBox.shrink();
+        return Material(
+          color: Theme.of(context).colorScheme.secondaryContainer,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Text(
+                  'Invitations à collaborer',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSecondaryContainer,
+                      ),
+                ),
+              ),
+              ...invitations.map((inv) => _CarteInvitation(invitation: inv)),
+              const Divider(height: 1),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Carte individuelle pour une invitation (Phase 2, 2026-09-03).
+class _CarteInvitation extends StatefulWidget {
+  const _CarteInvitation({required this.invitation});
+  final InvitationDossier invitation;
+
+  @override
+  State<_CarteInvitation> createState() => _CarteInvitationState();
+}
+
+class _CarteInvitationState extends State<_CarteInvitation> {
+  bool _enCours = false;
+
+  Future<void> _repondre(String reponse) async {
+    setState(() => _enCours = true);
+    try {
+      await DossierParticipantsService.instance.repondreInvitation(
+        dossierId: widget.invitation.dossierId,
+        reponse: reponse,
+      );
+      // Le stream Firestore met à jour la liste automatiquement.
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e')),
+        );
+        setState(() => _enCours = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inv = widget.invitation;
+    final libelleRole = inv.role == 'administrateur'
+        ? 'administrateur'
+        : inv.role == 'contributeur'
+            ? 'contributeur'
+            : inv.role;
+    return ListTile(
+      leading: const Icon(Icons.group_add),
+      title: Text(inv.nomCodeDossier),
+      subtitle: Text('${inv.inviteParEmail} · rôle : $libelleRole'),
+      trailing: _enCours
+          ? const SizedBox(
+              width: 24, height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextButton(
+                  onPressed: () => _repondre('refuser'),
+                  child: const Text('Refuser'),
+                ),
+                const SizedBox(width: 4),
+                FilledButton(
+                  onPressed: () => _repondre('accepter'),
+                  child: const Text('Accepter'),
+                ),
+              ],
+            ),
+    );
   }
 }

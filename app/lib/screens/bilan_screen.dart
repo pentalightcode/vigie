@@ -272,7 +272,7 @@ class _BilanScreenState extends State<BilanScreen> {
                               margin: const EdgeInsets.symmetric(vertical: 6),
                               child: InkWell(
                                 onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                                  builder: (_) => DossierDetailScreen(dossierId: entree.key),
+                                  builder: (_) => DossierDetailScreen(dossierId: tachesDossier.first.dossierId),
                                 )),
                                 child: Padding(
                                   padding: const EdgeInsets.all(12),

@@ -167,6 +167,16 @@ service cloud.firestore {
         && (apres == null || apres.proposePar == uid);
     }
 
+    // Fonction utilitaire pour récupérer les participants effectifs d'un dossier.
+    // Rétrocompatibilité (2026-09-04) : les vieux dossiers n'ont pas de champ
+    // participantsUids. L'application Dart en déduit qu'ils sont solo ([uid]) et
+    // envoie ce tableau lors de la création d'une nouvelle tâche. Si on comparait
+    // avec un simple .get('participantsUids', []), on comparerait [uid] à [], ce qui
+    // provoquerait une PERMISSION_DENIED.
+    function participantsUidsEffectifs(dossierData) {
+      return dossierData.get('participantsUids', [dossierData.uid]);
+    }
+
     // Empêche de forger une tâche/entrée de journal en y injectant l'uid de
     // quelqu'un d'autre dans participantsUids (trouvé en Red Team le
     // 2026-08-30, via /code-review) : sans ce contrôle, estParticipant()
@@ -205,7 +215,7 @@ service cloud.firestore {
         || (
           exists(/databases/$(database)/documents/dossiers/$(data.dossierId))
           && data.get('participantsUids', [])
-            == get(/databases/$(database)/documents/dossiers/$(data.dossierId)).data.get('participantsUids', [])
+            == participantsUidsEffectifs(get(/databases/$(database)/documents/dossiers/$(data.dossierId)).data)
         );
     }
 
@@ -233,7 +243,7 @@ service cloud.firestore {
           exists(/databases/$(database)/documents/dossiers/$(data.dossierId))
           && data.uid == get(/databases/$(database)/documents/dossiers/$(data.dossierId)).data.uid
           && data.get('participantsUids', [])
-            == get(/databases/$(database)/documents/dossiers/$(data.dossierId)).data.get('participantsUids', [])
+            == participantsUidsEffectifs(get(/databases/$(database)/documents/dossiers/$(data.dossierId)).data)
         );
     }
 
@@ -327,12 +337,12 @@ service cloud.firestore {
       // une tâche avec `uid` = une victime réelle, exposée ensuite à cette
       // victime via `_taches_actives_visibles` (SDK Admin, ignore ces
       // règles) — voir tacheCoherente() ci-dessus.
-      // propositionEnAttente doit être absent à la création (Phase 2,
-      // 2026-08-31) : la création reste libre pour tout participant (voir
-      // tacheCoherente), sans ce verrou elle deviendrait une porte dérobée
-      // pour planter directement une tâche "déjà en attente d'approbation".
-      allow create: if estParticipant(request.resource.data) && tacheCoherente(request.resource.data)
-        && request.resource.data.get('propositionEnAttente', null) == null;
+      // Création directe (sans proposition) réservée à l'auteur ou au créateur/administrateur
+      // avec 'modererContenu'. Les autres doivent forger une proposition de création (type 'creer').
+      allow create: if estParticipant(request.resource.data) && (
+          (estAuteurTacheOuGestionnaire(request.resource.data) && request.resource.data.get('propositionEnAttente', null) == null) ||
+          (!estAuteurTacheOuGestionnaire(request.resource.data) && request.resource.data.get('propositionEnAttente', null) != null && request.resource.data.propositionEnAttente.type == 'creer' && request.resource.data.propositionEnAttente.proposePar == request.auth.uid)
+        ) && tacheCoherente(request.resource.data);
       // participantsUids figé à l'update (trouvé en Red Team le 2026-08-30) :
       // seule la fonction serveur `_synchroniser_participants_dossier` (SDK
       // Admin, ignore ces règles) a besoin de le changer, quand la liste
@@ -426,7 +436,10 @@ service cloud.firestore {
       allow create: if estParticipant(request.resource.data)
         && request.resource.data.uid == request.auth.uid
         && participantsCoherents(request.resource.data)
-        && request.resource.data.get('propositionEnAttente', null) == null;
+        && (
+          (estAuteurTacheOuGestionnaire(request.resource.data) && request.resource.data.get('propositionEnAttente', null) == null) ||
+          (!estAuteurTacheOuGestionnaire(request.resource.data) && request.resource.data.get('propositionEnAttente', null) != null && request.resource.data.propositionEnAttente.type == 'creer' && request.resource.data.propositionEnAttente.proposePar == request.auth.uid)
+        );
       // Modification autorisée (choix explicite de Tobie le 2026-08-21) : seuls le
       // texte/type/modifieLe peuvent changer, jamais le dossier ou la date de
       // création réelle — pour ne pas pouvoir maquiller l'historique.
@@ -557,6 +570,18 @@ service cloud.firestore {
       // à ne prévenir que si ça change, jamais lu/écrit côté téléphone.
       match /etatsNotifies/{etatId} {
         allow read, write: if false;
+      }
+
+      // Invitations à rejoindre un dossier partagé (Phase 2, 2026-09-03).
+      // Écrites UNIQUEMENT par la fonction serveur gerer_participant_dossier
+      // (SDK Admin, ignore ces règles) lors d'un "ajouter", supprimées par la
+      // même voie quand l'utilisateur accepte ou refuse via repondre_invitation.
+      // Lecture autorisée pour que l'app puisse afficher les invitations en
+      // attente dans l'onglet "À traiter". Pas d'écriture directe depuis le
+      // téléphone : tout passe par Cloud Functions (contrôle côté serveur).
+      match /invitations/{invitationId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
       }
     }
 

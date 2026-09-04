@@ -904,3 +904,13 @@
 - [x] **Déploiement complet** : Exécution stricte du rituel de déploiement (Firestore, Cloud Functions, builds APK et Web, Hosting).
 - [x] **Publication** : Script de publication lancé (`1.19.0 50`), 3 utilisateurs notifiés.
 - [x] **Statut** : Version prête à être testée par Tobie en conditions réelles (Bannière iOS PWA + Correction administrateur).
+
+## 2026-09-04 — Correction ajout de tâches sur anciens dossiers ("en retard")
+- [x] **Analyse du bug `PERMISSION_DENIED`** : Lors de l'ajout d'une tâche à un dossier marqué "en retard", l'application bloquait. Après enquête, le problème venait de la rétrocompatibilité (dossiers créés avant le 29/08/2026, ne possédant pas le champ `participantsUids` en base). 
+  - L'application Dart compensait l'absence en renvoyant `[uid]` pour la nouvelle tâche. 
+  - Mais `firestore.rules` (fonction `tacheCoherente`) comparait avec le `participantsUids` du dossier en base qui retournait `[]` par défaut, causant l'échec `[uid] != []`.
+- [x] **Correction `firestore.rules`** : Création d'une fonction utilitaire `participantsUidsEffectifs(dossierData)` dans les règles Firestore pour appliquer le même fallback que Dart (`dossierData.get('participantsUids', [dossierData.uid])`). La règle compare désormais de façon cohérente, autorisant l'ajout.
+- [x] **Vérification** : `firebase deploy --only firestore --dry-run` a compilé les règles avec succès. Aucun code Dart modifié.
+- [x] **Déploiement Firestore** : Les règles `firestore.rules` corrigées ont été déployées avec succès sur la production.
+- [x] **Bump version** : Passage à la version 1.19.1+51 dans `pubspec.yaml` (inclut les corrections de la Phase 2 : collaboration sur la partie administration et invitations).
+- [ ] **Déploiement complet** : Cloud Functions, builds APK et Web, Hosting.

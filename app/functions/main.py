@@ -1931,16 +1931,28 @@ def gerer_participant_dossier(req: https_fn.CallableRequest) -> dict:
                 raise https_fn.HttpsError(
                     https_fn.FunctionsErrorCode.PERMISSION_DENIED, _MSG_ADMIN_RESERVE_CREATEUR
                 )
-            participants_uids.append(nouvel_uid)
-            roles[nouvel_uid] = role_ajoute
-            participants_emails[nouvel_uid] = nouvel_email
-            if role_ajoute == "administrateur":
-                _materialiser_si_besoin(nouvel_uid)
-                permissions_administrateur[nouvel_uid] = sorted(set(permissions_ajoutees))
-                permissions_modifiees = True
-            cible_uid_pour_notif = nouvel_uid
-            cible_email_pour_notif = nouvel_email
-            nouveau_role_pour_notif = role_ajoute
+            # Phase 2, 2026-09-03 : flux complet d'invitation — au lieu
+            # d'ajouter directement l'utilisateur, on écrit une invitation
+            # dans utilisateurs/{nouvelUid}/invitations/{dossierId}. La
+            # transaction est annulée sans écriture ici (la fonction revient
+            # immédiatement après), et l'invitation est écrite HORS transaction
+            # ci-dessous. Sécurité : seule une Cloud Function (Admin SDK)
+            # écrit/supprime les invitations — l'invité ne peut que les lire.
+            return {
+                "_action": "invitation_envoyee",
+                "_nouvelUid": nouvel_uid,
+                "_nomCodeDossier": dossier_data.get("nomCodeDossier") or "Dossier",
+                "_roleAjoute": role_ajoute,
+                "_permissionsAjoutees": permissions_ajoutees,
+                "_demandeurUid": demandeur_uid,
+                "_demandeurEmail": participants_emails.get(demandeur_uid) or "",
+                "_proprietaireUid": proprietaire_uid,
+                "_cibleUid": nouvel_uid,
+                "_cibleEmail": nouvel_email,
+                "_nouveauRole": role_ajoute,
+                "_roleDemandeur": role_demandeur,
+                "_estAutoRetrait": False,
+            }
 
         elif action == "retirer":
             cible_uid = donnees.get("uid")
@@ -2071,6 +2083,34 @@ def gerer_participant_dossier(req: https_fn.CallableRequest) -> dict:
 
     resultat = _appliquer(db.transaction())
 
+    # Si l'action est "ajouter", on crée une invitation hors transaction
+    # (la transaction ci-dessus a été annulée sans écriture Firestore dans ce cas).
+    if action == "ajouter" and resultat.get("_action") == "invitation_envoyee":
+        invitation_ref = (
+            db.collection("utilisateurs")
+            .document(resultat["_nouvelUid"])
+            .collection("invitations")
+            .document(dossier_id)
+        )
+        invitation_ref.set({
+            "dossierId": dossier_id,
+            "nomCodeDossier": resultat["_nomCodeDossier"],
+            "role": resultat["_roleAjoute"],
+            "permissions": resultat["_permissionsAjoutees"],
+            "invitePar": resultat["_demandeurUid"],
+            "inviteParEmail": resultat["_demandeurEmail"],
+            "creeA": firestore.SERVER_TIMESTAMP,
+        })
+        # Notifier l'invité (push + historique in-app)
+        _notifier_evenement(
+            db,
+            resultat["_nouvelUid"],
+            type_evenement="invitation",
+            corps=f"\"{resultat['_nomCodeDossier']}\" : {resultat['_demandeurEmail']} t'invite à collaborer.",
+            dossier_id=dossier_id,
+        )
+        return {"ok": True, "invitationEnvoyee": True}
+
     # Seuls ajouter/retirer changent participantsUids — changerRole et
     # definirPermissionsAdministrateur ne touchent jamais qui a accès, juste
     # son rôle/ses permissions, inutile de resynchroniser tâches/journal.
@@ -2132,3 +2172,146 @@ def supprimer_dossier_partage(req: https_fn.CallableRequest) -> dict:
     dossier_ref.delete()
 
     return {"ok": True}
+
+
+@https_fn.on_call(timeout_sec=120)
+def repondre_invitation(req: https_fn.CallableRequest) -> dict:
+    """Accepter ou refuser une invitation à rejoindre un dossier partagé.
+    Champs attendus dans req.data :
+    - dossierId : identifiant du dossier (aussi l'ID du document d'invitation)
+    - reponse : \"accepter\" | \"refuser\"
+
+    Sécurité : seul l'invité (request.auth.uid == uid de l'invitation) peut
+    répondre — l'invitation est stockée dans utilisateurs/{uid}/invitations/
+    dont seul le propriétaire est userId, et cette fonction vérifie auth.uid
+    avant tout accès. Le SDK Admin ignore les règles Firestore, mais cette
+    vérification reproduit l'invariant de propriété côté serveur.
+
+    Si accepté : applique l'ajout réel (même logique que l'ancien "ajouter"
+    direct dans gerer_participant_dossier), synchronise les tâches/journal,
+    et supprime l'invitation. Si refusé : supprime simplement l'invitation.
+    """
+    if req.auth is None:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.UNAUTHENTICATED, "Non connecté.")
+
+    donnees = req.data or {}
+    dossier_id = donnees.get("dossierId")
+    reponse = donnees.get("reponse")
+    if not dossier_id or reponse not in ("accepter", "refuser"):
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "Paramètres invalides.")
+
+    invite_uid = req.auth.uid
+    db = firestore.client()
+
+    # Lecture de l'invitation
+    invitation_ref = (
+        db.collection("utilisateurs")
+        .document(invite_uid)
+        .collection("invitations")
+        .document(dossier_id)
+    )
+    invitation_doc = invitation_ref.get()
+    if not invitation_doc.exists:
+        raise https_fn.HttpsError(
+            https_fn.FunctionsErrorCode.NOT_FOUND, "Invitation introuvable ou déjà traitée."
+        )
+
+    invitation_data = invitation_doc.to_dict() or {}
+    role_ajoute = invitation_data.get("role", "contributeur")
+    permissions_ajoutees: list[str] = invitation_data.get("permissions") or []
+    invite_par_uid = invitation_data.get("invitePar")
+    invite_par_email = invitation_data.get("inviteParEmail", "")
+    nom_code_dossier = invitation_data.get("nomCodeDossier", "Dossier")
+
+    # Supprimer l'invitation dans tous les cas (qu'on accepte ou refuse)
+    invitation_ref.delete()
+
+    if reponse == "refuser":
+        # Notifier l'invitant du refus
+        if invite_par_uid:
+            _notifier_evenement(
+                db,
+                invite_par_uid,
+                type_evenement="invitationRefusee",
+                corps=f"\"{nom_code_dossier}\" : l'invitation a été refusée.",
+                dossier_id=dossier_id,
+            )
+        return {"ok": True, "refuse": True}
+
+    # Acceptation : ajouter réellement le participant (avec transaction)
+    dossier_ref = db.collection("dossiers").document(dossier_id)
+
+    @firestore.transactional
+    def _appliquer_acceptation(transaction: firestore.Transaction) -> dict:
+        dossier_doc = dossier_ref.get(transaction=transaction)
+        if not dossier_doc.exists:
+            raise https_fn.HttpsError(
+                https_fn.FunctionsErrorCode.NOT_FOUND, "Dossier introuvable.", details="dossierIntrouvable"
+            )
+
+        dossier_data = dossier_doc.to_dict() or {}
+        proprietaire_uid = dossier_data.get("uid")
+        participants_uids = list(dossier_data.get("participantsUids") or [proprietaire_uid])
+        roles = dict(dossier_data.get("roles") or {proprietaire_uid: "createur"})
+        participants_emails = dict(dossier_data.get("participantsEmails") or {})
+        permissions_administrateur = dict(dossier_data.get("permissionsAdministrateur") or {})
+        permissions_deja_materialisees = "permissionsAdministrateur" in dossier_data
+
+        # Vérification anti-doublon (l'invitation a pu rester en attente
+        # pendant que l'utilisateur était ajouté par un autre chemin)
+        if invite_uid in participants_uids:
+            return {"_dejaMembre": True}
+
+        # Récupérer l'email de l'invité pour participantsEmails
+        try:
+            invitee_user = firebase_auth.get_user(invite_uid)
+            invitee_email = invitee_user.email
+        except firebase_auth.UserNotFoundError:
+            invitee_email = None
+
+        participants_uids.append(invite_uid)
+        roles[invite_uid] = role_ajoute
+        participants_emails[invite_uid] = invitee_email
+
+        permissions_modifiees = False
+        if role_ajoute == "administrateur":
+            if not permissions_deja_materialisees:
+                for uid_p, role_p in roles.items():
+                    if role_p == "administrateur" and uid_p != invite_uid:
+                        permissions_administrateur.setdefault(uid_p, sorted(_PERMISSIONS_ADMINISTRATEUR_VALABLES))
+            permissions_administrateur[invite_uid] = sorted(set(permissions_ajoutees))
+            permissions_modifiees = True
+
+        donnees_maj = {
+            "participantsUids": participants_uids,
+            "roles": roles,
+            "participantsEmails": participants_emails,
+        }
+        if permissions_modifiees:
+            donnees_maj["permissionsAdministrateur"] = permissions_administrateur
+        transaction.update(dossier_ref, donnees_maj)
+        return {
+            "_proprietaireUid": proprietaire_uid,
+            "_inviteEmail": invitee_email,
+        }
+
+    resultat = _appliquer_acceptation(db.transaction())
+
+    if resultat.get("_dejaMembre"):
+        return {"ok": True, "dejaMembre": True}
+
+    # Synchroniser participantsUids sur les tâches/journal
+    _synchroniser_participants_dossier(db, dossier_id)
+
+    # Notifier l'invitant de l'acceptation
+    if invite_par_uid:
+        invite_email = resultat.get("_inviteEmail") or "L'invité"
+        _notifier_evenement(
+            db,
+            invite_par_uid,
+            type_evenement="invitationAcceptee",
+            corps=f"\"{nom_code_dossier}\" : {invite_email} a accepté de collaborer.",
+            dossier_id=dossier_id,
+        )
+
+    return {"ok": True, "accepte": True}
