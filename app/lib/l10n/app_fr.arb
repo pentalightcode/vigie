@@ -804,6 +804,18 @@
   "commonRetirer": "Retirer",
   "dossierDetailParticipantsTooltip": "Participants",
   "participantsTitre": "Participants",
+  "participantsInvitationsEnAttente": "Invitations en attente",
+  "participantsAnnulerInvitation": "Annuler l'invitation",
+  "participantsAnnulerInvitationTitre": "Annuler l'invitation ?",
+  "participantsAnnulerInvitationMessage": "Voulez-vous vraiment annuler l'invitation envoyée à {email} ?",
+  "@participantsAnnulerInvitationMessage": {
+    "placeholders": {
+      "email": {
+        "type": "String",
+        "example": "jean@exemple.com"
+      }
+    }
+  },
   "participantsLectureSeuleInfo": "Seuls le créateur et les administrateurs peuvent gérer les participants.",
   "participantsAjouterBouton": "Ajouter un participant",
   "participantsRoleCreateur": "Créateur",

@@ -14,6 +14,7 @@ class Dossier {
     this.participantsEmails = const {},
     this.permissionsAdministrateur = const {},
     this.permissionsAdministrateurDefinies = false,
+    this.invitationsEnAttente = const [],
   })  : participantsUids = participantsUids ?? [uid],
         roles = roles ?? {uid: 'createur'};
 
@@ -60,6 +61,10 @@ class Dossier {
   /// est réellement restreint.
   final bool permissionsAdministrateurDefinies;
 
+  /// Emails des personnes invitées à ce dossier mais qui n'ont pas encore
+  /// accepté ou refusé l'invitation.
+  final List<String> invitationsEnAttente;
+
   /// Miroir client de `estGestionnaireContenu()` (firestore.rules) et de
   /// `_PERMISSIONS_ADMINISTRATEUR_VALABLES` (functions/main.py), Phase 2,
   /// 2026-08-31 — duplication volontaire (défense en profondeur, comme le
@@ -89,6 +94,14 @@ class Dossier {
     if (role != 'administrateur') return false;
     if (!permissionsAdministrateurDefinies) return true; // rétrocompatibilité
     return (permissionsAdministrateur[participantUid] ?? const []).contains('supprimerDossier');
+  }
+
+  bool peutGererParticipants(String participantUid) {
+    final role = roleDe(participantUid);
+    if (role == 'createur') return true;
+    if (role != 'administrateur') return false;
+    if (!permissionsAdministrateurDefinies) return true; // rétrocompatibilité
+    return (permissionsAdministrateur[participantUid] ?? const []).contains('gererParticipants');
   }
 
   factory Dossier.depuisDocument(DocumentSnapshot doc) {
@@ -122,6 +135,7 @@ class Dossier {
           ) ??
           const {},
       permissionsAdministrateurDefinies: data.containsKey('permissionsAdministrateur'),
+      invitationsEnAttente: (data['invitationsEnAttente'] as List<dynamic>?)?.cast<String>() ?? const [],
     );
   }
 
@@ -133,6 +147,7 @@ class Dossier {
       'notePrivee': notePrivee,
       'participantsUids': participantsUids,
       'roles': roles,
+      'invitationsEnAttente': invitationsEnAttente,
       'creeLe': FieldValue.serverTimestamp(),
     };
   }
@@ -169,6 +184,7 @@ class Dossier {
       participantsEmails: participantsEmails,
       permissionsAdministrateur: permissionsAdministrateur,
       permissionsAdministrateurDefinies: permissionsAdministrateurDefinies,
+      invitationsEnAttente: invitationsEnAttente,
     );
   }
 }

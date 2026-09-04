@@ -913,4 +913,8 @@
 - [x] **Vérification** : `firebase deploy --only firestore --dry-run` a compilé les règles avec succès. Aucun code Dart modifié.
 - [x] **Déploiement Firestore** : Les règles `firestore.rules` corrigées ont été déployées avec succès sur la production.
 - [x] **Bump version** : Passage à la version 1.19.1+51 dans `pubspec.yaml` (inclut les corrections de la Phase 2 : collaboration sur la partie administration et invitations).
-- [ ] **Déploiement complet** : Cloud Functions, builds APK et Web, Hosting.
+- [x] **Déploiement complet** : Cloud Functions, builds APK et Web, Hosting.
+- [x] **Publication** : Script de publication lancé (`1.19.1 51`), 3 utilisateurs notifiés.
+- [x] **Gestion des invitations & notifications explicites** : Implémentation d'une liste `invitationsEnAttente` dans le modèle `Dossier` pour éviter les invitations en double, affichage des invitations en attente dans l'écran des participants (`ParticipantsDossierScreen`), et ajout d'un bouton pour annuler une invitation via une nouvelle Cloud Function `annuler_invitation_dossier`. Les notifications (acceptation/refus/invitation) précisent désormais le nom du dossier et l'auteur.
+- [x] **Correction 403 sur Suppression de dossier** : Analyse de l'erreur 403 lors de la suppression d'un dossier par un administrateur. Les Cloud Functions de 2e génération (Cloud Run) nécessitent l'autorisation IAM `roles/run.invoker` pour `allUsers`. La stratégie a été mise à jour.
+- [x] **Déploiement Complet (1.19.3+53)** : Déploiement des nouvelles fonctions, de l'UI Flutter Web/APK, et publication via `publier_version.py`. La version est en test réel côté Tobie.

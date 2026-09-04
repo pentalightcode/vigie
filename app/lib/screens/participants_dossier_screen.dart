@@ -51,7 +51,7 @@ class _ParticipantsDossierScreenState extends State<ParticipantsDossierScreen> {
           }
           final monRole = dossier.roleDe(monUid);
           final jeSuisCreateur = monRole == 'createur';
-          final jePeuxGerer = monRole == 'createur' || monRole == 'administrateur';
+          final jePeuxGerer = dossier.peutGererParticipants(monUid);
 
           final participants = dossier.roles.entries.toList()
             ..sort((a, b) => _ordreRole(a.value).compareTo(_ordreRole(b.value)));
@@ -102,6 +102,30 @@ class _ParticipantsDossierScreenState extends State<ParticipantsDossierScreen> {
                       : null,
                 ),
               ),
+              if (dossier.invitationsEnAttente.isNotEmpty && jePeuxGerer) ...[
+                const SizedBox(height: 16),
+                Text(
+                  l10n.participantsInvitationsEnAttente,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                ...dossier.invitationsEnAttente.map((email) => ListTile(
+                      leading: const CircleAvatar(
+                        backgroundColor: Colors.transparent,
+                        child: Icon(Icons.mail_outline, color: Colors.grey),
+                      ),
+                      title: Text(email, style: const TextStyle(color: Colors.grey)),
+                      trailing: _actionEnCours
+                          ? const SizedBox.shrink()
+                          : IconButton(
+                              icon: const Icon(Icons.cancel_outlined),
+                              onPressed: () => _annulerInvitation(dossier.id, email),
+                              tooltip: l10n.participantsAnnulerInvitation,
+                            ),
+                    )),
+              ],
               if (jePeuxGerer) ...[
                 const SizedBox(height: 16),
                 FilledButton.icon(
@@ -186,6 +210,25 @@ class _ParticipantsDossierScreenState extends State<ParticipantsDossierScreen> {
         dossierId: dossierId,
         email: resultat.email,
         role: resultat.role,
+      ),
+    );
+  }
+
+  Future<void> _annulerInvitation(String dossierId, String email) async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirme = await demanderDoubleConfirmation(
+      context,
+      titre: l10n.participantsAnnulerInvitationTitre,
+      message: l10n.participantsAnnulerInvitationMessage(email),
+      texteBouton: l10n.participantsAnnulerInvitation,
+      destructif: true,
+    );
+    if (!confirme || !mounted) return;
+
+    await _executer(
+      () => DossierParticipantsService.instance.annulerInvitation(
+        dossierId: dossierId,
+        email: email,
       ),
     );
   }

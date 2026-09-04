@@ -797,6 +797,18 @@
   "commonRetirer": "Remove",
   "dossierDetailParticipantsTooltip": "Participants",
   "participantsTitre": "Participants",
+  "participantsInvitationsEnAttente": "Pending invitations",
+  "participantsAnnulerInvitation": "Cancel invitation",
+  "participantsAnnulerInvitationTitre": "Cancel invitation?",
+  "participantsAnnulerInvitationMessage": "Are you sure you want to cancel the invitation sent to {email}?",
+  "@participantsAnnulerInvitationMessage": {
+    "placeholders": {
+      "email": {
+        "type": "String",
+        "example": "john@example.com"
+      }
+    }
+  },
   "participantsLectureSeuleInfo": "Only the creator and administrators can manage participants.",
   "participantsAjouterBouton": "Add a participant",
   "participantsRoleCreateur": "Creator",

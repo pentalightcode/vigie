@@ -1262,6 +1262,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get participantsTitre => 'Participants';
 
   @override
+  String get participantsInvitationsEnAttente => 'Pending invitations';
+
+  @override
+  String get participantsAnnulerInvitation => 'Cancel invitation';
+
+  @override
+  String get participantsAnnulerInvitationTitre => 'Cancel invitation?';
+
+  @override
+  String participantsAnnulerInvitationMessage(String email) {
+    return 'Are you sure you want to cancel the invitation sent to $email?';
+  }
+
+  @override
   String get participantsLectureSeuleInfo =>
       'Only the creator and administrators can manage participants.';
 

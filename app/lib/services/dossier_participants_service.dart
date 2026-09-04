@@ -85,6 +85,16 @@ class DossierParticipantsService {
     });
   }
 
+  Future<void> annulerInvitation({
+    required String dossierId,
+    required String email,
+  }) {
+    return FirebaseFunctions.instance.httpsCallable('annuler_invitation_dossier').call({
+      'dossierId': dossierId,
+      'email': email,
+    });
+  }
+
   Future<void> retirer({required String dossierId, required String uid}) {
     return FirebaseFunctions.instance.httpsCallable('gerer_participant_dossier').call({
       'action': 'retirer',

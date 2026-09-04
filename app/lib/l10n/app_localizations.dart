@@ -2221,6 +2221,30 @@ abstract class AppLocalizations {
   /// **'Participants'**
   String get participantsTitre;
 
+  /// No description provided for @participantsInvitationsEnAttente.
+  ///
+  /// In fr, this message translates to:
+  /// **'Invitations en attente'**
+  String get participantsInvitationsEnAttente;
+
+  /// No description provided for @participantsAnnulerInvitation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Annuler l\'invitation'**
+  String get participantsAnnulerInvitation;
+
+  /// No description provided for @participantsAnnulerInvitationTitre.
+  ///
+  /// In fr, this message translates to:
+  /// **'Annuler l\'invitation ?'**
+  String get participantsAnnulerInvitationTitre;
+
+  /// No description provided for @participantsAnnulerInvitationMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Voulez-vous vraiment annuler l\'invitation envoyée à {email} ?'**
+  String participantsAnnulerInvitationMessage(String email);
+
   /// No description provided for @participantsLectureSeuleInfo.
   ///
   /// In fr, this message translates to:

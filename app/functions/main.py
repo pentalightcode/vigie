@@ -2099,14 +2099,22 @@ def gerer_participant_dossier(req: https_fn.CallableRequest) -> dict:
             "permissions": resultat["_permissionsAjoutees"],
             "invitePar": resultat["_demandeurUid"],
             "inviteParEmail": resultat["_demandeurEmail"],
+            "inviteeEmail": resultat["_cibleEmail"],
             "creeA": firestore.SERVER_TIMESTAMP,
         })
+        
+        # Ajouter l'email aux invitationsEnAttente du dossier
+        db.collection("dossiers").document(dossier_id).update({
+            "invitationsEnAttente": firestore.ArrayUnion([resultat["_cibleEmail"]])
+        })
+
         # Notifier l'invité (push + historique in-app)
+        role_ajoute = resultat["_roleAjoute"]
         _notifier_evenement(
             db,
             resultat["_nouvelUid"],
             type_evenement="invitation",
-            corps=f"\"{resultat['_nomCodeDossier']}\" : {resultat['_demandeurEmail']} t'invite à collaborer.",
+            corps=f"Nouvelle invitation : {resultat['_demandeurEmail']} t'invite à rejoindre le dossier \"{resultat['_nomCodeDossier']}\" en tant que {role_ajoute}.",
             dossier_id=dossier_id,
         )
         return {"ok": True, "invitationEnvoyee": True}
@@ -2221,10 +2229,20 @@ def repondre_invitation(req: https_fn.CallableRequest) -> dict:
     permissions_ajoutees: list[str] = invitation_data.get("permissions") or []
     invite_par_uid = invitation_data.get("invitePar")
     invite_par_email = invitation_data.get("inviteParEmail", "")
+    invitee_email = invitation_data.get("inviteeEmail") or (req.auth.token.get("email") if req.auth.token else "")
     nom_code_dossier = invitation_data.get("nomCodeDossier", "Dossier")
 
     # Supprimer l'invitation dans tous les cas (qu'on accepte ou refuse)
     invitation_ref.delete()
+    
+    # Retirer des invitationsEnAttente du dossier
+    if invitee_email:
+        try:
+            db.collection("dossiers").document(dossier_id).update({
+                "invitationsEnAttente": firestore.ArrayRemove([invitee_email])
+            })
+        except Exception:
+            pass # Ignorer si le dossier n'existe plus ou n'a pas ce champ
 
     if reponse == "refuser":
         # Notifier l'invitant du refus
@@ -2233,7 +2251,7 @@ def repondre_invitation(req: https_fn.CallableRequest) -> dict:
                 db,
                 invite_par_uid,
                 type_evenement="invitationRefusee",
-                corps=f"\"{nom_code_dossier}\" : l'invitation a été refusée.",
+                corps=f"Le dossier \"{nom_code_dossier}\" : {invitee_email} a refusé ton invitation.",
                 dossier_id=dossier_id,
             )
         return {"ok": True, "refuse": True}
@@ -2310,8 +2328,76 @@ def repondre_invitation(req: https_fn.CallableRequest) -> dict:
             db,
             invite_par_uid,
             type_evenement="invitationAcceptee",
-            corps=f"\"{nom_code_dossier}\" : {invite_email} a accepté de collaborer.",
+            corps=f"Le dossier \"{nom_code_dossier}\" : {invite_email} a accepté ton invitation de collaboration.",
             dossier_id=dossier_id,
         )
 
     return {"ok": True, "accepte": True}
+
+@https_fn.on_call(timeout_sec=60)
+def annuler_invitation_dossier(req: https_fn.CallableRequest) -> dict:
+    """Annule une invitation envoyée (supprime le document d'invitation chez le destinataire
+    et retire l'email de invitationsEnAttente du dossier).
+    L'appelant doit être le créateur ou un administrateur avec droit de gérer les participants."""
+    if req.auth is None:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.UNAUTHENTICATED, "Non connecté.")
+
+    donnees = req.data or {}
+    dossier_id = donnees.get("dossierId")
+    email_a_annuler = donnees.get("email")
+
+    if not dossier_id or not email_a_annuler:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "Paramètres invalides.")
+
+    demandeur_uid = req.auth.uid
+    db = firestore.client()
+    dossier_ref = db.collection("dossiers").document(dossier_id)
+
+    @firestore.transactional
+    def _verifier_et_annuler(transaction: firestore.Transaction) -> str | None:
+        dossier_doc = dossier_ref.get(transaction=transaction)
+        if not dossier_doc.exists:
+            raise https_fn.HttpsError(https_fn.FunctionsErrorCode.NOT_FOUND, "Dossier introuvable.")
+        
+        dossier_data = dossier_doc.to_dict() or {}
+        proprietaire_uid = dossier_data.get("uid")
+        roles = dossier_data.get("roles") or {}
+        
+        # Vérification des droits
+        if demandeur_uid != proprietaire_uid:
+            if roles.get(demandeur_uid) != "administrateur":
+                raise https_fn.HttpsError(https_fn.FunctionsErrorCode.PERMISSION_DENIED, "Non autorisé.")
+            
+            if "permissionsAdministrateur" in dossier_data:
+                perms = dossier_data["permissionsAdministrateur"].get(demandeur_uid) or []
+                if "gererParticipants" not in perms:
+                    raise https_fn.HttpsError(https_fn.FunctionsErrorCode.PERMISSION_DENIED, "Non autorisé.")
+        
+        # Retirer de invitationsEnAttente
+        transaction.update(dossier_ref, {
+            "invitationsEnAttente": firestore.ArrayRemove([email_a_annuler])
+        })
+        
+        # Pour supprimer l'invitation, on a besoin de l'UID de la personne
+        # On va chercher l'utilisateur par email hors transaction
+        return email_a_annuler
+
+    email_confirme = _verifier_et_annuler(db.transaction())
+    
+    # Chercher l'UID de l'utilisateur invité
+    try:
+        user_record = auth.get_user_by_email(email_confirme)
+        invite_uid = user_record.uid
+        # Supprimer le document
+        invitation_ref = (
+            db.collection("utilisateurs")
+            .document(invite_uid)
+            .collection("invitations")
+            .document(dossier_id)
+        )
+        invitation_ref.delete()
+    except Exception as e:
+        # L'utilisateur n'existe peut-être plus ou l'invitation a déjà été supprimée
+        print(f"Échec de la suppression de l'invitation pour {email_confirme} : {type(e).__name__}: {e}")
+
+    return {"ok": True}
