@@ -408,9 +408,6 @@ class FirestoreService {
         .map((snap) => snap.docs.map(EntreeJournal.depuisDocument).toList());
   }
 
-  /// [chiffre] doit refléter si [texte] est déjà chiffré (voir
-  /// ChiffrementNotesService) — ce champ ne change jamais après coup,
-  /// même en cas de modification ultérieure de l'entrée.
   /// [participantsUids] vient du dossier parent (`dossier.participantsUids`)
   /// — permet à chaque participant de retrouver cette entrée par une
   /// requête directe, sans dépendre d'une lecture du dossier à chaque fois.
@@ -418,9 +415,10 @@ class FirestoreService {
     String dossierId,
     String texte,
     TypeEntreeJournal type, {
-    required bool chiffre,
     List<String>? participantsUids,
     bool proposerSeulement = false,
+    String? parentId,
+    List<String>? mentionsUids,
   }) {
     return _db.collection('journalDossier').add({
       'uid': _uid,
@@ -428,9 +426,10 @@ class FirestoreService {
       'texte': texte,
       'type': type.name,
       'creeLe': FieldValue.serverTimestamp(),
-      'chiffre': chiffre,
       'participantsUids': participantsUids ?? [_uid],
       'auteurUid': _uid,
+      if (parentId != null) 'parentId': parentId,
+      if (mentionsUids != null && mentionsUids.isNotEmpty) 'mentionsUids': mentionsUids,
       if (proposerSeulement) 'propositionEnAttente': PropositionEnAttente(type: 'creer', proposePar: _uid).versMap(),
     });
   }

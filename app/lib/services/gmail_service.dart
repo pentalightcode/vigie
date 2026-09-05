@@ -37,6 +37,7 @@ class GmailService {
   // principe, les événements de calendrier sont déjà structurés (titre +
   // date), aucune extraction à faire.
   static const _scopeCalendrierLectureSeule = 'https://www.googleapis.com/auth/calendar.readonly';
+  static const _scopeContactsLectureSeule = 'https://www.googleapis.com/auth/contacts.readonly';
 
   final _db = FirebaseFirestore.instance;
   bool _initialise = false;
@@ -53,8 +54,8 @@ class GmailService {
     _initialise = true;
   }
 
-  /// Lance la connexion d'UN nouveau compte Google : mêmes 3 scopes en
-  /// lecture seule à chaque fois (Gmail, Tasks, Calendar), aucun "rôle" à
+  /// Lance la connexion d'UN nouveau compte Google : mêmes 4 scopes en
+  /// lecture seule à chaque fois (Gmail, Tasks, Calendar, Contacts), aucun "rôle" à
   /// choisir — appelable plusieurs fois pour connecter plusieurs comptes.
   /// Envoie le code obtenu à la fonction serveur qui finalise la connexion.
   /// Retourne l'adresse email connectée.
@@ -63,7 +64,7 @@ class GmailService {
 
     final compte = await GoogleSignIn.instance.authenticate();
     final autorisation = await compte.authorizationClient.authorizeServer(
-      [_scopeGmailLectureSeule, _scopeTachesLectureSeule, _scopeCalendrierLectureSeule],
+      [_scopeGmailLectureSeule, _scopeTachesLectureSeule, _scopeCalendrierLectureSeule, _scopeContactsLectureSeule],
     );
     final code = autorisation?.serverAuthCode;
     if (code == null) {
@@ -159,6 +160,21 @@ class GmailService {
     final liste = resultat.data['expediteurs'] as List<dynamic>;
     return liste
         .map((e) => (email: e['email'] as String, nombre: e['nombre'] as int))
+        .toList();
+  }
+
+  /// Contacts (noms et emails) récupérés depuis les comptes Google connectés
+  /// (Inspiration Slack) pour faciliter l'invitation de collaborateurs.
+  Future<List<({String email, String nom})>> contactsGoogle() async {
+    final resultat = await FirebaseFunctions.instance
+        .httpsCallable(
+          'lister_contacts_google',
+          options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
+        )
+        .call();
+    final liste = resultat.data['contacts'] as List<dynamic>;
+    return liste
+        .map((c) => (email: c['email'] as String, nom: c['nom'] as String))
         .toList();
   }
 

@@ -268,6 +268,76 @@ def lister_expediteurs_recents(req: https_fn.CallableRequest) -> dict:
     return {"expediteurs": [{"email": e, "nombre": n} for e, n in expediteurs]}
 
 
+def _contacts_compte(jeton: str) -> list[dict[str, str]]:
+    entetes = {"Authorization": f"Bearer {jeton}"}
+    page_token = None
+    contacts = []
+    
+    while True:
+        params = {
+            "personFields": "names,emailAddresses",
+            "pageSize": 1000
+        }
+        if page_token:
+            params["pageToken"] = page_token
+            
+        page = requests.get(
+            "https://people.googleapis.com/v1/people/me/connections",
+            headers=entetes,
+            params=params,
+            timeout=15,
+        )
+        if page.status_code != 200:
+            break
+            
+        data = page.json()
+        for connection in data.get("connections", []):
+            emails = connection.get("emailAddresses", [])
+            names = connection.get("names", [])
+            
+            if not emails:
+                continue
+                
+            email = emails[0].get("value")
+            nom = names[0].get("displayName") if names else email
+            
+            contacts.append({"email": email, "nom": nom})
+            
+        page_token = data.get("nextPageToken")
+        if not page_token:
+            break
+            
+    return contacts
+
+
+@https_fn.on_call(secrets=[_token_chiffrement_cle, _google_oauth_client_secret])
+def lister_contacts_google(req: https_fn.CallableRequest) -> dict:
+    """Récupère la liste de tous les contacts (Noms + Emails) depuis
+    les comptes Google connectés (Inspiration Slack)."""
+    if req.auth is None:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.UNAUTHENTICATED, "Non connecté.")
+
+    connexions = _connexions_actives(req.auth.uid)
+    if not connexions:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.FAILED_PRECONDITION, "Aucun compte Google connecté.")
+
+    contacts_uniques = {}
+    for connexion in connexions:
+        jeton = _echanger_refresh_token(connexion["refreshTokenChiffre"])
+        if jeton is None:
+            continue
+        
+        for c in _contacts_compte(jeton):
+            existant = contacts_uniques.get(c["email"])
+            if not existant or (existant["nom"] == existant["email"] and c["nom"] != c["email"]):
+                contacts_uniques[c["email"]] = c
+
+    # Trie par nom
+    liste = list(contacts_uniques.values())
+    liste.sort(key=lambda x: x["nom"].lower())
+    return {"contacts": liste}
+
+
 @https_fn.on_call(secrets=[_token_chiffrement_cle])
 def deconnecter_gmail(req: https_fn.CallableRequest) -> dict:
     if req.auth is None:
@@ -1534,6 +1604,70 @@ def generer_resume_bilan(req: https_fn.CallableRequest) -> dict:
     resultat = reponse.json()
     resume = resultat["choices"][0]["message"]["content"].strip()
     return {"resume": resume}
+
+
+_SYSTEME_ASSISTANT_DOSSIER = (
+    "Tu es Vigie, un assistant juridique IA intégré à une application de suivi de dossiers. "
+    "Tu es actuellement en train d'assister l'utilisateur sur un dossier spécifique. "
+    "Ton rôle est d'analyser le contexte fourni (tâches et journal) et de répondre "
+    "aux questions de l'utilisateur de manière concise, professionnelle et factuelle. "
+    "Tu n'as AUCUN droit de modification (tu ne peux ni créer, ni supprimer, ni modifier "
+    "le dossier ou ses tâches). Si on te demande de faire une modification, explique poliment "
+    "que tu es un assistant en lecture seule. Base tes réponses UNIQUEMENT sur le contexte fourni ci-dessous:\n"
+    "--- CONTEXTE DU DOSSIER ---\n"
+    "{contexte}\n"
+    "---------------------------"
+)
+
+@https_fn.on_call(secrets=[_groq_api_key], timeout_sec=60)
+def chat_assistant_ia(req: https_fn.CallableRequest) -> dict:
+    """Discute avec l'utilisateur à propos d'un dossier spécifique, en utilisant 
+    l'historique de la conversation et le contexte du dossier (RAG local)."""
+    if req.auth is None:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.UNAUTHENTICATED, "Non connecté.")
+
+    donnees = req.data or {}
+    historique = donnees.get("historique", [])
+    contexte_dossier = donnees.get("contexte_dossier", "").strip()[:15000]
+
+    if not contexte_dossier:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, "Contexte du dossier vide.")
+
+    # Construire la liste des messages
+    messages = [
+        {"role": "system", "content": _SYSTEME_ASSISTANT_DOSSIER.format(contexte=contexte_dossier)}
+    ]
+    
+    for msg in historique[-10:]: # Limiter aux 10 derniers messages pour éviter de saturer le contexte
+        messages.append({
+            "role": msg.get("role", "user"),
+            "content": msg.get("content", "")
+        })
+
+    reponse = requests.post(
+        _URL_GROQ_CHAT,
+        headers={
+            "Authorization": f"Bearer {_groq_api_key.value}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": _MODELE_GROQ,
+            "messages": messages,
+            "temperature": 0.3,
+            "max_tokens": 1000,
+        },
+        timeout=30,
+    )
+    
+    if reponse.status_code != 200:
+        raise https_fn.HttpsError(
+            https_fn.FunctionsErrorCode.UNAVAILABLE,
+            f"Groq indisponible ({reponse.status_code}).",
+        )
+
+    resultat = reponse.json()
+    reponse_ia = resultat["choices"][0]["message"]["content"].strip()
+    return {"reponse": reponse_ia}
 
 
 # --- Suppression définitive de compte -----------------------------------

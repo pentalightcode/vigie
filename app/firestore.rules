@@ -482,6 +482,7 @@ service cloud.firestore {
         && request.resource.data.dossierId == resource.data.dossierId
         && request.resource.data.creeLe == resource.data.creeLe
         && request.resource.data.get('participantsUids', []) == resource.data.get('participantsUids', [])
+        && request.resource.data.get('parentId', null) == resource.data.get('parentId', null)
         && (
           estAuteurOuGestionnaire(resource.data)
           || (

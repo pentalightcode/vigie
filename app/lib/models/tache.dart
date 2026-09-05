@@ -113,6 +113,7 @@ class Tache {
       'notesDetaillees': notesDetaillees,
       'participantsUids': participantsUids,
       'auteurUid': auteurUid,
+      if (propositionEnAttente != null) 'propositionEnAttente': propositionEnAttente!.versMap(),
     };
   }
 

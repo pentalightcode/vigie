@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/profession.dart';
 import '../models/reglages_utilisateur.dart';
 import '../models/tache.dart';
-import 'chiffrement_notes_service.dart';
 import 'firestore_service.dart';
 import 'nature_dossier_service.dart';
 
@@ -145,10 +144,6 @@ class UtilisateurService {
   /// automatiquement sans les lister à la main.
   Future<void> supprimerCompteEtDonnees() async {
     await FirebaseFunctions.instance.httpsCallable('supprimer_compte_definitivement').call();
-    // Avant signOut() : verrouiller() lit encore l'uid du compte qu'on vient
-    // de supprimer côté serveur, pour effacer aussi son cache local de clé
-    // de chiffrement des notes (device-scopé, ne se nettoie jamais tout seul).
-    await ChiffrementNotesService.instance.verrouiller();
     await FirebaseAuth.instance.signOut();
   }
 }

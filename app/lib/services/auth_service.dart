@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'chiffrement_notes_service.dart';
 
 /// Gère la connexion par lien magique (email link, sans mot de passe).
 class AuthService {
@@ -63,7 +62,6 @@ class AuthService {
   /// d'un compte si un AUTRE compte se connecte juste après sur le même
   /// appareil.
   Future<void> seDeconnecter() async {
-    ChiffrementNotesService.instance.oublierSession();
     await _auth.signOut();
   }
 }

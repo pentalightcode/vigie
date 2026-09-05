@@ -23,25 +23,21 @@ class EntreeJournal {
     required this.creeLe,
     required this.type,
     this.modifieLe,
-    this.chiffre = false,
     this.participantsUids = const [],
     this.auteurUid,
     this.propositionEnAttente,
+    this.parentId,
+    this.mentionsUids = const [],
   });
 
   final String id;
   final String dossierId;
-  /// Le texte tel qu'il vient de Firestore — encore chiffré si [chiffre]
-  /// est vrai, à déchiffrer avant affichage (voir ChiffrementNotesService).
+  /// Le texte tel qu'il vient de Firestore.
   final String texte;
   final DateTime creeLe;
   final TypeEntreeJournal type;
   final DateTime? modifieLe;
-  /// Ajouté le 2026-08-29 : distingue les entrées chiffrées bout-en-bout
-  /// (écrites après que l'utilisateur a défini sa phrase secrète) de celles
-  /// d'avant, restées en clair — jamais rechiffrées rétroactivement, pour
-  /// ne prendre aucun risque de migration sur des données existantes.
-  final bool chiffre;
+
   /// Copié depuis le dossier parent (voir `Dossier.participantsUids`).
   final List<String> participantsUids;
   /// Qui a réellement écrit cette entrée — distinct de `uid` (à qui
@@ -50,6 +46,10 @@ class EntreeJournal {
   /// Proposition de modification/suppression en attente d'approbation
   /// (Phase 2, 2026-08-31 — voir PropositionEnAttente, firestore.rules).
   final PropositionEnAttente? propositionEnAttente;
+  /// L'ID de l'entrée parente si cette entrée est une réponse dans un thread.
+  final String? parentId;
+  /// Liste des UIDs mentionnés dans cette entrée.
+  final List<String> mentionsUids;
 
   factory EntreeJournal.depuisDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -60,12 +60,14 @@ class EntreeJournal {
       creeLe: (data['creeLe'] as Timestamp?)?.toDate() ?? DateTime.now(),
       type: _typeDepuisTexte(data['type'] as String?),
       modifieLe: (data['modifieLe'] as Timestamp?)?.toDate(),
-      chiffre: data['chiffre'] as bool? ?? false,
+
       participantsUids: (data['participantsUids'] as List<dynamic>?)?.cast<String>() ?? const [],
       auteurUid: data['auteurUid'] as String? ?? data['uid'] as String?,
       propositionEnAttente: (data['propositionEnAttente'] as Map<String, dynamic>?) != null
           ? PropositionEnAttente.depuisMap(data['propositionEnAttente'] as Map<String, dynamic>)
           : null,
+      parentId: data['parentId'] as String?,
+      mentionsUids: (data['mentionsUids'] as List<dynamic>?)?.cast<String>() ?? const [],
     );
   }
 
@@ -76,9 +78,11 @@ class EntreeJournal {
         creeLe: creeLe,
         type: type ?? this.type,
         modifieLe: modifieLe,
-        chiffre: chiffre,
+
         participantsUids: participantsUids,
         auteurUid: auteurUid,
         propositionEnAttente: propositionEnAttente,
+        parentId: parentId,
+        mentionsUids: mentionsUids,
       );
 }

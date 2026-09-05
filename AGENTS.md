@@ -10,6 +10,7 @@ Ensuite, dans cet ordre :
 
 **Résumé des règles qui comptent le plus** (détaillées avec exemples concrets dans `HANDOVER.md`, section 1) :
 - Red team avant toute décision structurante — jamais un seul passage, y compris se relire soi-même après coup sur ses propres correctifs.
+- **QA / Autocritique stricte :** L'IA ne doit JAMAIS proposer de code non testé à Tobie en espérant qu'il trouve les bugs. L'IA fait son propre QA : anticiper les impacts client/serveur (ex: bloquer une action sur serveur implique d'adapter le client), vérifier la compilation et la logique locale (`flutter analyze`, `firebase dry-run`) AVANT de soumettre.
 - L'IA red-teame et propose des options avec leurs compromis ; Tobie tranche les questions de produit/architecture ambiguës — ne jamais décider à sa place.
 - `PROGRESS.md` mis à jour après chaque résultat significatif, pas après coup en bloc.
 - Discipline de déploiement stricte : grouper les changements liés, vérifier en local (`flutter analyze`, `firebase deploy --only firestore --dry-run`), ne jamais déployer après chaque micro-modification.

@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../models/dossier.dart';
 import '../services/dossier_participants_service.dart';
 import '../services/firestore_service.dart';
+import '../services/gmail_service.dart';
 import '../utils/confirmation.dart';
 import '../widgets/vue_acces_revoque.dart';
 
@@ -387,41 +388,117 @@ class _DialogueAjouterParticipant extends StatefulWidget {
 class _DialogueAjouterParticipantState extends State<_DialogueAjouterParticipant> {
   final _controleurEmail = TextEditingController();
   String _role = 'contributeur';
+  List<({String email, String nom})>? _contacts;
+  bool _chargement = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _chargerContacts();
+  }
+
+  Future<void> _chargerContacts() async {
+    try {
+      final contacts = await GmailService.instance.contactsGoogle();
+      if (mounted) setState(() { _contacts = contacts; _chargement = false; });
+    } catch (e) {
+      if (mounted) setState(() { _contacts = []; _chargement = false; });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
       title: Text(l10n.participantsDialogueAjouterTitre),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _controleurEmail,
-            autofocus: true,
-            keyboardType: TextInputType.emailAddress,
-            decoration: InputDecoration(
-              labelText: l10n.participantsDialogueAjouterChampEmail,
-              border: const OutlineInputBorder(),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_chargement)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: LinearProgressIndicator(),
+              ),
+            Autocomplete<({String email, String nom})>(
+              displayStringForOption: (option) => option.email,
+              optionsBuilder: (TextEditingValue textEditingValue) {
+                if (textEditingValue.text.isEmpty || _contacts == null) {
+                  return const Iterable<({String email, String nom})>.empty();
+                }
+                final query = textEditingValue.text.toLowerCase();
+                return _contacts!.where((c) =>
+                    c.email.toLowerCase().contains(query) ||
+                    c.nom.toLowerCase().contains(query));
+              },
+              onSelected: (selection) {
+                _controleurEmail.text = selection.email;
+              },
+              fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                // On garde la référence au controller pour pouvoir lire la valeur manuelle
+                _controleurEmail.value = controller.value;
+                controller.addListener(() {
+                  _controleurEmail.text = controller.text;
+                });
+                return TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  autofocus: true,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    labelText: l10n.participantsDialogueAjouterChampEmail,
+                    border: const OutlineInputBorder(),
+                    helperText: _contacts == null && !_chargement
+                        ? 'Impossible de charger les contacts Google'
+                        : null,
+                  ),
+                );
+              },
+              optionsViewBuilder: (context, onSelected, options) {
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    elevation: 4,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 200, maxWidth: 300),
+                      child: ListView.builder(
+                        padding: EdgeInsets.zero,
+                        itemCount: options.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          final option = options.elementAt(index);
+                          return ListTile(
+                            title: Text(option.nom),
+                            subtitle: Text(option.email),
+                            onTap: () {
+                              onSelected(option);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: _role,
-            decoration: InputDecoration(
-              labelText: l10n.participantsDialogueAjouterChampRole,
-              border: const OutlineInputBorder(),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _role,
+              decoration: InputDecoration(
+                labelText: l10n.participantsDialogueAjouterChampRole,
+                border: const OutlineInputBorder(),
+              ),
+              items: [
+                DropdownMenuItem(value: 'contributeur', child: Text(l10n.participantsRoleContributeur)),
+                // Inviter directement en administrateur : réservé au créateur
+                // (décision du 2026-08-30) — un administrateur ne peut créer un pair.
+                if (widget.jeSuisCreateur)
+                  DropdownMenuItem(value: 'administrateur', child: Text(l10n.participantsRoleAdministrateur)),
+              ],
+              onChanged: (valeur) => setState(() => _role = valeur ?? 'contributeur'),
             ),
-            items: [
-              DropdownMenuItem(value: 'contributeur', child: Text(l10n.participantsRoleContributeur)),
-              // Inviter directement en administrateur : réservé au créateur
-              // (décision du 2026-08-30) — un administrateur ne peut créer un pair.
-              if (widget.jeSuisCreateur)
-                DropdownMenuItem(value: 'administrateur', child: Text(l10n.participantsRoleAdministrateur)),
-            ],
-            onChanged: (valeur) => setState(() => _role = valeur ?? 'contributeur'),
-          ),
-        ],
+          ],
+        ),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.commonAnnuler)),
@@ -437,6 +514,7 @@ class _DialogueAjouterParticipantState extends State<_DialogueAjouterParticipant
     );
   }
 }
+
 
 String _libellePermission(AppLocalizations l10n, String permission) => switch (permission) {
       'gererParticipants' => l10n.participantsPermissionGererParticipants,
